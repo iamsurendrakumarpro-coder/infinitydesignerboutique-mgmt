@@ -13,11 +13,11 @@ Settlement calculation:
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime
+from datetime import date
 
 from google.cloud.firestore_v1 import SERVER_TIMESTAMP
 
-from config import get_config
+from utils.firebase_client import get_firestore
 from utils.firebase_client import get_firestore
 from utils.logger import get_logger, audit_log
 from utils.timezone_utils import format_ist
@@ -33,12 +33,10 @@ def calculate_settlement(user_id: str, week_start: date, week_end: date) -> dict
 
     Returns a dict with all settlement components.
     """
-    from services.user_service import get_staff
+    from services.user_service import get_staff, compute_daily_salary
     from services.attendance_service import get_attendance_history
     from services.overtime_service import get_approved_overtime_for_period
     from services.financial_service import get_approved_requests_for_period
-
-    cfg = get_config()
 
     staff = get_staff(user_id)
     if not staff:
@@ -46,7 +44,7 @@ def calculate_settlement(user_id: str, week_start: date, week_end: date) -> dict
         return {}
 
     weekly_salary = float(staff.get("weekly_salary", 0))
-    daily_salary = round(weekly_salary / cfg.WORKING_DAYS_PER_WEEK, 2)
+    daily_salary = compute_daily_salary(weekly_salary)
 
     records = get_attendance_history(user_id, week_start, week_end)
     days_present = sum(1 for r in records if r.get("punch_in"))

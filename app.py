@@ -100,6 +100,8 @@ def create_app(config: Config | None = None) -> Flask:
     # ── Request logging ───────────────────────────────────────────────────────
     @app.before_request
     def log_request():
+        if request.path == "/api/health":
+            return
         log.info(
             "REQUEST %s %s | ip=%s",
             request.method,
@@ -109,6 +111,8 @@ def create_app(config: Config | None = None) -> Flask:
 
     @app.after_request
     def log_response(response):
+        if request.path == "/api/health":
+            return response
         log.info(
             "RESPONSE %s %s | status=%d",
             request.method,

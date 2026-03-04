@@ -29,6 +29,7 @@ def calculate_hourly_rate(weekly_salary: float) -> float:
     days = cfg.WORKING_DAYS_PER_WEEK
     hours = cfg.STANDARD_HOURS_PER_DAY
     if days <= 0 or hours <= 0:
+        log.warning("Invalid config: WORKING_DAYS_PER_WEEK=%d, STANDARD_HOURS_PER_DAY=%d", days, hours)
         return 0.0
     return weekly_salary / days / hours
 

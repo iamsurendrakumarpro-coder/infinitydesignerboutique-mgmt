@@ -164,7 +164,7 @@ def get_week_to_date_earned(user_id: str) -> float | None:
     Returns None if unable to calculate (e.g. staff not found).
     """
     try:
-        from services.user_service import get_staff
+        from services.user_service import get_staff, compute_daily_salary
         from services.attendance_service import get_attendance_history
 
         staff = get_staff(user_id)
@@ -175,9 +175,7 @@ def get_week_to_date_earned(user_id: str) -> float | None:
         if weekly_salary <= 0:
             return 0.0
 
-        from config import get_config
-        cfg = get_config()
-        daily_salary = weekly_salary / cfg.WORKING_DAYS_PER_WEEK
+        daily_salary = compute_daily_salary(weekly_salary)
 
         start, end = period_range("weekly")
         records = get_attendance_history(user_id, start, end)
