@@ -1,0 +1,227 @@
+{% extends "admin/base.html" %}
+{% block title %}Staff Directory{% endblock %}
+{% block page_title %}Staff Directory{% endblock %}
+{% block page_subtitle %}Manage your team{% endblock %}
+
+{% block header_actions %}
+  <a href="/admin/staff/create" class="btn-primary px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+    Add Person
+  </a>
+{% endblock %}
+
+{% block content %}
+<!-- Filters -->
+<div class="flex flex-wrap gap-3 mb-5">
+  <div class="relative flex-1 min-w-48">
+    <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+    <input id="searchInput" type="text" placeholder="Search by name or phone…"
+      class="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 bg-white" oninput="filterTable()" />
+  </div>
+
+  <select id="statusFilter" onchange="filterTable()"
+    class="border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-400 text-slate-600">
+    <option value="">All Statuses</option>
+    <option value="active">Active</option>
+    <option value="inactive">Inactive</option>
+    <option value="deactivated">Deactivated</option>
+  </select>
+
+  <select id="designationFilter" onchange="filterTable()"
+    class="border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-400 text-slate-600">
+    <option value="">All Roles</option>
+    {% for key, label in designation_labels.items() %}
+    <option value="{{ key }}">{{ label }}</option>
+    {% endfor %}
+  </select>
+</div>
+
+<!-- Table -->
+<div class="card overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="bg-slate-50 border-b border-slate-100">
+          <th class="text-left text-slate-500 font-medium px-5 py-3.5">Name</th>
+          <th class="text-left text-slate-500 font-medium px-5 py-3.5">Phone</th>
+          <th class="text-left text-slate-500 font-medium px-5 py-3.5">Designation</th>
+          <th class="text-left text-slate-500 font-medium px-5 py-3.5">Joined</th>
+          <th class="text-left text-slate-500 font-medium px-5 py-3.5">Status</th>
+          <th class="text-left text-slate-500 font-medium px-5 py-3.5">Salary/wk</th>
+          <th class="text-center text-slate-500 font-medium px-5 py-3.5">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="staffTable">
+        <tr>
+          <td colspan="7" class="text-center text-slate-400 py-12">
+            <svg class="w-8 h-8 mx-auto mb-2 opacity-40 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+            Loading…
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Status Change Modal -->
+<div id="statusModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+    <h3 class="font-bold text-slate-800 text-lg mb-4">Change Status</h3>
+    <p id="statusModalName" class="text-slate-600 mb-4"></p>
+    <div class="space-y-2 mb-6">
+      <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer hover:border-brand-400 has-[:checked]:border-brand-500 has-[:checked]:bg-brand-50">
+        <input type="radio" name="newStatus" value="active" class="accent-brand-600" /> <span class="text-sm font-medium text-slate-700">Active – Working & visible in Duty</span>
+      </label>
+      <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer hover:border-amber-400 has-[:checked]:border-amber-500 has-[:checked]:bg-amber-50">
+        <input type="radio" name="newStatus" value="inactive" class="accent-amber-500" /> <span class="text-sm font-medium text-slate-700">Inactive – On leave (temporary)</span>
+      </label>
+      <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer hover:border-red-400 has-[:checked]:border-red-500 has-[:checked]:bg-red-50">
+        <input type="radio" name="newStatus" value="deactivated" class="accent-red-500" /> <span class="text-sm font-medium text-slate-700">Deactivated – Left the boutique</span>
+      </label>
+    </div>
+    <div class="flex gap-3">
+      <button onclick="closeStatusModal()" class="flex-1 btn-secondary py-2.5 rounded-xl text-sm font-medium">Cancel</button>
+      <button onclick="submitStatusChange()" class="flex-1 btn-primary py-2.5 rounded-xl text-sm font-medium">Update Status</button>
+    </div>
+  </div>
+</div>
+
+<!-- PIN Reset Modal -->
+<div id="pinModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+    <h3 class="font-bold text-slate-800 text-lg mb-2">Reset Staff PIN</h3>
+    <p id="pinModalName" class="text-slate-500 text-sm mb-4"></p>
+    <div class="mb-5">
+      <label class="block text-slate-600 text-sm font-medium mb-2">Temporary PIN (4 digits)</label>
+      <input id="tempPinInput" type="text" inputmode="numeric" maxlength="4" placeholder="e.g. 1234"
+        class="w-full border border-slate-200 rounded-xl px-4 py-3 text-center text-2xl tracking-widest focus:outline-none focus:ring-2 focus:ring-brand-400" />
+    </div>
+    <p class="text-amber-600 text-xs bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
+      ⚠️ Staff will be forced to change this PIN on their next login.
+    </p>
+    <div class="flex gap-3">
+      <button onclick="closePinModal()" class="flex-1 btn-secondary py-2.5 rounded-xl text-sm font-medium">Cancel</button>
+      <button onclick="submitPinReset()" class="flex-1 btn-primary py-2.5 rounded-xl text-sm font-medium">Set PIN</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const DESIGNATION_LABELS = {{ designation_labels | tojson }};
+let allStaff = [];
+let statusTargetId = null;
+let pinTargetId = null;
+
+const statusBadgeHtml = {
+  active: '<span class="badge-active px-2.5 py-1 rounded-full text-xs font-semibold">Active</span>',
+  inactive: '<span class="badge-inactive px-2.5 py-1 rounded-full text-xs font-semibold">Inactive</span>',
+  deactivated: '<span class="badge-deactivated px-2.5 py-1 rounded-full text-xs font-semibold">Deactivated</span>',
+};
+
+async function loadStaff() {
+  try {
+    const { data } = await apiFetch('/api/users/staff');
+    if(data.success) {
+      allStaff = data.staff;
+      renderTable(allStaff);
+    }
+  } catch(e) {
+    document.getElementById('staffTable').innerHTML = '<tr><td colspan="7" class="text-center text-red-400 py-8">Failed to load staff.</td></tr>';
+  }
+}
+
+function renderTable(staff) {
+  const tbody = document.getElementById('staffTable');
+  if(staff.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-slate-400 py-12">No staff found. <a href="/admin/staff/create" class="text-brand-600 font-medium hover:underline">Add your first member →</a></td></tr>';
+    return;
+  }
+  tbody.innerHTML = staff.map(s => `
+    <tr class="table-row border-t border-slate-50" data-id="${s.user_id}" data-name="${s.full_name}" data-status="${s.status}" data-designation="${s.designation}">
+      <td class="px-5 py-3.5">
+        <a href="/admin/staff/${s.user_id}" class="font-medium text-slate-800 hover:text-brand-600 flex items-center gap-2">
+          <span class="w-8 h-8 rounded-full bg-gradient-to-br from-brand-400 to-purple-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">${(s.full_name||'?')[0].toUpperCase()}</span>
+          ${s.full_name}
+        </a>
+      </td>
+      <td class="px-5 py-3.5 text-slate-600 font-mono text-xs">${s.phone_number}</td>
+      <td class="px-5 py-3.5 text-slate-600">${DESIGNATION_LABELS[s.designation]||s.designation}</td>
+      <td class="px-5 py-3.5 text-slate-500">${s.joining_date||'—'}</td>
+      <td class="px-5 py-3.5">${statusBadgeHtml[s.status]||s.status}</td>
+      <td class="px-5 py-3.5 text-slate-700 font-medium">₹${Number(s.weekly_salary||0).toLocaleString('en-IN')}</td>
+      <td class="px-5 py-3.5">
+        <div class="flex items-center justify-center gap-1">
+          <a href="/admin/staff/${s.user_id}" title="View Profile" class="p-1.5 rounded-lg hover:bg-purple-50 text-slate-400 hover:text-brand-600 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+          </a>
+          <a href="/admin/staff/${s.user_id}/edit" title="Edit" class="p-1.5 rounded-lg hover:bg-blue-50 text-slate-400 hover:text-blue-600 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+          </a>
+          <button onclick="openStatusModal('${s.user_id}','${s.full_name}','${s.status}')" title="Change Status" class="p-1.5 rounded-lg hover:bg-amber-50 text-slate-400 hover:text-amber-600 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"/></svg>
+          </button>
+          <button onclick="openPinModal('${s.user_id}','${s.full_name}')" title="Reset PIN" class="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+          </button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function filterTable() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const status = document.getElementById('statusFilter').value;
+  const desig = document.getElementById('designationFilter').value;
+  renderTable(allStaff.filter(s =>
+    (!q || s.full_name?.toLowerCase().includes(q) || s.phone_number?.includes(q)) &&
+    (!status || s.status === status) &&
+    (!desig || s.designation === desig)
+  ));
+}
+
+// Status Modal
+function openStatusModal(uid, name, currentStatus) {
+  statusTargetId = uid;
+  document.getElementById('statusModalName').textContent = `Change status for: ${name}`;
+  const radio = document.querySelector(`input[name="newStatus"][value="${currentStatus}"]`);
+  if(radio) radio.checked = true;
+  document.getElementById('statusModal').classList.remove('hidden');
+}
+function closeStatusModal() { document.getElementById('statusModal').classList.add('hidden'); statusTargetId=null; }
+async function submitStatusChange() {
+  const status = document.querySelector('input[name="newStatus"]:checked')?.value;
+  if(!status || !statusTargetId) return;
+  const { data } = await apiFetch(`/api/users/staff/${statusTargetId}/status`, { method:'PATCH', body:JSON.stringify({status}) });
+  if(data.success) { showToast('Status updated successfully.'); closeStatusModal(); loadStaff(); }
+  else showToast(data.error||'Failed to update status.', 'error');
+}
+
+// PIN Modal
+function openPinModal(uid, name) {
+  pinTargetId = uid;
+  document.getElementById('pinModalName').textContent = `Staff: ${name}`;
+  document.getElementById('tempPinInput').value = '';
+  document.getElementById('pinModal').classList.remove('hidden');
+}
+function closePinModal() { document.getElementById('pinModal').classList.add('hidden'); pinTargetId=null; }
+async function submitPinReset() {
+  const pin = document.getElementById('tempPinInput').value.trim();
+  if(pin.length !== 4 || !/^\d{4}$/.test(pin)) { showToast('PIN must be exactly 4 digits.', 'error'); return; }
+  const { data } = await apiFetch(`/api/users/staff/${pinTargetId}/reset-pin`, { method:'POST', body:JSON.stringify({temp_pin:pin}) });
+  if(data.success) { showToast('PIN reset. Staff will be prompted to change it on next login.'); closePinModal(); }
+  else showToast(data.error||'Failed to reset PIN.', 'error');
+}
+
+// digit only for pin input
+document.getElementById('tempPinInput')?.addEventListener('input', e => { e.target.value = e.target.value.replace(/\D/g,''); });
+
+// Close modals on backdrop click
+document.getElementById('statusModal').addEventListener('click', e => { if(e.target===e.currentTarget) closeStatusModal(); });
+document.getElementById('pinModal').addEventListener('click', e => { if(e.target===e.currentTarget) closePinModal(); });
+
+loadStaff();
+</script>
+{% endblock %}

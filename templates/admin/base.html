@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Admin{% endblock %} – {{ boutique_name }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { inter: ['Inter', 'sans-serif'] },
+          colors: {
+            brand: { 50:'#fdf4ff',100:'#fae8ff',200:'#f5d0fe',300:'#f0abfc',400:'#e879f9',500:'#d946ef',600:'#c026d3',700:'#a21caf',800:'#86198f',900:'#701a75' }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family:'Inter',sans-serif; }
+    .nav-link { transition: all .15s ease; }
+    .nav-link:hover { background: rgba(192,38,211,.15); color: #e879f9; }
+    .nav-link.active { background: rgba(192,38,211,.2); color: #e879f9; border-left: 3px solid #e879f9; }
+    .card { background: #fff; border: 1px solid #f3e8ff; border-radius: 16px; }
+    .badge-active { background:#dcfce7; color:#166534; }
+    .badge-inactive { background:#fef9c3; color:#854d0e; }
+    .badge-deactivated { background:#fee2e2; color:#991b1b; }
+    .status-dot-active { background:#22c55e; }
+    .status-dot-inactive { background:#eab308; }
+    .status-dot-deactivated { background:#ef4444; }
+    .sidebar { width: 260px; min-height: 100vh; background: linear-gradient(180deg,#1e1b4b 0%,#2d1b69 100%); }
+    @media(max-width:768px){ .sidebar{ width:100%; min-height:auto; position:fixed; bottom:0; left:0; flex-direction:row; z-index:50; } }
+    .table-row:hover { background: #fdf4ff; }
+    .btn-primary { background: linear-gradient(135deg,#c026d3,#7c3aed); color:#fff; transition:all .2s; }
+    .btn-primary:hover { opacity:.9; transform:translateY(-1px); }
+    .btn-secondary { background:#f3e8ff; color:#7c3aed; transition:all .2s; }
+    .btn-secondary:hover { background:#e9d5ff; }
+    .toast { position:fixed; top:24px; right:24px; z-index:9999; max-width:360px; animation:slideIn .3s ease; }
+    @keyframes slideIn { from{transform:translateX(120%);opacity:0} to{transform:translateX(0);opacity:1} }
+  </style>
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-slate-50">
+
+<div class="flex min-h-screen">
+
+  <!-- ── Sidebar ──────────────────────────────────────────────────────────── -->
+  <aside class="sidebar flex flex-col flex-shrink-0 shadow-2xl">
+    <!-- Logo -->
+    <div class="p-6 border-b border-white/10">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-400 to-purple-600 flex items-center justify-center flex-shrink-0">
+          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 13.5l7-7a4.95 4.95 0 017 7l-7 7-7-7z"/>
+          </svg>
+        </div>
+        <div>
+          <p class="text-white font-bold text-sm leading-tight">{{ boutique_name }}</p>
+          <p class="text-purple-300 text-xs">Admin Portal</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- User info -->
+    <div class="px-4 py-3 border-b border-white/10">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-full bg-gradient-to-br from-brand-400 to-purple-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+          {{ user.full_name[0].upper() }}
+        </div>
+        <div class="min-w-0">
+          <p class="text-white text-sm font-medium truncate">{{ user.full_name }}</p>
+          <p class="text-purple-300 text-xs">Administrator</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="flex-1 p-3 space-y-1">
+      <p class="text-purple-400 text-xs font-semibold uppercase tracking-wider px-3 pt-2 pb-1">Duty</p>
+
+      <a href="/admin/dashboard" id="nav-dashboard"
+        class="nav-link {% if request.path == '/admin/dashboard' %}active{% endif %} flex items-center gap-3 px-3 py-2.5 rounded-lg text-purple-200 text-sm font-medium">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+        </svg>
+        Dashboard
+      </a>
+
+      <a href="/admin/staff" id="nav-staff"
+        class="nav-link {% if '/admin/staff' in request.path %}active{% endif %} flex items-center gap-3 px-3 py-2.5 rounded-lg text-purple-200 text-sm font-medium">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+        Staff Directory
+      </a>
+
+      <p class="text-purple-400 text-xs font-semibold uppercase tracking-wider px-3 pt-4 pb-1">Finance</p>
+
+      <a href="#" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-purple-400 text-sm font-medium cursor-not-allowed opacity-50">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        Finance Hub
+        <span class="ml-auto text-xs bg-purple-800 text-purple-300 px-2 py-0.5 rounded-full">Phase 1</span>
+      </a>
+    </nav>
+
+    <!-- Logout -->
+    <div class="p-3 border-t border-white/10">
+      <button onclick="logout()"
+        class="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-red-400 hover:bg-red-500/10 text-sm font-medium transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+        </svg>
+        Sign Out
+      </button>
+    </div>
+  </aside>
+
+  <!-- ── Main content ─────────────────────────────────────────────────────── -->
+  <main class="flex-1 overflow-auto">
+    <!-- Top bar -->
+    <header class="bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
+      <div>
+        <h1 class="text-xl font-bold text-slate-800">{% block page_title %}Dashboard{% endblock %}</h1>
+        <p class="text-slate-500 text-sm">{% block page_subtitle %}{% endblock %}</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <div id="ist-clock" class="text-slate-600 text-sm font-mono bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200"></div>
+        {% block header_actions %}{% endblock %}
+      </div>
+    </header>
+
+    <!-- Page content -->
+    <div class="p-6">
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+</div>
+
+<!-- Toast container -->
+<div id="toastContainer"></div>
+
+<script>
+  // IST Clock
+  function updateClock() {
+    const el = document.getElementById('ist-clock');
+    if(el) {
+      const now = new Date().toLocaleString('en-IN', { timeZone:'Asia/Kolkata', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:true, day:'2-digit', month:'short' });
+      el.textContent = now + ' IST';
+    }
+  }
+  updateClock(); setInterval(updateClock, 1000);
+
+  // Toast notification
+  function showToast(msg, type='success') {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    const colors = type==='success' ? 'bg-green-600' : type==='error' ? 'bg-red-600' : 'bg-amber-600';
+    toast.className = `toast ${colors} text-white px-5 py-3.5 rounded-xl shadow-2xl text-sm font-medium flex items-center gap-3`;
+    toast.innerHTML = `<span class="text-lg">${type==='success'?'✓':type==='error'?'✕':'!'}</span>${msg}`;
+    container.appendChild(toast);
+    setTimeout(() => { toast.style.opacity='0'; toast.style.transform='translateX(120%)'; toast.style.transition='all .3s'; setTimeout(()=>toast.remove(),300); }, 3500);
+  }
+
+  // Logout
+  async function logout() {
+    try {
+      await fetch('/api/auth/logout', { method:'POST' });
+    } catch(e) {}
+    window.location.href = '/';
+  }
+
+  // API helper
+  async function apiFetch(url, options={}) {
+    const defaults = { headers:{'Content-Type':'application/json'}, credentials:'same-origin' };
+    const merged = { ...defaults, ...options, headers:{ ...defaults.headers, ...(options.headers||{}) } };
+    const resp = await fetch(url, merged);
+    const data = await resp.json();
+    return { ok: resp.ok, status: resp.status, data };
+  }
+</script>
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

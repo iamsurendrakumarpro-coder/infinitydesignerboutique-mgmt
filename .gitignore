@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.pyc
+
+# Virtual environments
+venv/
+env/
+.venv/
+.env/
+
+# Environment variables (KEEP SECRETS OUT)
+.env
+*.env
+!.env.example
+
+# Firebase credentials (NEVER COMMIT)
+firebase-credentials.json
+firebase_credentials.json
+firebase-adminsdk*.json
+serviceAccountKey.json
+*-firebase-adminsdk-*.json
+
+# Flask session files
+flask_session/
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Uploads (managed by Firebase Storage)
+uploads/
+
+# Pytest
+.pytest_cache/
+htmlcov/
+.coverage
