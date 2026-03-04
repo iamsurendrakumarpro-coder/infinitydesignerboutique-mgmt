@@ -78,6 +78,19 @@ def api_list_settlements():
     return jsonify({"success": True, "settlements": settlements})
 
 
+@settlements_bp.get("/api/settlements/user/<user_id>")
+@login_required
+def api_user_settlements(user_id: str):
+    """Get all settlements for a specific user."""
+    role = session.get("role")
+    if role != "admin" and session["user_id"] != user_id:
+        return jsonify({"success": False, "error": "Access denied."}), 403
+
+    log.info("Get user settlements | user_id=%s | requested_by=%s", user_id, session["user_id"])
+    settlements = settlement_service.get_settlements_for_user(user_id)
+    return jsonify({"success": True, "settlements": settlements})
+
+
 @settlements_bp.get("/api/settlements/<settlement_id>")
 @login_required
 def api_get_settlement(settlement_id: str):
@@ -92,16 +105,3 @@ def api_get_settlement(settlement_id: str):
         return jsonify({"success": False, "error": "Access denied."}), 403
 
     return jsonify({"success": True, "settlement": doc})
-
-
-@settlements_bp.get("/api/settlements/user/<user_id>")
-@login_required
-def api_user_settlements(user_id: str):
-    """Get all settlements for a specific user."""
-    role = session.get("role")
-    if role != "admin" and session["user_id"] != user_id:
-        return jsonify({"success": False, "error": "Access denied."}), 403
-
-    log.info("Get user settlements | user_id=%s | requested_by=%s", user_id, session["user_id"])
-    settlements = settlement_service.get_settlements_for_user(user_id)
-    return jsonify({"success": True, "settlements": settlements})
