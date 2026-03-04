@@ -166,6 +166,7 @@ def create_staff(data: dict, created_by: str) -> tuple[bool, str, dict]:
         "standard_logout_time": str(data.get("standard_logout_time", cfg.DEFAULT_LOGOUT_TIME)).strip(),
         "emergency_contact": str(data.get("emergency_contact", "")).strip(),
         "weekly_salary": float(data["weekly_salary"]),
+        "daily_salary": round(float(data["weekly_salary"]) / cfg.WORKING_DAYS_PER_WEEK, 2),
         "skills": [],
         "status": "active",
         "pin_hash": pin_hash,
@@ -247,6 +248,7 @@ def update_staff(user_id: str, data: dict, updated_by: str) -> tuple[bool, str]:
     # Numeric coercion
     if "weekly_salary" in data:
         data["weekly_salary"] = float(data["weekly_salary"])
+        data["daily_salary"] = round(data["weekly_salary"] / cfg.WORKING_DAYS_PER_WEEK, 2)
 
     data["updated_at"] = SERVER_TIMESTAMP
 

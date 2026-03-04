@@ -149,3 +149,39 @@ def audit_log(actor_id: str, action: str, target: str, detail: str = "") -> None
         target,
         detail,
     )
+
+
+# ── Structured logging helpers ────────────────────────────────────────────────
+
+def log_request(logger: logging.Logger, method: str, path: str, user_id: str | None = None, **extra: object) -> None:
+    """Log an incoming API request with structured context."""
+    parts = [f"REQUEST {method} {path}"]
+    if user_id:
+        parts.append(f"user_id={user_id}")
+    for k, v in extra.items():
+        parts.append(f"{k}={v}")
+    logger.info(" | ".join(parts))
+
+
+def log_response(logger: logging.Logger, method: str, path: str, status: int, **extra: object) -> None:
+    """Log an outgoing API response with structured context."""
+    parts = [f"RESPONSE {method} {path}", f"status={status}"]
+    for k, v in extra.items():
+        parts.append(f"{k}={v}")
+    logger.info(" | ".join(parts))
+
+
+def log_service_call(logger: logging.Logger, service: str, operation: str, **extra: object) -> None:
+    """Log a service-layer operation."""
+    parts = [f"SERVICE {service}.{operation}"]
+    for k, v in extra.items():
+        parts.append(f"{k}={v}")
+    logger.info(" | ".join(parts))
+
+
+def log_error(logger: logging.Logger, operation: str, error: str | Exception, **extra: object) -> None:
+    """Log an error with structured context."""
+    parts = [f"ERROR in {operation}", f"error={error}"]
+    for k, v in extra.items():
+        parts.append(f"{k}={v}")
+    logger.error(" | ".join(parts))

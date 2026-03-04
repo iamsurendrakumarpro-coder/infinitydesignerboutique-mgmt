@@ -1,13 +1,5 @@
 """
-modules/users/routes.py – User Management Blueprint.
-
-Page Routes (Admin)
--------------------
-GET  /admin/staff              → Staff directory
-GET  /admin/staff/create       → Create user form
-GET  /admin/staff/<uid>        → Staff profile
-GET  /admin/staff/<uid>/edit   → Edit staff form
-GET  /admin/dashboard          → Admin dashboard
+modules/users/routes.py – User Management Blueprint (JSON API only).
 
 API Routes
 ----------
@@ -35,10 +27,6 @@ from flask import (
     request,
     session,
     jsonify,
-    render_template,
-    redirect,
-    url_for,
-    current_app,
 )
 
 from middleware.auth_middleware import admin_required, login_required
@@ -54,75 +42,6 @@ from utils.logger import get_logger
 log = get_logger(__name__)
 
 users_bp = Blueprint("users", __name__)
-admin_bp = Blueprint("admin", __name__)
-
-
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  Page Routes
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-@admin_bp.get("/admin/dashboard")
-@admin_required
-def dashboard():
-    return render_template(
-        "admin/dashboard.html",
-        boutique_name=current_app.config["BOUTIQUE_NAME"],
-        user=_session_user(),
-    )
-
-
-@admin_bp.get("/admin/staff")
-@admin_required
-def staff_directory():
-    return render_template(
-        "admin/staff_directory.html",
-        boutique_name=current_app.config["BOUTIQUE_NAME"],
-        user=_session_user(),
-        designation_labels=current_app.config["DESIGNATION_LABELS"],
-    )
-
-
-@admin_bp.get("/admin/staff/create")
-@admin_required
-def staff_create():
-    return render_template(
-        "admin/staff_create.html",
-        boutique_name=current_app.config["BOUTIQUE_NAME"],
-        user=_session_user(),
-        designations=current_app.config["DESIGNATIONS"],
-        designation_labels=current_app.config["DESIGNATION_LABELS"],
-    )
-
-
-@admin_bp.get("/admin/staff/<uid>")
-@admin_required
-def staff_profile(uid: str):
-    staff = user_service.get_staff(uid)
-    if not staff:
-        return redirect(url_for("admin.staff_directory"))
-    return render_template(
-        "admin/staff_profile.html",
-        boutique_name=current_app.config["BOUTIQUE_NAME"],
-        user=_session_user(),
-        staff=staff,
-        designation_labels=current_app.config["DESIGNATION_LABELS"],
-    )
-
-
-@admin_bp.get("/admin/staff/<uid>/edit")
-@admin_required
-def staff_edit(uid: str):
-    staff = user_service.get_staff(uid)
-    if not staff:
-        return redirect(url_for("admin.staff_directory"))
-    return render_template(
-        "admin/staff_edit.html",
-        boutique_name=current_app.config["BOUTIQUE_NAME"],
-        user=_session_user(),
-        staff=staff,
-        designations=current_app.config["DESIGNATIONS"],
-        designation_labels=current_app.config["DESIGNATION_LABELS"],
-    )
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -326,14 +245,3 @@ def api_create_admin():
 
     log.info("Admin created via API | created_by=%s | user_id=%s", session["user_id"], doc.get("user_id"))
     return jsonify({"success": True, "admin": doc}), 201
-
-
-# ── Helper ────────────────────────────────────────────────────────────────────
-
-def _session_user() -> dict:
-    return {
-        "user_id": session.get("user_id"),
-        "role": session.get("role"),
-        "full_name": session.get("full_name"),
-        "phone_number": session.get("phone_number"),
-    }

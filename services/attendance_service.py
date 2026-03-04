@@ -105,6 +105,19 @@ def punch(user_id: str) -> tuple[bool, str, dict]:
         audit_log(user_id, "PUNCH_OUT", f"attendance/{user_id}/records/{doc_id}",
                   f"duration={mins}min")
         data.update({"punch_out": now, "status": "out", "duration_minutes": mins})
+
+        # Auto-detect overtime after punch-out
+        try:
+            from services.overtime_service import detect_overtime
+            attendance_record = {
+                "user_id": user_id,
+                "date": data.get("date", today_ist_str()),
+                "duration_minutes": mins,
+            }
+            detect_overtime(user_id, attendance_record)
+        except Exception as exc:
+            log.error("Overtime detection failed | user_id=%s | error=%s", user_id, exc)
+
         return True, "Punched OUT", _sanitise_record(data)
 
     # status == "out"  →  already punched out today
