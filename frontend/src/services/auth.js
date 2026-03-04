@@ -1,7 +1,7 @@
 import api from './api'
 
 export async function login(phone, pin) {
-  const { data } = await api.post('/auth/login', { phone, pin })
+  const { data } = await api.post('/auth/login', { phone_number: phone, pin })
   return data
 }
 

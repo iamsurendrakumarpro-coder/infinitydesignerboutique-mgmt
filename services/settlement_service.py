@@ -18,7 +18,6 @@ from datetime import date
 from google.cloud.firestore_v1 import SERVER_TIMESTAMP
 
 from utils.firebase_client import get_firestore
-from utils.firebase_client import get_firestore
 from utils.logger import get_logger, audit_log
 from utils.timezone_utils import format_ist
 

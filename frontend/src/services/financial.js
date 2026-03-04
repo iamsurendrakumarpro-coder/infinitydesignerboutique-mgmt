@@ -12,16 +12,16 @@ export async function getRequests(params = {}) {
 
 export async function approveRequest(id, notes = '') {
   const response = await api.patch(`/financial/requests/${id}`, {
-    status: 'approved',
-    admin_notes: notes,
+    action: 'approve',
+    notes,
   })
   return response.data
 }
 
 export async function rejectRequest(id, notes = '') {
   const response = await api.patch(`/financial/requests/${id}`, {
-    status: 'rejected',
-    admin_notes: notes,
+    action: 'reject',
+    notes,
   })
   return response.data
 }

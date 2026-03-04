@@ -23,7 +23,7 @@ export function AuthProvider({ children }) {
         const currentUser = data.user || data
         setUser(currentUser)
         localStorage.setItem('auth_user', JSON.stringify(currentUser))
-        if (currentUser.must_change_pin || currentUser.first_login) {
+        if (currentUser.must_change_pin || currentUser.is_first_login) {
           setMustChangePin(true)
         }
       } catch {
@@ -46,7 +46,7 @@ export function AuthProvider({ children }) {
     setUser(authUser)
     localStorage.setItem('auth_token', authToken)
     localStorage.setItem('auth_user', JSON.stringify(authUser))
-    if (authUser.must_change_pin || authUser.first_login) {
+    if (authUser.must_change_pin || authUser.is_first_login) {
       setMustChangePin(true)
     }
     return authUser
@@ -69,7 +69,7 @@ export function AuthProvider({ children }) {
   const completePinChange = useCallback(() => {
     setMustChangePin(false)
     if (user) {
-      const updatedUser = { ...user, must_change_pin: false, first_login: false }
+      const updatedUser = { ...user, must_change_pin: false, is_first_login: false }
       setUser(updatedUser)
       localStorage.setItem('auth_user', JSON.stringify(updatedUser))
     }

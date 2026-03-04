@@ -46,7 +46,7 @@ export default function LoginPage() {
     try {
       const user = await login(phone, pin)
       if (navigator.vibrate) navigator.vibrate(50)
-      if (user.must_change_pin || user.first_login) {
+      if (user.must_change_pin || user.is_first_login) {
         navigate('/change-pin')
       } else if (user.role === 'admin' || user.role === 'root_admin') {
         navigate('/admin')

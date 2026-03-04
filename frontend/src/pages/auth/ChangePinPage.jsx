@@ -77,7 +77,7 @@ export default function ChangePinPage() {
           </div>
           <h1 className="text-xl font-bold text-white">Change Your PIN</h1>
           <p className="text-sm text-primary-200 mt-1">
-            {user?.first_login
+            {user?.is_first_login
               ? "For security, please set a new PIN for your account."
               : "Update your PIN to keep your account secure."}
           </p>
