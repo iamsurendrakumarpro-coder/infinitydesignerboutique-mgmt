@@ -51,3 +51,9 @@ uploads/
 .pytest_cache/
 htmlcov/
 .coverage
+
+# Node / React frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
