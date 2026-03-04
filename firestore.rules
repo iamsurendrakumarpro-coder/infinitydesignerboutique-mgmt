@@ -1,0 +1,22 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helper functions ────────────────────────────────────────────────────
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // NOTE: Since this app uses Flask server-side sessions (not Firebase Auth),
+    // all Firestore security is enforced at the backend (Python/Flask) layer.
+    // These rules serve as a secondary defence.
+
+    // ── Deny all direct client-side access ──────────────────────────────────
+    // All reads/writes go through the Flask backend using the Admin SDK,
+    // which bypasses these rules. Direct client access is denied.
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
