@@ -135,7 +135,9 @@ def get_today_status(user_id: str) -> dict:
     doc_id = date_to_doc_id(today_ist())
     doc = db.collection(_ATTENDANCE).document(user_id).collection(_RECORDS).document(doc_id).get()
     if not doc.exists:
+        log.debug("get_today_status | user_id=%s | status=not_started", user_id)
         return {"status": "not_started", "date": today_ist_str()}
+    log.debug("get_today_status | user_id=%s | doc_id=%s | found=true", user_id, doc_id)
     return _sanitise_record(doc.to_dict())
 
 
@@ -156,7 +158,10 @@ def get_attendance_history(user_id: str, start: date, end: date) -> list[dict]:
         .order_by("__name__")
         .stream()
     )
-    return [_sanitise_record(d.to_dict()) for d in docs]
+    results = [_sanitise_record(d.to_dict()) for d in docs]
+    log.debug("get_attendance_history | user_id=%s | start=%s | end=%s | count=%d",
+              user_id, start, end, len(results))
+    return results
 
 
 def get_staff_analytics(user_id: str, period: str) -> dict:

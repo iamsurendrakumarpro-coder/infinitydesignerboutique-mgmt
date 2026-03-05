@@ -31,7 +31,10 @@ def calculate_hourly_rate(weekly_salary: float) -> float:
     if days <= 0 or hours <= 0:
         log.warning("Invalid config: WORKING_DAYS_PER_WEEK=%d, STANDARD_HOURS_PER_DAY=%d", days, hours)
         return 0.0
-    return weekly_salary / days / hours
+    rate = weekly_salary / days / hours
+    log.info("calculate_hourly_rate | weekly_salary=%.2f | days=%d | hours=%d | rate=%.2f",
+             weekly_salary, days, hours, rate)
+    return rate
 
 
 def detect_overtime(user_id: str, attendance_record: dict) -> dict | None:
@@ -110,7 +113,9 @@ def get_overtime_for_user(user_id: str) -> list[dict]:
         .order_by("created_at", direction="DESCENDING")
         .stream()
     )
-    return [_sanitise(d.to_dict()) for d in docs]
+    results = [_sanitise(d.to_dict()) for d in docs]
+    log.debug("get_overtime_for_user | user_id=%s | count=%d", user_id, len(results))
+    return results
 
 
 def approve_overtime(overtime_id: str, admin_id: str) -> tuple[bool, str]:
@@ -177,8 +182,11 @@ def get_approved_overtime_for_period(user_id: str, start, end) -> list[dict]:
                 record_date = datetime.strptime(record_date_str, "%Y-%m-%d").date()
                 if start <= record_date <= end:
                     results.append(data)
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as exc:
+                log.error("get_approved_overtime_for_period date parse failed | user_id=%s | date_str=%s | error=%s",
+                          user_id, record_date_str, str(exc))
+    log.debug("get_approved_overtime_for_period | user_id=%s | start=%s | end=%s | count=%d",
+              user_id, start, end, len(results))
     return results
 
 
