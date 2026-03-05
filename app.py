@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import os
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, session
 from flask_cors import CORS
 
 from config import get_config, Config
@@ -174,7 +174,6 @@ def create_app(config: Config | None = None) -> Flask:
 
 # ── Dev server entry point ────────────────────────────────────────────────────
 if __name__ == "__main__":
-    from flask import session  # noqa: F811 – local import for dev runner
     application = create_app()
     port = int(os.getenv("PORT", "5000"))
     application.run(host="0.0.0.0", port=port, debug=get_config().DEBUG)
