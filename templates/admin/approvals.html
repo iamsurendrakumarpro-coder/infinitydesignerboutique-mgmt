@@ -1,0 +1,359 @@
+{% extends "admin/layout.html" %}
+
+{% block page_title %}Approvals{% endblock %}
+
+{% block page_content %}
+<div x-data="approvalsDesk()" x-init="loadAll()" x-cloak>
+
+  <!-- Header -->
+  <div class="mb-5">
+    <h1 class="text-2xl font-bold text-gray-900">✅ Approvals Desk</h1>
+    <p class="mt-0.5 text-sm text-gray-400">Review and act on pending requests</p>
+  </div>
+
+  <!-- Tab Navigation -->
+  <div class="mb-5 flex items-center gap-1 rounded-xl bg-gray-100 p-1">
+    <button @click="activeTab = 'financial'"
+            class="relative flex-1 rounded-lg py-2.5 text-center text-sm font-semibold transition-all"
+            :class="activeTab === 'financial'
+              ? 'bg-white text-gray-800 shadow-sm'
+              : 'text-gray-500 hover:text-gray-700'">
+      💳 Financial Requests
+      <span x-show="financialRequests.length > 0"
+            class="ml-1 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-amber-500 px-1.5 text-[10px] font-bold text-white"
+            x-text="financialRequests.length"></span>
+    </button>
+    <button @click="activeTab = 'overtime'"
+            class="relative flex-1 rounded-lg py-2.5 text-center text-sm font-semibold transition-all"
+            :class="activeTab === 'overtime'
+              ? 'bg-white text-gray-800 shadow-sm'
+              : 'text-gray-500 hover:text-gray-700'">
+      ⏰ Overtime
+      <span x-show="overtimeRecords.length > 0"
+            class="ml-1 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-purple-500 px-1.5 text-[10px] font-bold text-white"
+            x-text="overtimeRecords.length"></span>
+    </button>
+  </div>
+
+  <!-- ── Financial Requests Tab ──────────────────────────────────────── -->
+  <div x-show="activeTab === 'financial'">
+
+    <!-- Loading -->
+    <div x-show="financialLoading" class="py-16 text-center">
+      <svg class="mx-auto h-10 w-10 animate-spin text-brand-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+      </svg>
+    </div>
+
+    <!-- Empty -->
+    <div x-show="!financialLoading && financialRequests.length === 0" class="py-16 text-center">
+      <p class="text-4xl mb-3">🎉</p>
+      <p class="text-base font-medium text-gray-500">All caught up!</p>
+      <p class="mt-1 text-sm text-gray-400">No pending financial requests</p>
+    </div>
+
+    <!-- Request Cards -->
+    <div x-show="!financialLoading && financialRequests.length > 0" class="space-y-4">
+      <template x-for="req in financialRequests" :key="req.id || req.request_id">
+        <div class="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 transition-all"
+             :class="req._processing ? 'ring-gray-200 opacity-60' : 'ring-amber-200'">
+
+          <!-- Card Header -->
+          <div class="border-l-4 border-amber-400 px-5 py-4">
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex items-center gap-3">
+                <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-lg"
+                     :class="(req.type === 'personal_advance' || req.type === 'advance')
+                       ? 'bg-blue-50' : 'bg-amber-50'"
+                     x-text="(req.type === 'personal_advance' || req.type === 'advance') ? '👤' : '🏪'"></div>
+                <div>
+                  <h3 class="text-sm font-semibold text-gray-900" x-text="req.staff_name || req.full_name || 'Staff'"></h3>
+                  <p class="text-xs text-gray-400">
+                    <span x-text="formatType(req.type)"></span>
+                    <span class="mx-1">·</span>
+                    <span x-text="formatDate(req.created_at || req.date)"></span>
+                  </p>
+                </div>
+              </div>
+              <div class="text-right shrink-0">
+                <p class="text-lg font-bold text-gray-900">₹<span x-text="Number(req.amount).toLocaleString('en-IN')"></span></p>
+                <span class="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Pending</span>
+              </div>
+            </div>
+
+            <!-- Reason -->
+            <div class="mt-3 rounded-xl bg-gray-50 px-4 py-2.5">
+              <p class="text-xs font-medium uppercase text-gray-400">Reason</p>
+              <p class="mt-0.5 text-sm text-gray-700" x-text="req.reason || req.description || 'No reason provided'"></p>
+            </div>
+
+            <!-- Week-to-date earned (Personal Advance) -->
+            <div x-show="(req.type === 'personal_advance' || req.type === 'advance') && req.week_earned != null" class="mt-2">
+              <span class="inline-flex items-center gap-1 rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 ring-1 ring-blue-100">
+                📊 Week-to-date earned: ₹<span x-text="Number(req.week_earned || 0).toLocaleString('en-IN')"></span>
+              </span>
+            </div>
+
+            <!-- Admin Notes & Actions -->
+            <div class="mt-4" x-data="{ notes: '', showNotes: false }">
+              <button x-show="!showNotes" @click="showNotes = true"
+                      class="text-xs font-medium text-brand-600 hover:text-brand-700">
+                + Add notes before action
+              </button>
+              <textarea x-show="showNotes" x-model="notes" rows="2"
+                        placeholder="Admin notes (optional)…"
+                        class="mb-3 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-700 transition-all focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20"></textarea>
+
+              <div class="flex gap-2">
+                <button @click="approveFinancial(req, notes)"
+                        :disabled="req._processing"
+                        class="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-green-600 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-green-700 active:scale-95 disabled:opacity-50">
+                  ✓ Approve
+                </button>
+                <button @click="rejectFinancial(req, notes)"
+                        :disabled="req._processing"
+                        class="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-red-700 active:scale-95 disabled:opacity-50">
+                  ✕ Reject
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <!-- ── Overtime Tab ────────────────────────────────────────────────── -->
+  <div x-show="activeTab === 'overtime'">
+
+    <!-- Loading -->
+    <div x-show="overtimeLoading" class="py-16 text-center">
+      <svg class="mx-auto h-10 w-10 animate-spin text-brand-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+      </svg>
+    </div>
+
+    <!-- Empty -->
+    <div x-show="!overtimeLoading && overtimeRecords.length === 0" class="py-16 text-center">
+      <p class="text-4xl mb-3">🎉</p>
+      <p class="text-base font-medium text-gray-500">No pending overtime</p>
+      <p class="mt-1 text-sm text-gray-400">All overtime records have been reviewed</p>
+    </div>
+
+    <!-- Overtime Cards -->
+    <div x-show="!overtimeLoading && overtimeRecords.length > 0" class="space-y-4">
+      <template x-for="ot in overtimeRecords" :key="ot.id || ot.overtime_id">
+        <div class="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 transition-all"
+             :class="ot._processing ? 'ring-gray-200 opacity-60' : 'ring-purple-200'">
+          <div class="border-l-4 border-purple-400 px-5 py-4">
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex items-center gap-3">
+                <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-purple-50 text-lg">⏰</div>
+                <div>
+                  <h3 class="text-sm font-semibold text-gray-900" x-text="ot.staff_name || ot.full_name || 'Staff'"></h3>
+                  <p class="text-xs text-gray-400" x-text="formatDate(ot.date || ot.created_at)"></p>
+                </div>
+              </div>
+              <div class="text-right shrink-0">
+                <p class="text-lg font-bold text-purple-700" x-text="ot.extra_minutes + ' min'"></p>
+                <span x-show="ot.calculated_pay != null"
+                      class="inline-flex rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-semibold text-green-700">
+                  ₹<span x-text="Number(ot.calculated_pay || 0).toLocaleString('en-IN')"></span>
+                </span>
+              </div>
+            </div>
+
+            <!-- Details -->
+            <div x-show="ot.reason || ot.notes" class="mt-3 rounded-xl bg-gray-50 px-4 py-2.5">
+              <p class="text-xs font-medium uppercase text-gray-400">Notes</p>
+              <p class="mt-0.5 text-sm text-gray-700" x-text="ot.reason || ot.notes || ''"></p>
+            </div>
+
+            <!-- Actions -->
+            <div class="mt-4 flex gap-2">
+              <button @click="approveOvertime(ot)"
+                      :disabled="ot._processing"
+                      class="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-green-600 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-green-700 active:scale-95 disabled:opacity-50">
+                ✓ Approve OT
+              </button>
+              <button @click="rejectOvertime(ot)"
+                      :disabled="ot._processing"
+                      class="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-red-700 active:scale-95 disabled:opacity-50">
+                ✕ Reject
+              </button>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+  function approvalsDesk() {
+    return {
+      activeTab: 'financial',
+      financialLoading: true,
+      overtimeLoading: true,
+      financialRequests: [],
+      overtimeRecords: [],
+
+      async loadAll() {
+        await Promise.all([
+          this.fetchFinancial(),
+          this.fetchOvertime(),
+        ]);
+      },
+
+      async fetchFinancial() {
+        this.financialLoading = true;
+        try {
+          const res = await fetch('/api/financial/requests?status=pending', { credentials: 'include' });
+          if (res.ok) {
+            const data = await res.json();
+            this.financialRequests = (data.requests || data.data || []).map(r => ({ ...r, _processing: false }));
+          }
+        } catch (e) {
+          dispatchToast('error', 'Error', 'Failed to load financial requests');
+        } finally {
+          this.financialLoading = false;
+        }
+      },
+
+      async fetchOvertime() {
+        this.overtimeLoading = true;
+        try {
+          const res = await fetch('/api/overtime/pending', { credentials: 'include' });
+          if (res.ok) {
+            const data = await res.json();
+            this.overtimeRecords = (data.records || data.data || []).map(r => ({ ...r, _processing: false }));
+          }
+        } catch (e) {
+          dispatchToast('error', 'Error', 'Failed to load overtime records');
+        } finally {
+          this.overtimeLoading = false;
+        }
+      },
+
+      async approveFinancial(req, notes) {
+        req._processing = true;
+        try {
+          const id = req.id || req.request_id;
+          const res = await fetch(`/api/financial/requests/${id}`, {
+            method: 'PATCH',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'approve', admin_notes: notes || '' }),
+          });
+          if (res.ok) {
+            this.financialRequests = this.financialRequests.filter(r => (r.id || r.request_id) !== id);
+            dispatchToast('success', 'Approved', `₹${Number(req.amount).toLocaleString('en-IN')} request approved`);
+          } else {
+            const err = await res.json().catch(() => ({}));
+            dispatchToast('error', 'Error', err.error || 'Failed to approve');
+            req._processing = false;
+          }
+        } catch (e) {
+          dispatchToast('error', 'Network Error', 'Could not reach the server');
+          req._processing = false;
+        }
+      },
+
+      async rejectFinancial(req, notes) {
+        req._processing = true;
+        try {
+          const id = req.id || req.request_id;
+          const res = await fetch(`/api/financial/requests/${id}`, {
+            method: 'PATCH',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'reject', admin_notes: notes || '' }),
+          });
+          if (res.ok) {
+            this.financialRequests = this.financialRequests.filter(r => (r.id || r.request_id) !== id);
+            dispatchToast('info', 'Rejected', 'Request has been rejected');
+          } else {
+            const err = await res.json().catch(() => ({}));
+            dispatchToast('error', 'Error', err.error || 'Failed to reject');
+            req._processing = false;
+          }
+        } catch (e) {
+          dispatchToast('error', 'Network Error', 'Could not reach the server');
+          req._processing = false;
+        }
+      },
+
+      async approveOvertime(ot) {
+        ot._processing = true;
+        try {
+          const id = ot.id || ot.overtime_id;
+          const res = await fetch(`/api/overtime/${id}/approve`, {
+            method: 'PATCH',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+          });
+          if (res.ok) {
+            this.overtimeRecords = this.overtimeRecords.filter(r => (r.id || r.overtime_id) !== id);
+            dispatchToast('success', 'OT Approved', `${ot.extra_minutes} min overtime approved for ${ot.staff_name || 'staff'}`);
+          } else {
+            const err = await res.json().catch(() => ({}));
+            dispatchToast('error', 'Error', err.error || 'Failed to approve overtime');
+            ot._processing = false;
+          }
+        } catch (e) {
+          dispatchToast('error', 'Network Error', 'Could not reach the server');
+          ot._processing = false;
+        }
+      },
+
+      async rejectOvertime(ot) {
+        ot._processing = true;
+        try {
+          const id = ot.id || ot.overtime_id;
+          const res = await fetch(`/api/overtime/${id}/reject`, {
+            method: 'PATCH',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+          });
+          if (res.ok) {
+            this.overtimeRecords = this.overtimeRecords.filter(r => (r.id || r.overtime_id) !== id);
+            dispatchToast('info', 'OT Rejected', 'Overtime record has been rejected');
+          } else {
+            const err = await res.json().catch(() => ({}));
+            dispatchToast('error', 'Error', err.error || 'Failed to reject overtime');
+            ot._processing = false;
+          }
+        } catch (e) {
+          dispatchToast('error', 'Network Error', 'Could not reach the server');
+          ot._processing = false;
+        }
+      },
+
+      formatType(type) {
+        const map = {
+          personal_advance: 'Personal Advance',
+          advance: 'Personal Advance',
+          shop_expense: 'Shop Expense',
+          expense: 'Shop Expense',
+        };
+        return map[type] || type || 'Request';
+      },
+
+      formatDate(dateStr) {
+        if (!dateStr) return '';
+        try {
+          const d = new Date(dateStr);
+          return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+        } catch (e) {
+          return dateStr;
+        }
+      },
+    };
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,272 @@
+{% extends "admin/layout.html" %}
+
+{% block page_title %}Staff Directory{% endblock %}
+
+{% block page_content %}
+<div x-data="staffDirectory()" x-init="loadStaff()" x-cloak>
+
+  <!-- Header Row -->
+  <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">👥 Staff Directory</h1>
+      <p class="mt-0.5 text-sm text-gray-400" x-text="'Showing ' + filteredStaff.length + ' of ' + staff.length + ' staff'"></p>
+    </div>
+    <a href="/admin/staff/create"
+       class="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand-600/20 transition-all hover:bg-brand-700 active:scale-95">
+      <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+      </svg>
+      Add New Staff
+    </a>
+  </div>
+
+  <!-- Search & Filter Bar -->
+  <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+    <!-- Search -->
+    <div class="relative flex-1">
+      <svg class="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/>
+      </svg>
+      <input type="text" x-model="search" placeholder="Search by name, phone, or designation…"
+             class="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-700 shadow-sm transition-all focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+    </div>
+
+    <!-- Status Tabs -->
+    <div class="flex rounded-xl bg-gray-100 p-1">
+      <template x-for="tab in ['all', 'active', 'inactive']" :key="tab">
+        <button @click="statusFilter = tab"
+                class="rounded-lg px-4 py-1.5 text-xs font-semibold capitalize transition-all"
+                :class="statusFilter === tab
+                  ? 'bg-white text-gray-800 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'"
+                x-text="tab"></button>
+      </template>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div x-show="loading" class="py-20 text-center">
+    <svg class="mx-auto h-10 w-10 animate-spin text-brand-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+    </svg>
+    <p class="mt-3 text-sm text-gray-400">Loading staff…</p>
+  </div>
+
+  <!-- Empty State -->
+  <div x-show="!loading && filteredStaff.length === 0" class="py-20 text-center">
+    <p class="text-4xl mb-3">🔍</p>
+    <p class="text-base font-medium text-gray-500">No staff found</p>
+    <p class="mt-1 text-sm text-gray-400" x-text="search ? 'Try adjusting your search' : 'Add your first staff member'"></p>
+  </div>
+
+  <!-- Staff Grid -->
+  <div x-show="!loading && filteredStaff.length > 0"
+       class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <template x-for="member in filteredStaff" :key="member.user_id || member.id">
+      <div class="group relative overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 transition-all hover:shadow-md hover:ring-brand-200">
+
+        <!-- Status Indicator -->
+        <div class="absolute right-3 top-3">
+          <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
+                :class="member.status === 'active'
+                  ? 'bg-green-100 text-green-700'
+                  : 'bg-gray-100 text-gray-500'">
+            <span class="h-1.5 w-1.5 rounded-full"
+                  :class="member.status === 'active' ? 'bg-green-500' : 'bg-gray-400'"></span>
+            <span x-text="member.status === 'active' ? 'Active' : 'Inactive'"></span>
+          </span>
+        </div>
+
+        <div class="p-5">
+          <!-- Avatar + Name -->
+          <div class="flex items-center gap-4">
+            <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-lg font-bold"
+                 :class="member.status === 'active'
+                   ? 'bg-brand-100 text-brand-700'
+                   : 'bg-gray-100 text-gray-500'"
+                 x-text="getInitials(member.full_name)"></div>
+            <div class="min-w-0">
+              <h3 class="truncate text-base font-semibold text-gray-900" x-text="member.full_name"></h3>
+              <p class="truncate text-sm text-gray-500" x-text="member.designation || 'Staff'"></p>
+            </div>
+          </div>
+
+          <!-- Details -->
+          <div class="mt-4 space-y-2">
+            <div class="flex items-center gap-2 text-sm text-gray-500">
+              <span class="text-xs">📱</span>
+              <span x-text="member.phone_number || '–'"></span>
+            </div>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2 text-sm text-gray-500">
+                <span class="text-xs">💰</span>
+                <span>₹<span x-text="member.weekly_salary ? Math.round(member.weekly_salary / 6).toLocaleString('en-IN') : '–'"></span>/day</span>
+              </div>
+              <span class="text-xs text-gray-400" x-text="'₹' + (member.weekly_salary ? Number(member.weekly_salary).toLocaleString('en-IN') : '–') + '/wk'"></span>
+            </div>
+          </div>
+
+          <!-- Skills -->
+          <div x-show="member.skills && member.skills.length > 0" class="mt-3 flex flex-wrap gap-1.5">
+            <template x-for="skill in (member.skills || []).slice(0, 3)" :key="skill">
+              <span class="rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-medium text-brand-600" x-text="skill"></span>
+            </template>
+            <span x-show="(member.skills || []).length > 3"
+                  class="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500"
+                  x-text="'+' + ((member.skills || []).length - 3)"></span>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="mt-4 flex items-center gap-2 border-t border-gray-100 pt-3">
+            <a :href="'/admin/staff/' + (member.user_id || member.id) + '/edit'"
+               class="flex-1 rounded-lg bg-brand-50 py-2 text-center text-xs font-semibold text-brand-600 transition-colors hover:bg-brand-100">
+              ✏️ Edit
+            </a>
+            <button @click="confirmToggle(member)"
+                    class="flex-1 rounded-lg py-2 text-center text-xs font-semibold transition-colors"
+                    :class="member.status === 'active'
+                      ? 'bg-red-50 text-red-600 hover:bg-red-100'
+                      : 'bg-green-50 text-green-600 hover:bg-green-100'"
+                    x-text="member.status === 'active' ? '⏸ Deactivate' : '▶ Activate'">
+            </button>
+          </div>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <!-- Confirmation Dialog -->
+  <div x-show="confirmDialog.open" x-transition.opacity
+       class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+    <div x-show="confirmDialog.open"
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-95"
+         @click.away="confirmDialog.open = false"
+         class="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+      <div class="mb-4 text-center">
+        <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full"
+             :class="confirmDialog.newStatus === 'active' ? 'bg-green-100' : 'bg-red-100'">
+          <span class="text-xl" x-text="confirmDialog.newStatus === 'active' ? '▶' : '⏸'"></span>
+        </div>
+        <h3 class="text-lg font-semibold text-gray-900" x-text="confirmDialog.newStatus === 'active' ? 'Activate Staff?' : 'Deactivate Staff?'"></h3>
+        <p class="mt-1 text-sm text-gray-500">
+          Are you sure you want to
+          <span x-text="confirmDialog.newStatus === 'active' ? 'activate' : 'deactivate'"></span>
+          <strong x-text="confirmDialog.name"></strong>?
+        </p>
+      </div>
+      <div class="flex gap-3">
+        <button @click="confirmDialog.open = false"
+                class="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50">
+          Cancel
+        </button>
+        <button @click="toggleStatus()"
+                :disabled="confirmDialog.processing"
+                class="flex-1 rounded-xl py-2.5 text-sm font-semibold text-white transition-colors disabled:opacity-50"
+                :class="confirmDialog.newStatus === 'active'
+                  ? 'bg-green-600 hover:bg-green-700'
+                  : 'bg-red-600 hover:bg-red-700'"
+                x-text="confirmDialog.processing ? 'Processing…' : 'Confirm'">
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+  function staffDirectory() {
+    return {
+      loading: true,
+      staff: [],
+      search: '',
+      statusFilter: 'all',
+      confirmDialog: { open: false, member: null, name: '', newStatus: '', processing: false },
+
+      get filteredStaff() {
+        let list = this.staff;
+        if (this.statusFilter !== 'all') {
+          list = list.filter(s => s.status === this.statusFilter);
+        }
+        if (this.search.trim()) {
+          const q = this.search.toLowerCase();
+          list = list.filter(s =>
+            (s.full_name || '').toLowerCase().includes(q) ||
+            (s.phone_number || '').includes(q) ||
+            (s.designation || '').toLowerCase().includes(q)
+          );
+        }
+        return list;
+      },
+
+      async loadStaff() {
+        this.loading = true;
+        try {
+          const res = await fetch('/api/users/staff', { credentials: 'include' });
+          if (res.ok) {
+            const data = await res.json();
+            this.staff = data.staff || data.data || data.users || [];
+          } else {
+            dispatchToast('error', 'Error', 'Failed to load staff directory');
+          }
+        } catch (e) {
+          dispatchToast('error', 'Network Error', 'Could not reach the server');
+        } finally {
+          this.loading = false;
+        }
+      },
+
+      getInitials(name) {
+        if (!name) return '?';
+        const parts = name.trim().split(/\s+/);
+        if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        return parts[0].substring(0, 2).toUpperCase();
+      },
+
+      confirmToggle(member) {
+        this.confirmDialog = {
+          open: true,
+          member: member,
+          name: member.full_name,
+          newStatus: member.status === 'active' ? 'inactive' : 'active',
+          processing: false,
+        };
+      },
+
+      async toggleStatus() {
+        const member = this.confirmDialog.member;
+        if (!member) return;
+        this.confirmDialog.processing = true;
+
+        try {
+          const id = member.user_id || member.id;
+          const res = await fetch(`/api/users/staff/${id}/status`, {
+            method: 'PATCH',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: this.confirmDialog.newStatus }),
+          });
+
+          if (res.ok) {
+            member.status = this.confirmDialog.newStatus;
+            dispatchToast('success', 'Status Updated', `${member.full_name} is now ${this.confirmDialog.newStatus}`);
+            this.confirmDialog.open = false;
+          } else {
+            const err = await res.json().catch(() => ({}));
+            dispatchToast('error', 'Error', err.error || 'Failed to update status');
+          }
+        } catch (e) {
+          dispatchToast('error', 'Network Error', 'Could not reach the server');
+        } finally {
+          this.confirmDialog.processing = false;
+        }
+      },
+    };
+  }
+</script>
+{% endblock %}
