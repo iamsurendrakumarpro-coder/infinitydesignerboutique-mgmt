@@ -1,6 +1,6 @@
 # Infinity Designer Boutique – Management System
 
-Enterprise-grade boutique management system featuring a **React.js PWA** frontend and **Python Flask REST API** backend, powered by **Firebase Firestore**. Handles staff lifecycle, attendance, finances, overtime, weekly settlements, and real-time dashboards — all under a single, role-based platform.
+Enterprise-grade boutique management system featuring a **Progressive Web App (PWA)** frontend built with **plain HTML/CSS/JS + Tailwind CSS + Alpine.js** and a **Python Flask REST API** backend, powered by **Firebase Firestore**. Handles staff lifecycle, attendance, finances, overtime, weekly settlements, and real-time dashboards — all under a single, role-based platform.
 
 ---
 
@@ -8,11 +8,13 @@ Enterprise-grade boutique management system featuring a **React.js PWA** fronten
 
 | Layer | Technology |
 |-------|------------|
-| **Frontend** | React 19 PWA · Tailwind CSS v4 · Vite 7 · Recharts · Axios |
-| **Backend** | Python Flask 3.1 REST API · Service-Oriented Architecture |
+| **Frontend** | PWA · Tailwind CSS v4 (pre-compiled) · Alpine.js · Vanilla JS |
+| **Backend** | Python Flask 3.1 · Jinja2 Templates · Service-Oriented Architecture |
 | **Database** | Firebase Firestore (NoSQL, real-time) · Firebase Storage |
 | **Auth** | Session-based · Bcrypt PIN hashing (12 rounds) · RBAC |
 | **Timezone** | All timestamps locked to **IST (Asia/Kolkata)** |
+
+> **No Node.js required.** The frontend uses pre-compiled Tailwind CSS and locally bundled Alpine.js. Flask serves HTML pages directly via Jinja2 templates.
 
 ---
 
@@ -35,7 +37,8 @@ infinitydesignerboutique-mgmt/
 │   ├── financial/routes.py         # Financial request endpoints
 │   ├── overtime/routes.py          # Overtime management endpoints
 │   ├── settlements/routes.py       # Settlement generation endpoints
-│   └── dashboard/routes.py         # Dashboard analytics endpoints
+│   ├── dashboard/routes.py         # Dashboard analytics endpoints
+│   └── pages/routes.py             # HTML page-serving blueprint
 │
 ├── services/                       # Business logic layer
 │   ├── auth_service.py             # PIN hashing/verification, session management
@@ -55,35 +58,34 @@ infinitydesignerboutique-mgmt/
 │   ├── timezone_utils.py           # UTC↔IST conversion, period range calculations
 │   └── validators.py               # Input validation (phone, PIN, amounts)
 │
-└── frontend/                       # React.js PWA
-    ├── package.json
-    ├── vite.config.js
-    ├── index.html
-    ├── public/sw.js                # Service worker
-    └── src/
-        ├── App.jsx                 # Root component & routing
-        ├── main.jsx                # Entry point
-        ├── context/
-        │   └── AuthContext.jsx     # Global auth state provider
-        ├── pages/
-        │   ├── auth/               # LoginPage, ChangePinPage
-        │   ├── admin/              # Dashboard, StaffDirectory, StaffCreate,
-        │   │                       # StaffEdit, StaffProfileView, Approvals,
-        │   │                       # Settlements, Reports
-        │   └── staff/              # DutyStation, MyMoney, StaffProfile
-        ├── components/
-        │   ├── layout/             # AdminLayout, StaffLayout
-        │   └── common/             # ProtectedRoute, LoadingSpinner,
-        │                           # SkeletonLoader, NumberPad, StatusBadge
-        └── services/               # Axios HTTP client wrappers
-            ├── api.js              # Base Axios configuration
-            ├── auth.js             # Auth API calls
-            ├── users.js            # User API calls
-            ├── attendance.js       # Attendance API calls
-            ├── financial.js        # Financial API calls
-            ├── overtime.js         # Overtime API calls
-            ├── settlements.js      # Settlement API calls
-            └── dashboard.js        # Dashboard API calls
+├── templates/                      # Jinja2 HTML templates (PWA frontend)
+│   ├── base.html                   # Master layout (Tailwind, Alpine.js, toast/loading)
+│   ├── auth/
+│   │   ├── login.html              # Phone + PIN login with number pad
+│   │   └── change_pin.html         # Force PIN change (first login)
+│   ├── admin/
+│   │   ├── layout.html             # Admin sidebar/nav wrapper
+│   │   ├── dashboard.html          # Admin dashboard with stats cards
+│   │   ├── staff_directory.html    # Staff listing with search/filter
+│   │   ├── staff_form.html         # Create/Edit staff (dynamic form)
+│   │   ├── approvals.html          # Financial & overtime approval desk
+│   │   └── settlements.html        # Weekly settlement management
+│   └── staff/
+│       ├── layout.html             # Staff bottom-nav wrapper
+│       ├── duty_station.html       # Punch in/out station
+│       ├── my_money.html           # Financial request dashboard
+│       └── profile.html            # Staff profile & PIN change
+│
+└── static/                         # Static assets
+    ├── css/
+    │   ├── tailwind.css            # Pre-compiled Tailwind CSS v4
+    │   └── app.css                 # Custom animations & styles
+    ├── js/
+    │   └── alpine.min.js           # Alpine.js (local bundle)
+    ├── manifest.json               # PWA manifest
+    ├── sw.js                       # Service worker (offline support)
+    └── icons/
+        └── icon.svg                # PWA icon (scissors + IDB branding)
 ```
 
 ---
@@ -101,7 +103,7 @@ infinitydesignerboutique-mgmt/
 ### Module 2 – User Lifecycle Management
 
 - Dynamic staff creation forms with designation-based fields
-- Three designations: `cutting_master`, `handwork_expert`, `tailor`
+- Six designations: `cutting_master`, `tailor`, `embroidery_artist`, `handwork_expert`, `designer`, `helper`
 - Auto-calculated daily salary derived from weekly salary
 - Skill tags, work gallery (Firebase Storage), and performance notes
 - Soft deletion via status transitions: `active` → `inactive` → `deactivated`
@@ -140,7 +142,6 @@ infinitydesignerboutique-mgmt/
 ### Module 7 – Enterprise Dashboards
 
 - Real-time admin dashboard with daily summary cards
-- Charts powered by Recharts (attendance trends, financial breakdowns)
 - Multi-period roll-ups: daily, weekly, monthly, quarterly, yearly
 - Staff-facing views: personal attendance history, financial balance
 
@@ -265,25 +266,13 @@ python app.py
 
 ### Frontend Setup
 
-```bash
-cd frontend
-
-# Install dependencies
-npm install
-
-# Start the development server
-npm run dev
-```
+No separate frontend setup required. The frontend is served by Flask directly using Jinja2 templates, pre-compiled Tailwind CSS, and Alpine.js. All files are in the `templates/` and `static/` directories.
 
 ### Production Deployment
 
 ```bash
-# Backend — Gunicorn
+# Single command — Gunicorn serves both API and HTML pages
 gunicorn -w 4 -b 0.0.0.0:8000 "app:create_app()"
-
-# Frontend — Static build
-cd frontend && npm run build
-# Serve the dist/ directory with any static file server
 ```
 
 ---
