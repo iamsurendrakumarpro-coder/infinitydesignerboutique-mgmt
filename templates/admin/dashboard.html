@@ -1,0 +1,265 @@
+{% extends "admin/layout.html" %}
+
+{% block page_title %}Dashboard{% endblock %}
+
+{% block page_content %}
+<div x-data="adminDashboard()" x-init="loadAll()" x-cloak>
+
+  <!-- Welcome Header -->
+  <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">Welcome back, <span class="text-brand-600">{{ user.full_name|default("Admin") }}</span></h1>
+      <p class="mt-1 text-sm text-gray-500" x-text="currentDateTime"></p>
+    </div>
+    <button @click="loadAll()"
+            :disabled="refreshing"
+            class="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-600 shadow-sm transition-all hover:bg-gray-50 active:scale-95 disabled:opacity-50">
+      <svg class="h-4 w-4" :class="refreshing && 'animate-spin'" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182M2.985 19.644l3.181-3.182"/>
+      </svg>
+      <span x-text="refreshing ? 'Refreshing…' : 'Refresh'"></span>
+    </button>
+  </div>
+
+  <!-- Stats Cards -->
+  <div class="mb-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+    <!-- Total Staff -->
+    <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100 sm:p-5">
+      <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-lg">👥</div>
+      <p class="text-2xl font-bold text-gray-900" x-text="stats.totalStaff">–</p>
+      <p class="mt-0.5 text-xs font-medium text-gray-400">Active Staff</p>
+    </div>
+    <!-- Today Present -->
+    <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100 sm:p-5">
+      <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-lg">🟢</div>
+      <p class="text-2xl font-bold text-gray-900" x-text="stats.todayPresent">–</p>
+      <p class="mt-0.5 text-xs font-medium text-gray-400">Present Today</p>
+    </div>
+    <!-- Pending Approvals -->
+    <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100 sm:p-5">
+      <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-lg">📋</div>
+      <p class="text-2xl font-bold text-gray-900" x-text="stats.pendingApprovals">–</p>
+      <p class="mt-0.5 text-xs font-medium text-gray-400">Pending Approvals</p>
+    </div>
+    <!-- Pending Overtime -->
+    <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100 sm:p-5">
+      <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-purple-50 text-lg">⏰</div>
+      <p class="text-2xl font-bold text-gray-900" x-text="stats.pendingOvertime">–</p>
+      <p class="mt-0.5 text-xs font-medium text-gray-400">Pending Overtime</p>
+    </div>
+  </div>
+
+  <!-- Two Column Layout -->
+  <div class="grid gap-6 lg:grid-cols-2">
+
+    <!-- Today's Attendance -->
+    <div class="rounded-2xl bg-white shadow-sm ring-1 ring-gray-100">
+      <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+        <h2 class="text-base font-semibold text-gray-900">📅 Today's Attendance</h2>
+        <span class="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-500"
+              x-text="attendance.length + ' staff'"></span>
+      </div>
+
+      <!-- Empty State -->
+      <div x-show="!attendanceLoading && attendance.length === 0" class="px-5 py-10 text-center">
+        <p class="text-3xl mb-2">📭</p>
+        <p class="text-sm text-gray-400">No attendance records for today</p>
+      </div>
+
+      <!-- Loading -->
+      <div x-show="attendanceLoading" class="px-5 py-10 text-center">
+        <svg class="mx-auto h-8 w-8 animate-spin text-brand-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+      </div>
+
+      <!-- Table -->
+      <div x-show="!attendanceLoading && attendance.length > 0" class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-400">
+              <th class="px-5 py-3">Staff</th>
+              <th class="px-3 py-3">Punch In</th>
+              <th class="px-3 py-3">Punch Out</th>
+              <th class="px-3 py-3 text-right">Status</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-50">
+            <template x-for="row in attendance" :key="row.staff_id || row.user_id">
+              <tr class="hover:bg-gray-50/50">
+                <td class="px-5 py-3">
+                  <div class="flex items-center gap-2.5">
+                    <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700"
+                         x-text="getInitials(row.staff_name || row.full_name)"></div>
+                    <span class="font-medium text-gray-800" x-text="row.staff_name || row.full_name"></span>
+                  </div>
+                </td>
+                <td class="px-3 py-3 text-gray-600" x-text="row.punch_in || row.login_time || '–'"></td>
+                <td class="px-3 py-3 text-gray-600" x-text="row.punch_out || row.logout_time || '–'"></td>
+                <td class="px-3 py-3 text-right">
+                  <span class="inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                        :class="{
+                          'bg-green-100 text-green-700': row.status === 'in' || row.status === 'present',
+                          'bg-gray-100 text-gray-600': row.status === 'out' || row.status === 'completed',
+                          'bg-red-100 text-red-600': row.status === 'absent',
+                        }"
+                        x-text="formatStatus(row.status)"></span>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Recent Financial Requests -->
+    <div class="rounded-2xl bg-white shadow-sm ring-1 ring-gray-100">
+      <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+        <h2 class="text-base font-semibold text-gray-900">💳 Recent Financial Requests</h2>
+        <a href="/admin/approvals" class="text-xs font-medium text-brand-600 hover:text-brand-700">View All →</a>
+      </div>
+
+      <!-- Empty State -->
+      <div x-show="!requestsLoading && requests.length === 0" class="px-5 py-10 text-center">
+        <p class="text-3xl mb-2">✨</p>
+        <p class="text-sm text-gray-400">No recent financial requests</p>
+      </div>
+
+      <!-- Loading -->
+      <div x-show="requestsLoading" class="px-5 py-10 text-center">
+        <svg class="mx-auto h-8 w-8 animate-spin text-brand-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+      </div>
+
+      <!-- List -->
+      <div x-show="!requestsLoading && requests.length > 0" class="divide-y divide-gray-50">
+        <template x-for="req in requests.slice(0, 6)" :key="req.id || req.request_id">
+          <div class="flex items-center gap-3 px-5 py-3 hover:bg-gray-50/50">
+            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-base"
+                 :class="req.type === 'personal_advance' || req.type === 'advance'
+                   ? 'bg-blue-50'
+                   : 'bg-amber-50'"
+                 x-text="req.type === 'personal_advance' || req.type === 'advance' ? '👤' : '🏪'"></div>
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-sm font-medium text-gray-800" x-text="req.staff_name || req.full_name || 'Staff'"></p>
+              <p class="truncate text-xs text-gray-400" x-text="req.reason || req.description || req.type"></p>
+            </div>
+            <div class="text-right shrink-0">
+              <p class="text-sm font-semibold text-gray-800">₹<span x-text="Number(req.amount).toLocaleString('en-IN')"></span></p>
+              <span class="inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                    :class="{
+                      'bg-amber-100 text-amber-700': req.status === 'pending',
+                      'bg-green-100 text-green-700': req.status === 'approved',
+                      'bg-red-100 text-red-600': req.status === 'rejected',
+                    }"
+                    x-text="req.status"></span>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+  function adminDashboard() {
+    return {
+      refreshing: false,
+      attendanceLoading: true,
+      requestsLoading: true,
+      currentDateTime: '',
+      stats: {
+        totalStaff: '–',
+        todayPresent: '–',
+        pendingApprovals: '–',
+        pendingOvertime: '–',
+      },
+      attendance: [],
+      requests: [],
+
+      async loadAll() {
+        this.refreshing = true;
+        this.updateDateTime();
+        await Promise.all([
+          this.fetchDashboard(),
+          this.fetchAttendance(),
+          this.fetchRequests(),
+        ]);
+        this.refreshing = false;
+      },
+
+      updateDateTime() {
+        const now = new Date();
+        const opts = {
+          weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+          hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata',
+        };
+        this.currentDateTime = now.toLocaleString('en-IN', opts) + ' IST';
+      },
+
+      async fetchDashboard() {
+        try {
+          const res = await fetch('/api/dashboard/summary', { credentials: 'include' });
+          if (res.ok) {
+            const data = await res.json();
+            this.stats.totalStaff = data.total_staff ?? data.active_staff ?? 0;
+            this.stats.todayPresent = data.today_present ?? data.present_today ?? 0;
+            this.stats.pendingApprovals = data.pending_approvals ?? data.pending_financial ?? 0;
+            this.stats.pendingOvertime = data.pending_overtime ?? 0;
+          }
+        } catch (e) {
+          console.error('Dashboard fetch error:', e);
+        }
+      },
+
+      async fetchAttendance() {
+        this.attendanceLoading = true;
+        try {
+          const res = await fetch('/api/dashboard/summary', { credentials: 'include' });
+          if (res.ok) {
+            const data = await res.json();
+            this.attendance = data.today_attendance || data.attendance || [];
+          }
+        } catch (e) {
+          console.error('Attendance fetch error:', e);
+        } finally {
+          this.attendanceLoading = false;
+        }
+      },
+
+      async fetchRequests() {
+        this.requestsLoading = true;
+        try {
+          const res = await fetch('/api/financial/requests?status=pending', { credentials: 'include' });
+          if (res.ok) {
+            const data = await res.json();
+            this.requests = data.requests || data.data || [];
+          }
+        } catch (e) {
+          console.error('Requests fetch error:', e);
+        } finally {
+          this.requestsLoading = false;
+        }
+      },
+
+      getInitials(name) {
+        if (!name) return '?';
+        const parts = name.trim().split(/\s+/);
+        if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        return parts[0].substring(0, 2).toUpperCase();
+      },
+
+      formatStatus(status) {
+        const map = { in: 'In', out: 'Out', absent: 'Absent', present: 'Present', completed: 'Out' };
+        return map[status] || status || '–';
+      },
+    };
+  }
+</script>
+{% endblock %}

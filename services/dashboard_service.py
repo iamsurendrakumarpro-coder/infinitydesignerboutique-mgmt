@@ -26,6 +26,7 @@ def get_daily_summary(target_date: date | None = None) -> dict:
     if target_date is None:
         target_date = today_ist()
 
+    log.debug("get_daily_summary | target_date=%s", target_date)
     db = get_firestore()
     from services.user_service import list_staff
 
@@ -86,6 +87,7 @@ def get_financial_summary(start_date: date, end_date: date) -> dict:
 
     Returns aggregated amounts by type and status.
     """
+    log.debug("get_financial_summary | start_date=%s | end_date=%s", start_date, end_date)
     db = get_firestore()
     import pytz
     from datetime import datetime
@@ -157,6 +159,7 @@ def get_attendance_summary(start_date: date, end_date: date) -> dict:
     from services.attendance_service import get_attendance_history
     from utils.timezone_utils import minutes_to_hhmm
 
+    log.debug("get_attendance_summary | start_date=%s | end_date=%s", start_date, end_date)
     active_staff = list_staff(status_filter="active")
     staff_summaries = []
     total_days_present = 0

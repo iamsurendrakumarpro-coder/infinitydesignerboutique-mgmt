@@ -57,11 +57,21 @@ class Config:
     DEFAULT_LOGOUT_TIME: str = "19:00"   # 24-hr  ( 7 PM IST)
 
     # ── Allowed Designations ──────────────────────────────────────────────────
-    DESIGNATIONS: list[str] = ["cutting_master", "handwork_expert", "tailor"]
+    DESIGNATIONS: list[str] = [
+        "cutting_master",
+        "tailor",
+        "embroidery_artist",
+        "handwork_expert",
+        "designer",
+        "helper",
+    ]
     DESIGNATION_LABELS: dict[str, str] = {
         "cutting_master": "Cutting Master",
-        "handwork_expert": "Handwork Expert",
         "tailor": "Tailor",
+        "embroidery_artist": "Embroidery Artist",
+        "handwork_expert": "Handwork Expert",
+        "designer": "Designer",
+        "helper": "Helper",
     }
 
     # ── Staff Status Values ───────────────────────────────────────────────────

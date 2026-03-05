@@ -1,0 +1,370 @@
+{% extends "admin/layout.html" %}
+
+{% block page_title %}{{ "Edit Staff" if mode == "edit" else "Add New Staff" }}{% endblock %}
+
+{% block page_content %}
+<div x-data="staffForm()" x-init="init()" x-cloak>
+
+  <!-- Header -->
+  <div class="mb-6 flex items-center gap-3">
+    <a href="/admin/staff"
+       class="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 text-gray-500 transition-colors hover:bg-gray-50">
+      <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/>
+      </svg>
+    </a>
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900" x-text="mode === 'edit' ? '✏️ Edit Staff' : '➕ Add New Staff'"></h1>
+      <p class="text-sm text-gray-400" x-text="mode === 'edit' ? 'Update staff details' : 'Register a new team member'"></p>
+    </div>
+  </div>
+
+  <!-- Loading (edit mode) -->
+  <div x-show="fetchingData" class="py-20 text-center">
+    <svg class="mx-auto h-10 w-10 animate-spin text-brand-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+    </svg>
+    <p class="mt-3 text-sm text-gray-400">Loading staff details…</p>
+  </div>
+
+  <!-- Form -->
+  <form x-show="!fetchingData" @submit.prevent="submitForm()" class="space-y-6">
+
+    <div class="grid gap-6 lg:grid-cols-2">
+      <!-- Left Column -->
+      <div class="space-y-5">
+
+        <!-- Personal Information Card -->
+        <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 sm:p-6">
+          <h2 class="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-gray-400">
+            <span>👤</span> Personal Information
+          </h2>
+
+          <!-- Full Name -->
+          <div class="mb-4">
+            <label class="mb-1.5 block text-sm font-medium text-gray-700">Full Name <span class="text-red-400">*</span></label>
+            <input type="text" x-model="form.full_name" required
+                   placeholder="e.g. Ravi Kumar"
+                   class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+            <p x-show="errors.full_name" class="mt-1 text-xs text-red-500" x-text="errors.full_name"></p>
+          </div>
+
+          <!-- Phone Number -->
+          <div class="mb-4">
+            <label class="mb-1.5 block text-sm font-medium text-gray-700">Phone Number (Login ID) <span class="text-red-400">*</span></label>
+            <div class="relative">
+              <span class="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400">+91</span>
+              <input type="tel" inputmode="numeric" x-model="form.phone_number" required
+                     maxlength="10"
+                     @input="form.phone_number = form.phone_number.replace(/\D/g, '').slice(0, 10)"
+                     placeholder="10-digit number"
+                     class="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-14 pr-4 text-sm text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+            </div>
+            <p class="mt-1 text-xs text-gray-400" x-text="form.phone_number.length + '/10 digits'"></p>
+            <p x-show="errors.phone_number" class="mt-1 text-xs text-red-500" x-text="errors.phone_number"></p>
+          </div>
+
+          <!-- Default PIN (Create only) -->
+          <div x-show="mode === 'create'" class="mb-4">
+            <label class="mb-1.5 block text-sm font-medium text-gray-700">Default PIN <span class="text-red-400">*</span></label>
+            <input type="text" inputmode="numeric" x-model="form.pin" maxlength="4"
+                   @input="form.pin = form.pin.replace(/\D/g, '').slice(0, 4)"
+                   placeholder="4-digit PIN"
+                   class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm tracking-[0.3em] text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+            <p class="mt-1 text-xs text-gray-400">Staff will use this PIN to login</p>
+            <p x-show="errors.pin" class="mt-1 text-xs text-red-500" x-text="errors.pin"></p>
+          </div>
+
+          <!-- Emergency Contact -->
+          <div>
+            <label class="mb-1.5 block text-sm font-medium text-gray-700">Emergency Contact <span class="text-red-400">*</span></label>
+            <input type="tel" inputmode="numeric" x-model="form.emergency_contact" maxlength="10"
+                   @input="form.emergency_contact = form.emergency_contact.replace(/\D/g, '').slice(0, 10)"
+                   placeholder="10-digit emergency number"
+                   class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+            <p x-show="errors.emergency_contact" class="mt-1 text-xs text-red-500" x-text="errors.emergency_contact"></p>
+          </div>
+        </div>
+
+        <!-- Skills Card -->
+        <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 sm:p-6">
+          <h2 class="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-gray-400">
+            <span>🎯</span> Skills
+          </h2>
+
+          <div class="mb-3 flex flex-wrap gap-2">
+            <template x-for="(skill, idx) in form.skills" :key="idx">
+              <span class="inline-flex items-center gap-1 rounded-full bg-brand-100 px-3 py-1 text-xs font-semibold text-brand-700">
+                <span x-text="skill"></span>
+                <button type="button" @click="form.skills.splice(idx, 1)"
+                        class="ml-0.5 rounded-full p-0.5 transition-colors hover:bg-brand-200">
+                  <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                </button>
+              </span>
+            </template>
+          </div>
+
+          <div class="relative">
+            <input type="text" x-model="skillInput"
+                   @keydown.enter.prevent="addSkill()"
+                   @keydown.comma.prevent="addSkill()"
+                   placeholder="Type a skill and press Enter (e.g. Zardosi, Blouse Cutting)"
+                   class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+          </div>
+          <p class="mt-1 text-xs text-gray-400">Press Enter or comma to add each skill</p>
+        </div>
+      </div>
+
+      <!-- Right Column -->
+      <div class="space-y-5">
+
+        <!-- Work Details Card -->
+        <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 sm:p-6">
+          <h2 class="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-gray-400">
+            <span>💼</span> Work Details
+          </h2>
+
+          <!-- Hidden role field -->
+          <input type="hidden" x-model="form.role" value="staff">
+
+          <!-- Designation -->
+          <div class="mb-4">
+            <label class="mb-1.5 block text-sm font-medium text-gray-700">Designation <span class="text-red-400">*</span></label>
+            <select x-model="form.designation" required
+                    class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+              <option value="">Select designation…</option>
+              <template x-for="d in designations" :key="d">
+                <option :value="d" x-text="d"></option>
+              </template>
+            </select>
+            <p x-show="errors.designation" class="mt-1 text-xs text-red-500" x-text="errors.designation"></p>
+          </div>
+
+          <!-- Joining Date -->
+          <div class="mb-4">
+            <label class="mb-1.5 block text-sm font-medium text-gray-700">Joining Date <span class="text-red-400">*</span></label>
+            <input type="date" x-model="form.joining_date" required
+                   class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+            <p x-show="errors.joining_date" class="mt-1 text-xs text-red-500" x-text="errors.joining_date"></p>
+          </div>
+
+          <!-- Working Hours -->
+          <div class="mb-4 grid grid-cols-2 gap-3">
+            <div>
+              <label class="mb-1.5 block text-sm font-medium text-gray-700">Login Time <span class="text-red-400">*</span></label>
+              <input type="time" x-model="form.standard_login_time" required
+                     class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+            </div>
+            <div>
+              <label class="mb-1.5 block text-sm font-medium text-gray-700">Logout Time <span class="text-red-400">*</span></label>
+              <input type="time" x-model="form.standard_logout_time" required
+                     class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+            </div>
+          </div>
+
+          <!-- Status -->
+          <div>
+            <label class="mb-1.5 block text-sm font-medium text-gray-700">Status</label>
+            <div class="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+              <button type="button" @click="form.status = form.status === 'active' ? 'inactive' : 'active'"
+                      class="relative h-6 w-11 rounded-full transition-colors"
+                      :class="form.status === 'active' ? 'bg-green-500' : 'bg-gray-300'">
+                <span class="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform"
+                      :class="form.status === 'active' && 'translate-x-5'"></span>
+              </button>
+              <span class="text-sm font-medium" :class="form.status === 'active' ? 'text-green-700' : 'text-gray-500'"
+                    x-text="form.status === 'active' ? 'Active' : 'Inactive'"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Salary Card -->
+        <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 sm:p-6">
+          <h2 class="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-gray-400">
+            <span>💰</span> Salary
+          </h2>
+
+          <!-- Weekly Salary -->
+          <div class="mb-4">
+            <label class="mb-1.5 block text-sm font-medium text-gray-700">Weekly Salary <span class="text-red-400">*</span></label>
+            <div class="relative">
+              <span class="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400">₹</span>
+              <input type="number" x-model.number="form.weekly_salary" required min="0" step="1"
+                     placeholder="e.g. 6000"
+                     class="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-10 pr-4 text-sm text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+            </div>
+            <p x-show="errors.weekly_salary" class="mt-1 text-xs text-red-500" x-text="errors.weekly_salary"></p>
+          </div>
+
+          <!-- Daily Salary (Auto-calculated) -->
+          <div class="rounded-xl bg-brand-50 p-4 ring-1 ring-brand-100">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-xs font-medium text-brand-600">Daily Salary (auto-calculated)</p>
+                <p class="text-sm text-brand-500">Weekly ÷ 6 working days</p>
+              </div>
+              <p class="text-2xl font-bold text-brand-700">
+                ₹<span x-text="form.weekly_salary ? Math.round(form.weekly_salary / 6).toLocaleString('en-IN') : '–'"></span>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Submit Button Row -->
+    <div class="flex items-center justify-end gap-3 border-t border-gray-200 pt-5">
+      <a href="/admin/staff"
+         class="rounded-xl border border-gray-200 px-6 py-3 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50">
+        Cancel
+      </a>
+      <button type="submit" :disabled="submitting"
+              class="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-brand-600/20 transition-all hover:bg-brand-700 active:scale-95 disabled:opacity-50">
+        <svg x-show="submitting" class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+        <span x-text="submitting ? 'Saving…' : (mode === 'edit' ? 'Update Staff' : 'Create Staff')"></span>
+      </button>
+    </div>
+
+  </form>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+  function staffForm() {
+    return {
+      mode: '{{ mode|default("create") }}',
+      staffId: '{{ staff_id|default("") }}',
+      fetchingData: false,
+      submitting: false,
+      skillInput: '',
+      errors: {},
+
+      designations: [
+        'Cutting Master',
+        'Tailor',
+        'Embroidery Artist',
+        'Handwork Expert',
+        'Designer',
+        'Helper',
+      ],
+
+      form: {
+        full_name: '',
+        phone_number: '',
+        pin: '',
+        designation: '',
+        role: 'staff',
+        joining_date: '',
+        standard_login_time: '09:30',
+        standard_logout_time: '18:30',
+        emergency_contact: '',
+        weekly_salary: '',
+        skills: [],
+        status: 'active',
+      },
+
+      async init() {
+        if (this.mode === 'edit' && this.staffId) {
+          await this.fetchStaff();
+        }
+      },
+
+      async fetchStaff() {
+        this.fetchingData = true;
+        try {
+          const res = await fetch(`/api/users/staff/${this.staffId}`, { credentials: 'include' });
+          if (res.ok) {
+            const data = await res.json();
+            const s = data.staff || data.user || data;
+            this.form.full_name = s.full_name || '';
+            this.form.phone_number = s.phone_number || '';
+            this.form.designation = s.designation || '';
+            this.form.role = s.role || 'staff';
+            this.form.joining_date = s.joining_date || '';
+            this.form.standard_login_time = s.standard_login_time || '09:30';
+            this.form.standard_logout_time = s.standard_logout_time || '18:30';
+            this.form.emergency_contact = s.emergency_contact || '';
+            this.form.weekly_salary = s.weekly_salary || '';
+            this.form.skills = Array.isArray(s.skills) ? [...s.skills] : [];
+            this.form.status = s.status || 'active';
+          } else {
+            dispatchToast('error', 'Error', 'Failed to load staff details');
+          }
+        } catch (e) {
+          dispatchToast('error', 'Network Error', 'Could not reach the server');
+        } finally {
+          this.fetchingData = false;
+        }
+      },
+
+      addSkill() {
+        const skill = this.skillInput.trim();
+        if (skill && !this.form.skills.includes(skill)) {
+          this.form.skills.push(skill);
+        }
+        this.skillInput = '';
+      },
+
+      validate() {
+        this.errors = {};
+        if (!this.form.full_name.trim()) this.errors.full_name = 'Full name is required';
+        if (this.form.phone_number.length !== 10) this.errors.phone_number = 'Phone must be 10 digits';
+        if (this.mode === 'create' && this.form.pin.length !== 4) this.errors.pin = 'PIN must be 4 digits';
+        if (!this.form.designation) this.errors.designation = 'Designation is required';
+        if (!this.form.joining_date) this.errors.joining_date = 'Joining date is required';
+        if (this.form.emergency_contact.length !== 10) this.errors.emergency_contact = 'Emergency contact must be 10 digits';
+        if (!this.form.weekly_salary || this.form.weekly_salary <= 0) this.errors.weekly_salary = 'Weekly salary is required';
+        return Object.keys(this.errors).length === 0;
+      },
+
+      async submitForm() {
+        if (!this.validate()) {
+          dispatchToast('error', 'Validation Error', 'Please fix the highlighted fields');
+          return;
+        }
+
+        this.submitting = true;
+        const isEdit = this.mode === 'edit';
+
+        const payload = { ...this.form };
+        if (isEdit) {
+          delete payload.pin;
+        }
+
+        try {
+          const url = isEdit
+            ? `/api/users/staff/${this.staffId}`
+            : '/api/users/staff';
+          const method = isEdit ? 'PUT' : 'POST';
+
+          const res = await fetch(url, {
+            method,
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+
+          if (res.ok) {
+            dispatchToast('success', isEdit ? 'Staff Updated' : 'Staff Created', `${this.form.full_name} has been ${isEdit ? 'updated' : 'added'} successfully`);
+            setTimeout(() => { window.location.href = '/admin/staff'; }, 600);
+          } else {
+            const err = await res.json().catch(() => ({}));
+            dispatchToast('error', 'Error', err.error || 'Failed to save staff');
+          }
+        } catch (e) {
+          dispatchToast('error', 'Network Error', 'Could not reach the server');
+        } finally {
+          this.submitting = false;
+        }
+      },
+    };
+  }
+</script>
+{% endblock %}

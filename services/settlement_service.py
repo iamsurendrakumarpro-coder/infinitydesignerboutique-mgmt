@@ -61,6 +61,8 @@ def calculate_settlement(user_id: str, week_start: date, week_end: date) -> dict
 
     net_payable = round(base_pay + overtime_pay + expenses - advances, 2)
 
+    log.info("calculate_settlement | user_id=%s | days=%d | base=%.2f | overtime=%.2f | expenses=%.2f | advances=%.2f | net=%.2f",
+             user_id, days_present, base_pay, overtime_pay, expenses, advances, net_payable)
     return {
         "user_id": user_id,
         "full_name": staff.get("full_name", ""),
@@ -143,7 +145,9 @@ def get_settlement(settlement_id: str) -> dict | None:
     db = get_firestore()
     doc = db.collection(_COLLECTION).document(settlement_id).get()
     if not doc.exists:
+        log.debug("get_settlement | settlement_id=%s | found=false", settlement_id)
         return None
+    log.debug("get_settlement | settlement_id=%s | found=true", settlement_id)
     return _sanitise(doc.to_dict())
 
 
@@ -180,7 +184,9 @@ def get_settlements_for_user(user_id: str) -> list[dict]:
         .order_by("created_at", direction="DESCENDING")
         .stream()
     )
-    return [_sanitise(d.to_dict()) for d in docs]
+    results = [_sanitise(d.to_dict()) for d in docs]
+    log.debug("get_settlements_for_user | user_id=%s | count=%d", user_id, len(results))
+    return results
 
 
 # ── Helper ────────────────────────────────────────────────────────────────────

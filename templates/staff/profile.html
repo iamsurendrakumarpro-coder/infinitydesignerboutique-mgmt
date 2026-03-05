@@ -1,0 +1,334 @@
+{% extends "staff/layout.html" %}
+
+{% block page_title %}Profile{% endblock %}
+
+{% block page_content %}
+<div x-data="staffProfile()" x-init="init()" x-cloak>
+
+  <!-- ── Profile Header ───────────────────────────────────────────────── -->
+  <div class="mb-6 flex flex-col items-center text-center animate-fade-in">
+    <!-- Avatar -->
+    <div class="flex h-24 w-24 items-center justify-center rounded-full bg-brand-600 text-3xl font-bold text-white shadow-lg shadow-brand-600/30"
+         x-text="initials"></div>
+    <h1 class="mt-4 text-xl font-bold text-gray-900" x-text="profile.full_name || '{{ user.full_name|default("Staff") }}'"></h1>
+    <p class="mt-0.5 text-sm text-gray-400" x-text="profile.phone_number || '{{ user.phone_number|default("") }}'"></p>
+    <div class="mt-2 inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1 ring-1 ring-brand-100">
+      <span class="h-2 w-2 rounded-full bg-green-400"></span>
+      <span class="text-xs font-semibold text-brand-700" x-text="formatRole(profile.role || '{{ user.role|default("staff") }}')"></span>
+    </div>
+  </div>
+
+  <!-- ── Quick Info Cards ─────────────────────────────────────────────── -->
+  <div class="mb-6 grid grid-cols-2 gap-3">
+    <div class="rounded-2xl bg-white p-4 text-center shadow-sm ring-1 ring-gray-100">
+      <p class="text-2xl">📅</p>
+      <p class="mt-1 text-xs font-medium text-gray-400">Joined</p>
+      <p class="mt-0.5 text-sm font-bold text-gray-800" x-text="profile.joining_date || '—'"></p>
+    </div>
+    <div class="rounded-2xl bg-white p-4 text-center shadow-sm ring-1 ring-gray-100">
+      <p class="text-2xl">💰</p>
+      <p class="mt-1 text-xs font-medium text-gray-400">Weekly Salary</p>
+      <p class="mt-0.5 text-sm font-bold text-gray-800" x-text="profile.weekly_salary ? '₹' + Number(profile.weekly_salary).toLocaleString('en-IN') : '—'"></p>
+    </div>
+    <div class="rounded-2xl bg-white p-4 text-center shadow-sm ring-1 ring-gray-100">
+      <p class="text-2xl">📊</p>
+      <p class="mt-1 text-xs font-medium text-gray-400">Daily Salary</p>
+      <p class="mt-0.5 text-sm font-bold text-gray-800" x-text="profile.daily_salary ? '₹' + Number(profile.daily_salary).toLocaleString('en-IN') : '—'"></p>
+    </div>
+    <div class="rounded-2xl bg-white p-4 text-center shadow-sm ring-1 ring-gray-100">
+      <p class="text-2xl">✂️</p>
+      <p class="mt-1 text-xs font-medium text-gray-400">Skills</p>
+      <p class="mt-0.5 text-sm font-bold text-gray-800 truncate" x-text="(profile.skills && profile.skills.length) ? profile.skills.join(', ') : '—'"></p>
+    </div>
+  </div>
+
+  <!-- ── Recent Attendance (Last 7 Days) ──────────────────────────────── -->
+  <div class="mb-6 rounded-2xl bg-white shadow-sm ring-1 ring-gray-100">
+    <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+      <h2 class="text-sm font-semibold text-gray-900">📅 Last 7 Days</h2>
+      <span class="rounded-full bg-gray-100 px-2.5 py-0.5 text-[10px] font-medium text-gray-500"
+            x-text="attendanceDays.length + ' days'"></span>
+    </div>
+
+    <!-- Loading -->
+    <div x-show="attendanceLoading" class="py-8 text-center">
+      <svg class="mx-auto h-6 w-6 animate-spin text-brand-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+      </svg>
+    </div>
+
+    <!-- Empty -->
+    <div x-show="!attendanceLoading && attendanceDays.length === 0" class="py-8 text-center">
+      <p class="text-sm text-gray-400">No attendance records found</p>
+    </div>
+
+    <!-- Days List -->
+    <div x-show="!attendanceLoading && attendanceDays.length > 0" class="divide-y divide-gray-50">
+      <template x-for="day in attendanceDays" :key="day.date">
+        <div class="flex items-center justify-between px-5 py-3">
+          <div class="flex items-center gap-3">
+            <div class="flex h-9 w-9 items-center justify-center rounded-xl text-sm"
+                 :class="{
+                   'bg-green-50 text-green-600': day.status === 'present' || day.status === 'completed' || day.status === 'in',
+                   'bg-red-50 text-red-500': day.status === 'absent',
+                   'bg-gray-50 text-gray-400': !day.status || day.status === 'unknown',
+                 }"
+                 x-text="day.status === 'present' || day.status === 'completed' || day.status === 'in' ? '✅' : day.status === 'absent' ? '❌' : '➖'"></div>
+            <div>
+              <p class="text-sm font-medium text-gray-800" x-text="formatDayDate(day.date)"></p>
+              <p class="text-[10px] text-gray-400" x-text="(day.punch_in || day.login_time || '—') + ' → ' + (day.punch_out || day.logout_time || '—')"></p>
+            </div>
+          </div>
+          <span class="text-xs font-semibold text-gray-500" x-text="day.duration || day.total_hours || '—'"></span>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <!-- ── Change PIN ───────────────────────────────────────────────────── -->
+  <div class="mb-6 rounded-2xl bg-white shadow-sm ring-1 ring-gray-100">
+    <button @click="pinOpen = !pinOpen"
+            class="flex w-full items-center justify-between px-5 py-4">
+      <div class="flex items-center gap-3">
+        <span class="text-xl">🔐</span>
+        <span class="text-sm font-semibold text-gray-900">Change PIN</span>
+      </div>
+      <svg class="h-5 w-5 text-gray-400 transition-transform" :class="pinOpen && 'rotate-180'"
+           fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/>
+      </svg>
+    </button>
+
+    <div x-show="pinOpen" x-transition class="border-t border-gray-100 px-5 py-4">
+      <div class="space-y-3">
+        <!-- Current PIN -->
+        <div>
+          <label class="mb-1 block text-xs font-medium text-gray-500">Current PIN</label>
+          <input type="password"
+                 x-model="pin.current"
+                 inputmode="numeric"
+                 maxlength="6"
+                 placeholder="••••"
+                 class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-center text-lg font-bold tracking-[0.5em] text-gray-800 transition-colors focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-100">
+        </div>
+        <!-- New PIN -->
+        <div>
+          <label class="mb-1 block text-xs font-medium text-gray-500">New PIN</label>
+          <input type="password"
+                 x-model="pin.new_pin"
+                 inputmode="numeric"
+                 maxlength="6"
+                 placeholder="••••"
+                 class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-center text-lg font-bold tracking-[0.5em] text-gray-800 transition-colors focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-100">
+        </div>
+        <!-- Confirm PIN -->
+        <div>
+          <label class="mb-1 block text-xs font-medium text-gray-500">Confirm New PIN</label>
+          <input type="password"
+                 x-model="pin.confirm"
+                 inputmode="numeric"
+                 maxlength="6"
+                 placeholder="••••"
+                 class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-center text-lg font-bold tracking-[0.5em] text-gray-800 transition-colors focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-100"
+                 @keydown.enter="changePin()">
+        </div>
+        <!-- Submit -->
+        <button @click="changePin()"
+                :disabled="pinChanging || !pin.current || !pin.new_pin || !pin.confirm"
+                class="w-full rounded-xl bg-brand-600 py-3 text-sm font-bold text-white shadow-sm transition-all hover:bg-brand-700 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed">
+          <span x-show="!pinChanging">Update PIN</span>
+          <span x-show="pinChanging" class="inline-flex items-center gap-2">
+            <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+            Updating…
+          </span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Logout ───────────────────────────────────────────────────────── -->
+  <button @click="doLogout()"
+          :disabled="loggingOut"
+          class="w-full rounded-2xl border-2 border-red-200 bg-red-50 py-4 text-base font-bold text-red-600 transition-all hover:bg-red-100 hover:border-red-300 active:scale-[0.98] disabled:opacity-50">
+    <span x-show="!loggingOut" class="inline-flex items-center gap-2">🚪 Logout</span>
+    <span x-show="loggingOut" class="inline-flex items-center gap-2">
+      <svg class="h-5 w-5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+      </svg>
+      Logging out…
+    </span>
+  </button>
+
+  <div class="mt-4 pb-4 text-center">
+    <p class="text-[10px] text-gray-300">Infinity Designer Boutique · Staff Portal</p>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+  function staffProfile() {
+    return {
+      profile: {
+        full_name: '{{ user.full_name|default("") }}',
+        phone_number: '{{ user.phone_number|default("") }}',
+        role: '{{ user.role|default("staff") }}',
+        joining_date: null,
+        weekly_salary: null,
+        daily_salary: null,
+        skills: [],
+      },
+      initials: '',
+      pinOpen: false,
+      pin: { current: '', new_pin: '', confirm: '' },
+      pinChanging: false,
+      loggingOut: false,
+      attendanceDays: [],
+      attendanceLoading: false,
+
+      async init() {
+        this.initials = this.computeInitials(this.profile.full_name || '{{ user.full_name|default("S") }}');
+        await Promise.all([
+          this.fetchProfile(),
+          this.fetchAttendance(),
+        ]);
+      },
+
+      computeInitials(name) {
+        if (!name) return 'S';
+        const parts = name.trim().split(/\s+/);
+        if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        return parts[0].substring(0, 2).toUpperCase();
+      },
+
+      formatRole(role) {
+        const map = {
+          staff: 'Staff',
+          tailor: 'Tailor',
+          admin: 'Admin',
+          root_admin: 'Root Admin',
+          manager: 'Manager',
+        };
+        return map[role] || role || 'Staff';
+      },
+
+      async fetchProfile() {
+        try {
+          const res = await fetch('/api/auth/me', { credentials: 'include' });
+          if (res.ok) {
+            const data = await res.json();
+            const u = data.user || data;
+            this.profile.full_name = u.full_name || this.profile.full_name;
+            this.profile.phone_number = u.phone_number || this.profile.phone_number;
+            this.profile.role = u.role || u.designation || this.profile.role;
+            this.profile.joining_date = u.joining_date || u.joined || u.created_at || null;
+            this.profile.weekly_salary = u.weekly_salary || u.salary || null;
+            const WORKING_DAYS_PER_WEEK = 6; // Mon–Sat
+            this.profile.daily_salary = u.daily_salary || (u.weekly_salary ? Math.round(u.weekly_salary / WORKING_DAYS_PER_WEEK) : null);
+            this.profile.skills = u.skills || u.specializations || [];
+            this.initials = this.computeInitials(this.profile.full_name);
+
+            if (this.profile.joining_date) {
+              try {
+                const d = new Date(this.profile.joining_date);
+                if (!isNaN(d.getTime())) {
+                  this.profile.joining_date = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
+                }
+              } catch {}
+            }
+          }
+        } catch (e) {
+          console.error('Profile fetch error:', e);
+        }
+      },
+
+      async fetchAttendance() {
+        this.attendanceLoading = true;
+        try {
+          const res = await fetch('/api/attendance/history?period=weekly', { credentials: 'include' });
+          if (res.ok) {
+            const data = await res.json();
+            this.attendanceDays = data.records || data.history || data.data || [];
+          }
+        } catch (e) {
+          console.error('Attendance fetch error:', e);
+        } finally {
+          this.attendanceLoading = false;
+        }
+      },
+
+      async changePin() {
+        if (!this.pin.current || !this.pin.new_pin || !this.pin.confirm) {
+          dispatchToast('error', 'Missing Fields', 'Please fill in all PIN fields');
+          return;
+        }
+        if (this.pin.new_pin !== this.pin.confirm) {
+          dispatchToast('error', 'PIN Mismatch', 'New PIN and confirmation do not match');
+          return;
+        }
+        if (this.pin.new_pin.length < 4) {
+          dispatchToast('error', 'Too Short', 'PIN must be at least 4 digits');
+          return;
+        }
+        if (this.pinChanging) return;
+        this.pinChanging = true;
+
+        try {
+          const res = await fetch('/api/auth/change-pin', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              current_pin: this.pin.current,
+              new_pin: this.pin.new_pin,
+            }),
+          });
+
+          const data = await res.json();
+
+          if (!res.ok) {
+            dispatchToast('error', 'PIN Change Failed', data.error || data.message || 'Could not update PIN');
+            return;
+          }
+
+          dispatchToast('success', 'PIN Updated! 🔐', 'Your PIN has been changed successfully');
+          this.pin = { current: '', new_pin: '', confirm: '' };
+          this.pinOpen = false;
+        } catch (e) {
+          dispatchToast('error', 'Network Error', 'Please check your connection');
+        } finally {
+          this.pinChanging = false;
+        }
+      },
+
+      async doLogout() {
+        if (this.loggingOut) return;
+        this.loggingOut = true;
+        try {
+          await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+        } catch (e) {
+          // proceed even on error
+        }
+        window.location.href = '/login';
+      },
+
+      formatDayDate(dateStr) {
+        if (!dateStr) return '—';
+        try {
+          const d = new Date(dateStr);
+          if (isNaN(d.getTime())) return dateStr;
+          return d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' });
+        } catch {
+          return dateStr;
+        }
+      },
+    };
+  }
+</script>
+{% endblock %}

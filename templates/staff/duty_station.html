@@ -1,0 +1,317 @@
+{% extends "staff/layout.html" %}
+
+{% block page_title %}Duty Station{% endblock %}
+
+{% block page_content %}
+<div x-data="dutyStation()" x-init="init()" x-cloak>
+
+  <!-- ── Greeting ─────────────────────────────────────────────────────── -->
+  <div class="mb-6 text-center animate-fade-in">
+    <p class="text-3xl font-bold text-gray-900" x-text="greeting + ','"></p>
+    <p class="mt-1 text-xl font-semibold text-brand-600">{{ user.full_name|default("Staff") }}</p>
+    <div class="mt-3 flex items-center justify-center gap-2 text-gray-400">
+      <span class="text-sm font-medium" x-text="currentDate"></span>
+    </div>
+    <p class="mt-1 text-4xl font-bold tabular-nums text-gray-800" x-text="currentTime"></p>
+  </div>
+
+  <!-- ── Offline Banner ───────────────────────────────────────────────── -->
+  <div x-show="!online" x-transition
+       class="mb-4 rounded-2xl bg-red-50 p-4 text-center ring-1 ring-red-200">
+    <p class="text-sm font-semibold text-red-600">📡 You're offline</p>
+    <p class="mt-1 text-xs text-red-500">Punch will sync when connection returns</p>
+  </div>
+
+  <!-- ── Loading State ────────────────────────────────────────────────── -->
+  <div x-show="loading" class="flex flex-col items-center gap-4 py-16">
+    <svg class="h-10 w-10 animate-spin text-brand-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+    </svg>
+    <p class="text-sm text-gray-400">Loading your status…</p>
+  </div>
+
+  <!-- ── Main Punch Area ──────────────────────────────────────────────── -->
+  <div x-show="!loading" x-transition class="space-y-4">
+
+    <!-- STATE: Not Punched In -->
+    <div x-show="state === 'not_punched_in'" x-transition class="space-y-4">
+      <div class="rounded-2xl bg-white p-5 text-center shadow-sm ring-1 ring-gray-100">
+        <p class="text-5xl mb-3">☀️</p>
+        <p class="text-lg font-semibold text-gray-700">Ready to start your day?</p>
+        <p class="mt-1 text-sm text-gray-400">Tap the button below to punch in</p>
+      </div>
+
+      <button @click="doPunch('punch_in')"
+              :disabled="punching"
+              class="group relative w-full overflow-hidden rounded-2xl bg-green-500 px-6 py-8 text-white shadow-lg shadow-green-500/30 transition-all duration-200 hover:bg-green-600 hover:shadow-xl hover:shadow-green-500/40 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
+              style="min-height: 120px;">
+        <div class="absolute inset-0 bg-gradient-to-br from-green-400/30 to-transparent"></div>
+        <div class="relative flex flex-col items-center gap-2">
+          <span x-show="!punching" class="text-4xl">👆</span>
+          <svg x-show="punching" class="h-10 w-10 animate-spin text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+          </svg>
+          <span class="text-2xl font-bold tracking-wide" x-text="punching ? 'Punching In…' : 'PUNCH IN'"></span>
+          <span class="text-sm font-medium text-green-100" x-text="'Start your shift'"></span>
+        </div>
+      </button>
+    </div>
+
+    <!-- STATE: Punched In (Working) -->
+    <div x-show="state === 'punched_in'" x-transition class="space-y-4">
+      <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <span class="inline-flex h-3 w-3 rounded-full bg-green-400 animate-pulse"></span>
+            <span class="text-sm font-semibold text-green-600">On Duty</span>
+          </div>
+          <span class="text-xs text-gray-400">Punched in at</span>
+        </div>
+        <p class="text-3xl font-bold text-gray-800" x-text="punchInTime || '—'"></p>
+        <div class="mt-4 rounded-xl bg-brand-50 p-4 text-center">
+          <p class="text-xs font-medium text-brand-500 uppercase tracking-wider">Working Time</p>
+          <p class="mt-1 text-3xl font-bold tabular-nums text-brand-700" x-text="elapsed"></p>
+        </div>
+      </div>
+
+      <button @click="doPunch('punch_out')"
+              :disabled="punching"
+              class="group relative w-full overflow-hidden rounded-2xl bg-red-500 px-6 py-8 text-white shadow-lg shadow-red-500/30 transition-all duration-200 hover:bg-red-600 hover:shadow-xl hover:shadow-red-500/40 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
+              style="min-height: 120px;">
+        <div class="absolute inset-0 bg-gradient-to-br from-red-400/30 to-transparent"></div>
+        <div class="relative flex flex-col items-center gap-2">
+          <span x-show="!punching" class="text-4xl">👋</span>
+          <svg x-show="punching" class="h-10 w-10 animate-spin text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+          </svg>
+          <span class="text-2xl font-bold tracking-wide" x-text="punching ? 'Punching Out…' : 'PUNCH OUT'"></span>
+          <span class="text-sm font-medium text-red-100">End your shift</span>
+        </div>
+      </button>
+    </div>
+
+    <!-- STATE: Shift Complete -->
+    <div x-show="state === 'shift_complete'" x-transition class="space-y-4">
+      <div class="rounded-2xl bg-white p-6 text-center shadow-sm ring-1 ring-gray-100">
+        <div class="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-green-50">
+          <span class="text-5xl" x-ref="checkmark">✅</span>
+        </div>
+        <p class="text-xl font-bold text-gray-800">Shift Complete!</p>
+        <p class="mt-1 text-sm text-gray-400">Great work today 💪</p>
+      </div>
+
+      <div class="grid grid-cols-3 gap-3">
+        <div class="rounded-2xl bg-white p-4 text-center shadow-sm ring-1 ring-gray-100">
+          <p class="text-xs font-medium text-gray-400">In</p>
+          <p class="mt-1 text-lg font-bold text-green-600" x-text="punchInTime || '—'"></p>
+        </div>
+        <div class="rounded-2xl bg-white p-4 text-center shadow-sm ring-1 ring-gray-100">
+          <p class="text-xs font-medium text-gray-400">Out</p>
+          <p class="mt-1 text-lg font-bold text-red-500" x-text="punchOutTime || '—'"></p>
+        </div>
+        <div class="rounded-2xl bg-white p-4 text-center shadow-sm ring-1 ring-gray-100">
+          <p class="text-xs font-medium text-gray-400">Duration</p>
+          <p class="mt-1 text-lg font-bold text-brand-600" x-text="totalDuration || '—'"></p>
+        </div>
+      </div>
+
+      <div class="rounded-2xl bg-brand-50 p-5 text-center ring-1 ring-brand-100">
+        <p class="text-sm text-brand-600 font-medium">See you tomorrow! 🌙</p>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Success Animation Overlay ────────────────────────────────────── -->
+  <div x-show="showSuccess" x-transition.opacity.duration.500ms
+       class="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+       @click="showSuccess = false">
+    <div class="animate-slide-up flex flex-col items-center gap-3 rounded-3xl bg-white p-10 shadow-2xl">
+      <span class="text-7xl">🎉</span>
+      <p class="text-xl font-bold text-gray-800" x-text="successMessage"></p>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+  function dutyStation() {
+    return {
+      loading: true,
+      punching: false,
+      online: navigator.onLine,
+      state: 'not_punched_in',  // 'not_punched_in' | 'punched_in' | 'shift_complete'
+      punchInTime: null,
+      punchOutTime: null,
+      punchInTimestamp: null,
+      totalDuration: null,
+      elapsed: '00:00:00',
+      greeting: '',
+      currentDate: '',
+      currentTime: '',
+      showSuccess: false,
+      successMessage: '',
+      _clockInterval: null,
+      _elapsedInterval: null,
+
+      async init() {
+        this.updateClock();
+        this.updateGreeting();
+        this._clockInterval = setInterval(() => this.updateClock(), 1000);
+
+        window.addEventListener('online',  () => this.online = true);
+        window.addEventListener('offline', () => this.online = false);
+
+        await this.fetchStatus();
+      },
+
+      updateClock() {
+        const now = new Date();
+        const dateOpts = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' };
+        const timeOpts = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' };
+        this.currentDate = now.toLocaleDateString('en-IN', dateOpts);
+        this.currentTime = now.toLocaleTimeString('en-IN', timeOpts).toUpperCase();
+      },
+
+      updateGreeting() {
+        const hour = parseInt(new Date().toLocaleString('en-IN', { hour: 'numeric', hour12: false, timeZone: 'Asia/Kolkata' }));
+        if (hour < 12) this.greeting = 'Good Morning';
+        else if (hour < 17) this.greeting = 'Good Afternoon';
+        else this.greeting = 'Good Evening';
+      },
+
+      async fetchStatus() {
+        this.loading = true;
+        try {
+          const res = await fetch('/api/attendance/status', { credentials: 'include' });
+          if (!res.ok) throw new Error('Failed to fetch status');
+          const data = await res.json();
+
+          if (data.punch_out || data.punch_out_time || data.status === 'completed') {
+            this.state = 'shift_complete';
+            this.punchInTime = this.formatTime(data.punch_in || data.punch_in_time || data.login_time);
+            this.punchOutTime = this.formatTime(data.punch_out || data.punch_out_time || data.logout_time);
+            this.totalDuration = data.duration || data.total_hours || this.calcDuration(data.punch_in || data.punch_in_time, data.punch_out || data.punch_out_time);
+          } else if (data.punch_in || data.punch_in_time || data.status === 'in' || data.status === 'present') {
+            this.state = 'punched_in';
+            this.punchInTime = this.formatTime(data.punch_in || data.punch_in_time || data.login_time);
+            this.punchInTimestamp = new Date(data.punch_in || data.punch_in_time || data.login_time).getTime();
+            this.startElapsedTimer();
+          } else {
+            this.state = 'not_punched_in';
+          }
+        } catch (e) {
+          this.state = 'not_punched_in';
+        } finally {
+          this.loading = false;
+        }
+      },
+
+      async doPunch(action) {
+        if (this.punching) return;
+        this.punching = true;
+
+        // Haptic feedback
+        if (navigator.vibrate) navigator.vibrate(50);
+
+        try {
+          const res = await fetch('/api/attendance/punch', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action }),
+          });
+
+          const data = await res.json();
+
+          if (!res.ok) {
+            dispatchToast('error', 'Punch Failed', data.error || data.message || 'Something went wrong');
+            return;
+          }
+
+          if (action === 'punch_in') {
+            this.punchInTime = this.formatTime(data.punch_in || data.punch_in_time || data.time || new Date().toISOString());
+            this.punchInTimestamp = Date.now();
+            this.state = 'punched_in';
+            this.startElapsedTimer();
+            this.showSuccessAnimation('Punched In! 🚀');
+            dispatchToast('success', 'Punched In', 'Your shift has started');
+          } else {
+            this.punchOutTime = this.formatTime(data.punch_out || data.punch_out_time || data.time || new Date().toISOString());
+            this.totalDuration = data.duration || data.total_hours || this.elapsed;
+            this.state = 'shift_complete';
+            this.stopElapsedTimer();
+            this.showSuccessAnimation('Punched Out! 👋');
+            dispatchToast('success', 'Punched Out', 'Great work today!');
+          }
+        } catch (e) {
+          dispatchToast('error', 'Network Error', 'Please check your connection and try again');
+        } finally {
+          this.punching = false;
+        }
+      },
+
+      startElapsedTimer() {
+        this.stopElapsedTimer();
+        const update = () => {
+          if (!this.punchInTimestamp) return;
+          const diff = Date.now() - this.punchInTimestamp;
+          const h = Math.floor(diff / 3600000);
+          const m = Math.floor((diff % 3600000) / 60000);
+          const s = Math.floor((diff % 60000) / 1000);
+          this.elapsed = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+        };
+        update();
+        this._elapsedInterval = setInterval(update, 1000);
+      },
+
+      stopElapsedTimer() {
+        if (this._elapsedInterval) {
+          clearInterval(this._elapsedInterval);
+          this._elapsedInterval = null;
+        }
+      },
+
+      formatTime(isoStr) {
+        if (!isoStr) return null;
+        try {
+          const d = new Date(isoStr);
+          if (isNaN(d.getTime())) return isoStr;
+          return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' }).toUpperCase();
+        } catch {
+          return isoStr;
+        }
+      },
+
+      calcDuration(start, end) {
+        try {
+          const diff = new Date(end).getTime() - new Date(start).getTime();
+          if (isNaN(diff) || diff < 0) return '—';
+          const h = Math.floor(diff / 3600000);
+          const m = Math.floor((diff % 3600000) / 60000);
+          return `${h}h ${m}m`;
+        } catch {
+          return '—';
+        }
+      },
+
+      showSuccessAnimation(msg) {
+        this.successMessage = msg;
+        this.showSuccess = true;
+        if (navigator.vibrate) navigator.vibrate([50, 100, 50]);
+        setTimeout(() => this.showSuccess = false, 2000);
+      },
+
+      destroy() {
+        if (this._clockInterval) clearInterval(this._clockInterval);
+        this.stopElapsedTimer();
+      },
+    };
+  }
+</script>
+{% endblock %}

@@ -108,7 +108,9 @@ def get_request(request_id: str) -> dict | None:
     db = get_firestore()
     doc = db.collection(_COLLECTION).document(request_id).get()
     if not doc.exists:
+        log.debug("get_request | request_id=%s | found=false", request_id)
         return None
+    log.debug("get_request | request_id=%s | found=true", request_id)
     return _sanitise(doc.to_dict())
 
 
@@ -215,6 +217,8 @@ def get_approved_requests_for_period(user_id: str, start: date, end: date, req_t
             if start <= doc_date <= end:
                 if req_type is None or data.get("type") == req_type:
                     results.append(data)
+    log.debug("get_approved_requests_for_period | user_id=%s | start=%s | end=%s | type=%s | count=%d",
+              user_id, start, end, req_type, len(results))
     return results
 
 
