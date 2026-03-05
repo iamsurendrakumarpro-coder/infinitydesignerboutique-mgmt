@@ -53,7 +53,12 @@ def change_pin():
     """Force PIN change page."""
     if "user_id" not in session:
         return redirect(url_for("pages.login"))
-    return render_template("auth/change_pin.html", user=_session_user())
+    user = _session_user()
+    return render_template(
+        "auth/change_pin.html",
+        user=user,
+        is_first_login=user.get("is_first_login", False),
+    )
 
 
 # ── Admin pages ───────────────────────────────────────────────────────────────
