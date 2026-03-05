@@ -1,10 +1,5 @@
 """
-modules/auth/routes.py – Authentication Blueprint.
-
-Page Routes
------------
-GET  /               → Login page
-GET  /change-pin     → PIN change page (first-login enforcement)
+modules/auth/routes.py – Authentication Blueprint (JSON API only).
 
 API Routes
 ----------
@@ -20,10 +15,6 @@ from flask import (
     request,
     session,
     jsonify,
-    redirect,
-    url_for,
-    render_template,
-    current_app,
 )
 
 from services.auth_service import authenticate_user, change_pin
@@ -33,28 +24,6 @@ from utils.logger import get_logger
 log = get_logger(__name__)
 
 auth_bp = Blueprint("auth", __name__)
-
-
-# ── Page routes ───────────────────────────────────────────────────────────────
-
-@auth_bp.get("/")
-def login_page():
-    """Render the login page.  Redirect if already logged in."""
-    if "user_id" in session:
-        return _redirect_by_role()
-    return render_template("index.html", boutique_name=current_app.config["BOUTIQUE_NAME"])
-
-
-@auth_bp.get("/change-pin")
-def change_pin_page():
-    """Render the PIN-change page."""
-    if "user_id" not in session:
-        return redirect(url_for("auth.login_page"))
-    return render_template(
-        "change_pin.html",
-        boutique_name=current_app.config["BOUTIQUE_NAME"],
-        user=_session_user(),
-    )
 
 
 # ── API routes ────────────────────────────────────────────────────────────────
@@ -92,18 +61,19 @@ def api_login():
     session["is_first_login"] = result.get("is_first_login", False)
     session.permanent = True
 
-    redirect_url = url_for("auth.change_pin_page") if result.get("is_first_login") else _redirect_url_for_role(result["role"])
-
     log.info(
         "Login successful | user_id=%s | role=%s | first_login=%s",
         result["user_id"], result["role"], result.get("is_first_login"),
     )
     return jsonify({
         "success": True,
-        "role": result["role"],
-        "full_name": result["full_name"],
-        "is_first_login": result.get("is_first_login", False),
-        "redirect_url": redirect_url,
+        "user": {
+            "user_id": result["user_id"],
+            "role": result["role"],
+            "full_name": result["full_name"],
+            "phone_number": result["phone_number"],
+            "is_first_login": result.get("is_first_login", False),
+        },
     })
 
 
@@ -114,7 +84,7 @@ def api_logout():
     role = session.get("role", "unknown")
     session.clear()
     log.info("Logout | user_id=%s | role=%s", user_id, role)
-    return jsonify({"success": True, "redirect_url": url_for("auth.login_page")})
+    return jsonify({"success": True, "message": "Logged out successfully."})
 
 
 @auth_bp.post("/api/auth/change-pin")
@@ -140,10 +110,9 @@ def api_change_pin():
         return jsonify({"success": False, "error": error}), 400
 
     session["is_first_login"] = False
-    redirect_url = _redirect_url_for_role(role)
 
     log.info("PIN change API success | user_id=%s | role=%s", user_id, role)
-    return jsonify({"success": True, "redirect_url": redirect_url})
+    return jsonify({"success": True, "message": "PIN changed successfully."})
 
 
 @auth_bp.get("/api/auth/me")
@@ -151,29 +120,13 @@ def api_me():
     """Return current session info."""
     if "user_id" not in session:
         return jsonify({"success": False, "error": "Not authenticated."}), 401
-    return jsonify({"success": True, "user": _session_user()})
-
-
-# ── Helpers ───────────────────────────────────────────────────────────────────
-
-def _session_user() -> dict:
-    return {
-        "user_id": session.get("user_id"),
-        "role": session.get("role"),
-        "full_name": session.get("full_name"),
-        "phone_number": session.get("phone_number"),
-        "is_first_login": session.get("is_first_login", False),
-    }
-
-
-def _redirect_url_for_role(role: str) -> str:
-    if role == "admin":
-        return url_for("admin.dashboard")
-    return url_for("staff_views.duty_station")
-
-
-def _redirect_by_role():
-    role = session.get("role", "")
-    if role == "admin":
-        return redirect(url_for("admin.dashboard"))
-    return redirect(url_for("staff_views.duty_station"))
+    return jsonify({
+        "success": True,
+        "user": {
+            "user_id": session.get("user_id"),
+            "role": session.get("role"),
+            "full_name": session.get("full_name"),
+            "phone_number": session.get("phone_number"),
+            "is_first_login": session.get("is_first_login", False),
+        },
+    })

@@ -67,6 +67,21 @@ class Config:
     # ── Staff Status Values ───────────────────────────────────────────────────
     STAFF_STATUSES: list[str] = ["active", "inactive", "deactivated"]
 
+    # ── Overtime & Settlement ─────────────────────────────────────────────────
+    OVERTIME_GRACE_MINUTES: int = 60
+    WORKING_DAYS_PER_WEEK: int = 6
+    STANDARD_HOURS_PER_DAY: int = 8
+
+    # ── CORS ──────────────────────────────────────────────────────────────────
+    CORS_ORIGINS: list[str] = [
+        s.strip()
+        for s in os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000").split(",")
+        if s.strip()
+    ]
+
+    # ── JWT ───────────────────────────────────────────────────────────────────
+    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "jwt-dev-secret-change-in-production")
+
 
 class DevelopmentConfig(Config):
     DEBUG: bool = True
@@ -75,6 +90,11 @@ class DevelopmentConfig(Config):
 class ProductionConfig(Config):
     DEBUG: bool = False
     SESSION_COOKIE_SECURE: bool = True   # HTTPS only in production
+    CORS_ORIGINS: list[str] = [
+        s.strip()
+        for s in os.getenv("CORS_ORIGINS", "").split(",")
+        if s.strip()
+    ]
 
 
 # ── Config selector ──────────────────────────────────────────────────────────

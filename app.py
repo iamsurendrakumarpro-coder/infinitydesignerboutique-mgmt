@@ -1,6 +1,6 @@
 """
-app.py – Infinity Designer Boutique Management System
-Entry point for the Flask application.
+app.py – Infinity Designer Boutique Management REST API.
+Entry point for the Flask application (pure JSON API, no templates).
 
 Run (development):
     python app.py
@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import os
 
-from flask import Flask, jsonify, redirect, url_for
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 
 from config import get_config, Config
@@ -20,8 +20,12 @@ from utils.logger import init_logging, get_logger
 
 # ── Module imports ────────────────────────────────────────────────────────────
 from modules.auth.routes import auth_bp
-from modules.users.routes import users_bp, admin_bp
-from modules.attendance.routes import attendance_bp, staff_views_bp
+from modules.users.routes import users_bp
+from modules.attendance.routes import attendance_bp
+from modules.financial.routes import financial_bp
+from modules.overtime.routes import overtime_bp
+from modules.settlements.routes import settlements_bp
+from modules.dashboard.routes import dashboard_bp
 
 
 def create_app(config: Config | None = None) -> Flask:
@@ -46,12 +50,8 @@ def create_app(config: Config | None = None) -> Flask:
     log.info("Starting %s | env=%s | debug=%s", cfg.BOUTIQUE_NAME, os.getenv("FLASK_ENV", "development"), cfg.DEBUG)
     log.info("=" * 70)
 
-    # ── Create Flask app ──────────────────────────────────────────────────────
-    app = Flask(
-        __name__,
-        template_folder="templates",
-        static_folder="static",
-    )
+    # ── Create Flask app (no templates) ───────────────────────────────────────
+    app = Flask(__name__)
 
     # ── Apply config ──────────────────────────────────────────────────────────
     app.secret_key = cfg.SECRET_KEY
@@ -63,9 +63,17 @@ def create_app(config: Config | None = None) -> Flask:
     app.config["TIMEZONE"] = cfg.TIMEZONE
     app.config["DESIGNATIONS"] = cfg.DESIGNATIONS
     app.config["DESIGNATION_LABELS"] = cfg.DESIGNATION_LABELS
+    app.config["JWT_SECRET_KEY"] = cfg.JWT_SECRET_KEY
 
-    # ── CORS (for development – restrict in production) ───────────────────────
-    CORS(app, supports_credentials=True)
+    # ── CORS (configured for React frontend) ──────────────────────────────────
+    CORS(
+        app,
+        supports_credentials=True,
+        origins=cfg.CORS_ORIGINS,
+        allow_headers=["Content-Type", "Authorization"],
+        methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    )
+    log.info("CORS origins: %s", cfg.CORS_ORIGINS)
 
     # ── Initialise Firebase (eagerly so errors surface at startup) ────────────
     try:
@@ -78,36 +86,71 @@ def create_app(config: Config | None = None) -> Flask:
 
     # ── Register blueprints ───────────────────────────────────────────────────
     app.register_blueprint(auth_bp)
-    app.register_blueprint(admin_bp)
     app.register_blueprint(users_bp)
     app.register_blueprint(attendance_bp)
-    app.register_blueprint(staff_views_bp)
+    app.register_blueprint(financial_bp)
+    app.register_blueprint(overtime_bp)
+    app.register_blueprint(settlements_bp)
+    app.register_blueprint(dashboard_bp)
 
-    log.info("Blueprints registered: auth, admin, users, attendance, staff_views")
+    log.info(
+        "Blueprints registered: auth, users, attendance, financial, overtime, settlements, dashboard"
+    )
 
-    # ── Global error handlers ─────────────────────────────────────────────────
+    # ── Request logging ───────────────────────────────────────────────────────
+    @app.before_request
+    def log_request():
+        if request.path == "/api/health":
+            return
+        log.info(
+            "REQUEST %s %s | ip=%s",
+            request.method,
+            request.path,
+            request.remote_addr,
+        )
+
+    @app.after_request
+    def log_response(response):
+        if request.path == "/api/health":
+            return response
+        log.info(
+            "RESPONSE %s %s | status=%d",
+            request.method,
+            request.path,
+            response.status_code,
+        )
+        return response
+
+    # ── Global JSON error handlers ────────────────────────────────────────────
     @app.errorhandler(404)
     def not_found(e):
-        log.warning("404 Not Found | path=%s", str(e))
-        from flask import request, render_template
-        if request.path.startswith("/api/"):
-            return jsonify({"success": False, "error": "Endpoint not found."}), 404
-        return render_template("404.html", boutique_name=cfg.BOUTIQUE_NAME), 404
+        log.warning("404 Not Found | path=%s", request.path)
+        return jsonify({"success": False, "error": "Endpoint not found."}), 404
+
+    @app.errorhandler(405)
+    def method_not_allowed(e):
+        log.warning("405 Method Not Allowed | path=%s | method=%s", request.path, request.method)
+        return jsonify({"success": False, "error": "Method not allowed."}), 405
 
     @app.errorhandler(500)
     def internal_error(e):
         log.error("500 Internal Server Error | error=%s", str(e))
-        from flask import request
-        if request.path.startswith("/api/"):
-            return jsonify({"success": False, "error": "Internal server error."}), 500
         return jsonify({"success": False, "error": "Internal server error."}), 500
 
     @app.errorhandler(403)
     def forbidden(e):
-        from flask import request
-        if request.path.startswith("/api/"):
-            return jsonify({"success": False, "error": "Access denied."}), 403
-        return redirect(url_for("auth.login_page"))
+        log.warning("403 Forbidden | path=%s", request.path)
+        return jsonify({"success": False, "error": "Access denied."}), 403
+
+    @app.errorhandler(400)
+    def bad_request(e):
+        log.warning("400 Bad Request | path=%s | error=%s", request.path, str(e))
+        return jsonify({"success": False, "error": "Bad request."}), 400
+
+    # ── Health check ──────────────────────────────────────────────────────────
+    @app.get("/api/health")
+    def health_check():
+        return jsonify({"success": True, "status": "healthy", "app": cfg.BOUTIQUE_NAME})
 
     log.info("Application factory complete. Ready to serve requests.")
     return app
