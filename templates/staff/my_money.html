@@ -1,0 +1,344 @@
+{% extends "staff/layout.html" %}
+
+{% block page_title %}My Money{% endblock %}
+
+{% block page_content %}
+<div x-data="myMoney()" x-init="init()" x-cloak>
+
+  <!-- ── Tabs ─────────────────────────────────────────────────────────── -->
+  <div class="mb-5 flex gap-1 rounded-2xl bg-gray-100 p-1">
+    <button @click="tab = 'new'"
+            class="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all"
+            :class="tab === 'new'
+              ? 'bg-white text-brand-700 shadow-sm'
+              : 'text-gray-500 hover:text-gray-700'">
+      ➕ New Request
+    </button>
+    <button @click="tab = 'history'; fetchRequests()"
+            class="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all"
+            :class="tab === 'history'
+              ? 'bg-white text-brand-700 shadow-sm'
+              : 'text-gray-500 hover:text-gray-700'">
+      📋 My Requests
+    </button>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- TAB: New Request                                                    -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <div x-show="tab === 'new'" x-transition class="space-y-4">
+
+    <p class="text-center text-sm text-gray-400">What do you need money for?</p>
+
+    <!-- Category Cards -->
+    <div class="grid grid-cols-1 gap-3">
+
+      <!-- Materials / Thread -->
+      <button @click="selectCategory('shop_expense', 'materials', '🧵', 'Materials / Thread')"
+              class="flex items-center gap-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 transition-all hover:shadow-md hover:ring-brand-200 active:scale-[0.98]"
+              :class="form.category === 'materials' && 'ring-2 ring-brand-400 bg-brand-50'">
+        <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-purple-50 text-3xl">🧵</div>
+        <div class="text-left">
+          <p class="text-base font-semibold text-gray-800">Materials / Thread</p>
+          <p class="text-xs text-gray-400">Fabric, thread, buttons, zippers</p>
+        </div>
+      </button>
+
+      <!-- Food / Tea -->
+      <button @click="selectCategory('shop_expense', 'food', '🍵', 'Food / Tea')"
+              class="flex items-center gap-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 transition-all hover:shadow-md hover:ring-brand-200 active:scale-[0.98]"
+              :class="form.category === 'food' && 'ring-2 ring-brand-400 bg-brand-50'">
+        <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-3xl">🍵</div>
+        <div class="text-left">
+          <p class="text-base font-semibold text-gray-800">Food / Tea</p>
+          <p class="text-xs text-gray-400">Tea, snacks, lunch expenses</p>
+        </div>
+      </button>
+
+      <!-- Personal Advance -->
+      <button @click="selectCategory('personal_advance', 'personal', '💳', 'Personal Advance')"
+              class="flex items-center gap-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 transition-all hover:shadow-md hover:ring-brand-200 active:scale-[0.98]"
+              :class="form.category === 'personal' && 'ring-2 ring-brand-400 bg-brand-50'">
+        <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-3xl">💳</div>
+        <div class="text-left">
+          <p class="text-base font-semibold text-gray-800">Personal Advance</p>
+          <p class="text-xs text-gray-400">Salary advance or personal need</p>
+        </div>
+      </button>
+
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- TAB: My Requests History                                            -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <div x-show="tab === 'history'" x-transition class="space-y-3">
+
+    <!-- Loading -->
+    <div x-show="historyLoading" class="py-12 text-center">
+      <svg class="mx-auto h-8 w-8 animate-spin text-brand-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+      </svg>
+    </div>
+
+    <!-- Empty State -->
+    <div x-show="!historyLoading && requests.length === 0" class="py-12 text-center">
+      <p class="text-4xl mb-3">📭</p>
+      <p class="text-base font-semibold text-gray-600">No requests yet</p>
+      <p class="mt-1 text-sm text-gray-400">Your financial requests will appear here</p>
+      <button @click="tab = 'new'"
+              class="mt-4 inline-flex items-center gap-2 rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-700 active:scale-95">
+        ➕ Make a Request
+      </button>
+    </div>
+
+    <!-- Request Cards -->
+    <template x-for="req in requests" :key="req.id || req.request_id">
+      <div class="flex overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 transition-all hover:shadow-md">
+        <!-- Color bar -->
+        <div class="w-1.5 shrink-0"
+             :class="{
+               'bg-yellow-400': req.status === 'pending',
+               'bg-green-500':  req.status === 'approved',
+               'bg-red-500':    req.status === 'rejected',
+             }"></div>
+        <div class="flex flex-1 items-center gap-3 p-4">
+          <!-- Icon -->
+          <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-xl"
+               :class="{
+                 'bg-purple-50': req.category === 'materials',
+                 'bg-amber-50': req.category === 'food',
+                 'bg-blue-50': req.type === 'personal_advance' || req.category === 'personal',
+               }"
+               x-text="getCategoryIcon(req)"></div>
+          <!-- Details -->
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center justify-between">
+              <p class="text-sm font-semibold text-gray-800">
+                ₹<span x-text="Number(req.amount).toLocaleString('en-IN')"></span>
+              </p>
+              <span class="inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase"
+                    :class="{
+                      'bg-yellow-100 text-yellow-700': req.status === 'pending',
+                      'bg-green-100 text-green-700':   req.status === 'approved',
+                      'bg-red-100 text-red-600':       req.status === 'rejected',
+                    }"
+                    x-text="req.status"></span>
+            </div>
+            <p class="mt-0.5 truncate text-xs text-gray-500" x-text="req.reason || req.description || '—'"></p>
+            <p class="mt-1 text-[10px] text-gray-300" x-text="formatDate(req.created_at || req.date)"></p>
+          </div>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- Slide-up Modal for Amount + Reason                                  -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <div x-show="modalOpen" x-transition.opacity
+       class="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm"
+       @click.self="closeModal()">
+    <div x-show="modalOpen"
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="translate-y-full"
+         x-transition:enter-end="translate-y-0"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="translate-y-0"
+         x-transition:leave-end="translate-y-full"
+         class="w-full max-w-lg rounded-t-3xl bg-white pb-8 shadow-2xl safe-area-bottom">
+
+      <!-- Drag handle -->
+      <div class="flex justify-center py-3">
+        <div class="h-1 w-10 rounded-full bg-gray-200"></div>
+      </div>
+
+      <!-- Modal Header -->
+      <div class="flex items-center gap-3 px-6 pb-4">
+        <span class="text-2xl" x-text="form.icon"></span>
+        <div>
+          <p class="text-lg font-bold text-gray-900" x-text="form.label"></p>
+          <p class="text-xs text-gray-400" x-text="form.type === 'personal_advance' ? 'Personal Advance' : 'Shop Expense'"></p>
+        </div>
+      </div>
+
+      <!-- Form -->
+      <div class="space-y-4 px-6">
+
+        <!-- Amount -->
+        <div>
+          <label class="mb-1.5 block text-sm font-medium text-gray-600">Amount (₹)</label>
+          <div class="relative">
+            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-xl font-bold text-gray-400">₹</span>
+            <input type="number"
+                   x-model.number="form.amount"
+                   placeholder="0"
+                   inputmode="numeric"
+                   min="1"
+                   class="w-full rounded-2xl border border-gray-200 bg-gray-50 py-4 pl-10 pr-4 text-2xl font-bold text-gray-800 transition-colors focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-100"
+                   @keydown.enter="$refs.reasonInput.focus()">
+          </div>
+        </div>
+
+        <!-- Reason -->
+        <div>
+          <label class="mb-1.5 block text-sm font-medium text-gray-600">Reason</label>
+          <input type="text"
+                 x-ref="reasonInput"
+                 x-model="form.reason"
+                 placeholder="What is this for?"
+                 class="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm text-gray-800 transition-colors focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-100"
+                 @keydown.enter="submitRequest()">
+        </div>
+
+        <!-- Submit -->
+        <button @click="submitRequest()"
+                :disabled="!form.amount || form.amount <= 0 || submitting"
+                class="w-full rounded-2xl bg-brand-600 py-4 text-base font-bold text-white shadow-lg shadow-brand-600/30 transition-all hover:bg-brand-700 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed">
+          <span x-show="!submitting">Submit Request</span>
+          <span x-show="submitting" class="inline-flex items-center gap-2">
+            <svg class="h-5 w-5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+            Submitting…
+          </span>
+        </button>
+
+        <!-- Cancel -->
+        <button @click="closeModal()"
+                class="w-full rounded-2xl border border-gray-200 py-3 text-sm font-medium text-gray-500 transition-colors hover:bg-gray-50">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+  function myMoney() {
+    return {
+      tab: 'new',
+      modalOpen: false,
+      submitting: false,
+      historyLoading: false,
+      requests: [],
+
+      form: {
+        type: '',
+        category: '',
+        icon: '',
+        label: '',
+        amount: null,
+        reason: '',
+      },
+
+      init() {
+        // Prefetch history
+        this.fetchRequests();
+      },
+
+      selectCategory(type, category, icon, label) {
+        this.form.type = type;
+        this.form.category = category;
+        this.form.icon = icon;
+        this.form.label = label;
+        this.form.amount = null;
+        this.form.reason = '';
+        this.modalOpen = true;
+        if (navigator.vibrate) navigator.vibrate(30);
+      },
+
+      closeModal() {
+        this.modalOpen = false;
+      },
+
+      async submitRequest() {
+        if (!this.form.amount || this.form.amount <= 0) {
+          dispatchToast('error', 'Invalid Amount', 'Please enter a valid amount');
+          return;
+        }
+        if (this.submitting) return;
+        this.submitting = true;
+
+        try {
+          const payload = {
+            type: this.form.type,
+            amount: this.form.amount,
+            reason: this.form.reason || this.form.label,
+          };
+          if (this.form.type === 'shop_expense') {
+            payload.category = this.form.category;
+          }
+
+          const res = await fetch('/api/financial/requests', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+
+          const data = await res.json();
+
+          if (!res.ok) {
+            dispatchToast('error', 'Request Failed', data.error || data.message || 'Could not submit request');
+            return;
+          }
+
+          dispatchToast('success', 'Request Submitted! ✅', `₹${this.form.amount} request sent for approval`);
+          if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
+          this.closeModal();
+          this.fetchRequests();
+        } catch (e) {
+          dispatchToast('error', 'Network Error', 'Please check your connection');
+        } finally {
+          this.submitting = false;
+        }
+      },
+
+      async fetchRequests() {
+        this.historyLoading = true;
+        try {
+          const res = await fetch('/api/financial/requests', { credentials: 'include' });
+          if (res.ok) {
+            const data = await res.json();
+            this.requests = data.requests || data.data || [];
+            // Sort by date desc
+            this.requests.sort((a, b) => {
+              const da = new Date(a.created_at || a.date || 0);
+              const db = new Date(b.created_at || b.date || 0);
+              return db - da;
+            });
+          }
+        } catch (e) {
+          console.error('Failed to fetch requests:', e);
+        } finally {
+          this.historyLoading = false;
+        }
+      },
+
+      getCategoryIcon(req) {
+        if (req.category === 'materials') return '🧵';
+        if (req.category === 'food') return '🍵';
+        if (req.type === 'personal_advance' || req.category === 'personal') return '💳';
+        return '💰';
+      },
+
+      formatDate(dateStr) {
+        if (!dateStr) return '';
+        try {
+          const d = new Date(dateStr);
+          if (isNaN(d.getTime())) return dateStr;
+          return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
+        } catch {
+          return dateStr;
+        }
+      },
+    };
+  }
+</script>
+{% endblock %}
