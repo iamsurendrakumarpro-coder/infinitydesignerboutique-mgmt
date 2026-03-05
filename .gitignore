@@ -52,8 +52,5 @@ uploads/
 htmlcov/
 .coverage
 
-# Node / React frontend
-frontend/node_modules/
-frontend/dist/
-frontend/.env
-frontend/.env.local
+# Node / NPM (no longer used – frontend is pure HTML/CSS/JS)
+node_modules/

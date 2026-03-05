@@ -1,6 +1,7 @@
 """
-app.py – Infinity Designer Boutique Management REST API.
-Entry point for the Flask application (pure JSON API, no templates).
+app.py – Infinity Designer Boutique Management System.
+
+Full-stack Flask application: JSON REST API + Jinja2 HTML templates (PWA).
 
 Run (development):
     python app.py
@@ -26,6 +27,7 @@ from modules.financial.routes import financial_bp
 from modules.overtime.routes import overtime_bp
 from modules.settlements.routes import settlements_bp
 from modules.dashboard.routes import dashboard_bp
+from modules.pages.routes import pages_bp
 
 
 def create_app(config: Config | None = None) -> Flask:
@@ -50,8 +52,14 @@ def create_app(config: Config | None = None) -> Flask:
     log.info("Starting %s | env=%s | debug=%s", cfg.BOUTIQUE_NAME, os.getenv("FLASK_ENV", "development"), cfg.DEBUG)
     log.info("=" * 70)
 
-    # ── Create Flask app (no templates) ───────────────────────────────────────
-    app = Flask(__name__)
+    # ── Create Flask app with templates and static files ──────────────────────
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    app = Flask(
+        __name__,
+        template_folder=os.path.join(base_dir, "templates"),
+        static_folder=os.path.join(base_dir, "static"),
+        static_url_path="/static",
+    )
 
     # ── Apply config ──────────────────────────────────────────────────────────
     app.secret_key = cfg.SECRET_KEY
@@ -65,7 +73,7 @@ def create_app(config: Config | None = None) -> Flask:
     app.config["DESIGNATION_LABELS"] = cfg.DESIGNATION_LABELS
     app.config["JWT_SECRET_KEY"] = cfg.JWT_SECRET_KEY
 
-    # ── CORS (configured for React frontend) ──────────────────────────────────
+    # ── CORS ──────────────────────────────────────────────────────────────────
     CORS(
         app,
         supports_credentials=True,
@@ -84,7 +92,7 @@ def create_app(config: Config | None = None) -> Flask:
         log.error("Firebase initialisation failed: %s", exc)
         log.warning("App will start, but DB operations will fail until Firebase is configured.")
 
-    # ── Register blueprints ───────────────────────────────────────────────────
+    # ── Register API blueprints ───────────────────────────────────────────────
     app.register_blueprint(auth_bp)
     app.register_blueprint(users_bp)
     app.register_blueprint(attendance_bp)
@@ -93,39 +101,47 @@ def create_app(config: Config | None = None) -> Flask:
     app.register_blueprint(settlements_bp)
     app.register_blueprint(dashboard_bp)
 
+    # ── Register page-serving blueprint ───────────────────────────────────────
+    app.register_blueprint(pages_bp)
+
     log.info(
-        "Blueprints registered: auth, users, attendance, financial, overtime, settlements, dashboard"
+        "Blueprints registered: auth, users, attendance, financial, "
+        "overtime, settlements, dashboard, pages"
     )
 
-    # ── Request logging ───────────────────────────────────────────────────────
+    # ── Request / response logging ────────────────────────────────────────────
     @app.before_request
-    def log_request():
-        if request.path == "/api/health":
+    def log_incoming_request():
+        if request.path == "/api/health" or request.path.startswith("/static"):
             return
         log.info(
-            "REQUEST %s %s | ip=%s",
+            "REQUEST %s %s | ip=%s | user=%s",
             request.method,
             request.path,
             request.remote_addr,
+            session.get("user_id", "anon"),
         )
 
     @app.after_request
-    def log_response(response):
-        if request.path == "/api/health":
+    def log_outgoing_response(response):
+        if request.path == "/api/health" or request.path.startswith("/static"):
             return response
         log.info(
-            "RESPONSE %s %s | status=%d",
+            "RESPONSE %s %s | status=%d | user=%s",
             request.method,
             request.path,
             response.status_code,
+            session.get("user_id", "anon"),
         )
         return response
 
-    # ── Global JSON error handlers ────────────────────────────────────────────
+    # ── Global error handlers (JSON for API, redirect for pages) ──────────────
     @app.errorhandler(404)
     def not_found(e):
         log.warning("404 Not Found | path=%s", request.path)
-        return jsonify({"success": False, "error": "Endpoint not found."}), 404
+        if request.path.startswith("/api/"):
+            return jsonify({"success": False, "error": "Endpoint not found."}), 404
+        return jsonify({"success": False, "error": "Page not found."}), 404
 
     @app.errorhandler(405)
     def method_not_allowed(e):
@@ -158,6 +174,7 @@ def create_app(config: Config | None = None) -> Flask:
 
 # ── Dev server entry point ────────────────────────────────────────────────────
 if __name__ == "__main__":
+    from flask import session  # noqa: F811 – local import for dev runner
     application = create_app()
     port = int(os.getenv("PORT", "5000"))
     application.run(host="0.0.0.0", port=port, debug=get_config().DEBUG)
