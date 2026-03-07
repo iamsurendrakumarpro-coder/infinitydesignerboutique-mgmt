@@ -5,7 +5,6 @@
 {% block page_content %}
 <div x-data="adminDashboard()" x-init="loadAll()" x-cloak>
 
-  <!-- Welcome Header -->
   <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
     <div>
       <h1 class="text-2xl font-bold text-gray-900">Welcome back, <span class="text-brand-600">{{ user.full_name|default("Admin") }}</span></h1>
@@ -21,27 +20,22 @@
     </button>
   </div>
 
-  <!-- Stats Cards -->
   <div class="mb-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-    <!-- Total Staff -->
     <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100 sm:p-5">
       <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-lg">👥</div>
       <p class="text-2xl font-bold text-gray-900" x-text="stats.totalStaff">–</p>
       <p class="mt-0.5 text-xs font-medium text-gray-400">Active Staff</p>
     </div>
-    <!-- Today Present -->
     <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100 sm:p-5">
       <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-lg">🟢</div>
       <p class="text-2xl font-bold text-gray-900" x-text="stats.todayPresent">–</p>
       <p class="mt-0.5 text-xs font-medium text-gray-400">Present Today</p>
     </div>
-    <!-- Pending Approvals -->
     <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100 sm:p-5">
       <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-lg">📋</div>
       <p class="text-2xl font-bold text-gray-900" x-text="stats.pendingApprovals">–</p>
       <p class="mt-0.5 text-xs font-medium text-gray-400">Pending Approvals</p>
     </div>
-    <!-- Pending Overtime -->
     <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100 sm:p-5">
       <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-purple-50 text-lg">⏰</div>
       <p class="text-2xl font-bold text-gray-900" x-text="stats.pendingOvertime">–</p>
@@ -49,24 +43,20 @@
     </div>
   </div>
 
-  <!-- Two Column Layout -->
-  <div class="grid gap-6 lg:grid-cols-2">
+  <div class="flex flex-col gap-6">
 
-    <!-- Today's Attendance -->
     <div class="rounded-2xl bg-white shadow-sm ring-1 ring-gray-100">
       <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4">
         <h2 class="text-base font-semibold text-gray-900">📅 Today's Attendance</h2>
         <span class="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-500"
-              x-text="attendance.length + ' staff'"></span>
+              x-text="attendance.length + ' employees'"></span>
       </div>
 
-      <!-- Empty State -->
       <div x-show="!attendanceLoading && attendance.length === 0" class="px-5 py-10 text-center">
         <p class="text-3xl mb-2">📭</p>
         <p class="text-sm text-gray-400">No attendance records for today</p>
       </div>
 
-      <!-- Loading -->
       <div x-show="attendanceLoading" class="px-5 py-10 text-center">
         <svg class="mx-auto h-8 w-8 animate-spin text-brand-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -74,14 +64,15 @@
         </svg>
       </div>
 
-      <!-- Table -->
       <div x-show="!attendanceLoading && attendance.length > 0" class="overflow-x-auto">
         <table class="w-full text-sm">
           <thead>
             <tr class="border-b border-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-400">
-              <th class="px-5 py-3">Staff</th>
+              <th class="px-5 py-3">Employee</th>
               <th class="px-3 py-3">Punch In</th>
               <th class="px-3 py-3">Punch Out</th>
+              <th class="px-3 py-3">Hours Worked</th>
+              <th class="px-3 py-3">Extra Hours/OT</th>
               <th class="px-3 py-3 text-right">Status</th>
             </tr>
           </thead>
@@ -91,20 +82,36 @@
                 <td class="px-5 py-3">
                   <div class="flex items-center gap-2.5">
                     <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700"
-                         x-text="getInitials(row.staff_name || row.full_name)"></div>
-                    <span class="font-medium text-gray-800" x-text="row.staff_name || row.full_name"></span>
+                         x-text="getInitials(row.staff_name || row.full_name || row.employee_name)"></div>
+                    <span class="font-medium text-gray-800" x-text="row.staff_name || row.full_name || row.employee_name || '–'"></span>
                   </div>
                 </td>
-                <td class="px-3 py-3 text-gray-600" x-text="row.punch_in || row.login_time || '–'"></td>
-                <td class="px-3 py-3 text-gray-600" x-text="row.punch_out || row.logout_time || '–'"></td>
+                <td class="px-3 py-3 text-gray-600" x-text="formatDateTimeIST(row.punch_in_time) || formatDateTimeIST(row.punch_in) || formatDateTimeIST(row.login_time) || '–'"></td>
+                <td class="px-3 py-3 text-gray-600" x-text="formatDateTimeIST(row.punch_out_time) || formatDateTimeIST(row.punch_out) || '–'"></td>
+                <td class="px-3 py-3 text-gray-600">
+                  <span x-text="row.duration_minutes ? formatDuration(row.duration_minutes) : calculateHours(row.punch_in_time, row.punch_out_time)"></span>
+                </td>
+                <td class="px-3 py-3 text-gray-600">
+                  <span x-text="calculateOT(row.punch_in_time, row.punch_out_time, row.standard_login_time, row.standard_logout_time)"></span>
+                </td>
                 <td class="px-3 py-3 text-right">
-                  <span class="inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                  <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold"
                         :class="{
                           'bg-green-100 text-green-700': row.status === 'in' || row.status === 'present',
                           'bg-gray-100 text-gray-600': row.status === 'out' || row.status === 'completed',
                           'bg-red-100 text-red-600': row.status === 'absent',
-                        }"
-                        x-text="formatStatus(row.status)"></span>
+                        }">
+                    <template x-if="row.status === 'in' || row.status === 'present'">
+                      <svg class="w-3 h-3 text-green-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                    </template>
+                    <template x-if="row.status === 'out' || row.status === 'completed'">
+                      <svg class="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3"/></svg>
+                    </template>
+                    <template x-if="row.status === 'absent'">
+                      <svg class="w-3 h-3 text-red-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </template>
+                    <span x-text="formatStatus(row.status)"></span>
+                  </span>
                 </td>
               </tr>
             </template>
@@ -113,20 +120,28 @@
       </div>
     </div>
 
-    <!-- Recent Financial Requests -->
     <div class="rounded-2xl bg-white shadow-sm ring-1 ring-gray-100">
       <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-        <h2 class="text-base font-semibold text-gray-900">💳 Recent Financial Requests</h2>
-        <a href="/admin/approvals" class="text-xs font-medium text-brand-600 hover:text-brand-700">View All →</a>
+        <h2 class="text-base font-semibold text-gray-900">💳 Financial Requests</h2>
+        <div class="flex items-center gap-3">
+          <select x-model="requestStatus" class="rounded-lg border border-gray-200 px-2 py-1 text-xs">
+            <option value="">All Status</option>
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+          </select>
+          <input type="date" x-model="requestStartDate" class="rounded-lg border border-gray-200 px-2 py-1 text-xs">
+          <span class="mx-1 text-xs">to</span>
+          <input type="date" x-model="requestEndDate" class="rounded-lg border border-gray-200 px-2 py-1 text-xs">
+          <button @click="fetchRequests()" class="ml-2 rounded-lg bg-brand-600 px-3 py-1 text-xs text-white">Filter</button>
+        </div>
       </div>
 
-      <!-- Empty State -->
       <div x-show="!requestsLoading && requests.length === 0" class="px-5 py-10 text-center">
-        <p class="text-3xl mb-2">✨</p>
+        <p class="text-4xl mb-4">✨</p>
         <p class="text-sm text-gray-400">No recent financial requests</p>
       </div>
 
-      <!-- Loading -->
       <div x-show="requestsLoading" class="px-5 py-10 text-center">
         <svg class="mx-auto h-8 w-8 animate-spin text-brand-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -134,31 +149,55 @@
         </svg>
       </div>
 
-      <!-- List -->
-      <div x-show="!requestsLoading && requests.length > 0" class="divide-y divide-gray-50">
-        <template x-for="req in requests.slice(0, 6)" :key="req.id || req.request_id">
-          <div class="flex items-center gap-3 px-5 py-3 hover:bg-gray-50/50">
-            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-base"
-                 :class="req.type === 'personal_advance' || req.type === 'advance'
-                   ? 'bg-blue-50'
-                   : 'bg-amber-50'"
-                 x-text="req.type === 'personal_advance' || req.type === 'advance' ? '👤' : '🏪'"></div>
-            <div class="min-w-0 flex-1">
-              <p class="truncate text-sm font-medium text-gray-800" x-text="req.staff_name || req.full_name || 'Staff'"></p>
-              <p class="truncate text-xs text-gray-400" x-text="req.reason || req.description || req.type"></p>
-            </div>
-            <div class="text-right shrink-0">
-              <p class="text-sm font-semibold text-gray-800">₹<span x-text="Number(req.amount).toLocaleString('en-IN')"></span></p>
-              <span class="inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                    :class="{
-                      'bg-amber-100 text-amber-700': req.status === 'pending',
-                      'bg-green-100 text-green-700': req.status === 'approved',
-                      'bg-red-100 text-red-600': req.status === 'rejected',
-                    }"
-                    x-text="req.status"></span>
-            </div>
-          </div>
-        </template>
+      <div x-show="!requestsLoading && requests.length > 0" class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-400">
+              <th class="px-5 py-3">Employee</th>
+              <th class="px-3 py-3">Created At</th>
+              <th class="px-3 py-3">Amount</th>
+              <th class="px-3 py-3">Category</th>
+              <th class="px-3 py-3">Reviewed At</th>
+              <th class="px-3 py-3 text-right">Status</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-50">
+            <template x-for="req in requests" :key="req.id || req.request_id">
+              <tr class="hover:bg-gray-50/50">
+                <td class="px-5 py-3">
+                  <div class="flex items-center gap-2.5">
+                    <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700"
+                         x-text="getInitials(req.staff_name || req.full_name || req.employee_name || req.user_name || req.name || req.staff || req.user || 'Unknown Staff')"></div>
+                    <span class="font-medium text-gray-800" x-text="req.staff_name || req.full_name || req.employee_name || req.user_name || req.name || req.staff || req.user || 'Unknown Staff'"></span>
+                  </div>
+                </td>
+                <td class="px-3 py-3 text-gray-600" x-text="formatDateTimeIST(req.created_at)"></td>
+                <td class="px-3 py-3 text-gray-800">₹<span x-text="Number(req.amount).toLocaleString('en-IN')"></span></td>
+                <td class="px-3 py-3 text-gray-600" x-text="req.category || '–'"></td>
+                <td class="px-3 py-3 text-gray-600" x-text="formatDateTimeIST(req.reviewed_at) || '–'"></td>
+                <td class="px-3 py-3 text-right">
+                  <span class="inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                        :class="{
+                          'bg-amber-100 text-amber-700': req.status === 'pending',
+                          'bg-green-100 text-green-700': req.status === 'approved',
+                          'bg-red-100 text-red-600': req.status === 'rejected',
+                        }">
+                    <template x-if="req.status === 'pending'">
+                      <svg class="w-3 h-3 text-amber-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3"/></svg>
+                    </template>
+                    <template x-if="req.status === 'approved'">
+                      <svg class="w-3 h-3 text-green-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                    </template>
+                    <template x-if="req.status === 'rejected'">
+                      <svg class="w-3 h-3 text-red-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </template>
+                    <span x-text="formatStatus(req.status)"></span>
+                  </span>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
       </div>
     </div>
 
@@ -168,6 +207,90 @@
 
 {% block page_scripts %}
 <script>
+  function getInitials(name) {
+    if (!name || name === 'Unknown Staff') return '?';
+    return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+  }
+
+  function formatStatus(status) {
+    if (!status) return '–';
+    return status.charAt(0).toUpperCase() + status.slice(1);
+  }
+
+  // Formatting strictly for time (used in Attendance)
+  function formatIST(utcString) {
+    if (!utcString) return '';
+    const d = new Date(utcString);
+    return d.toLocaleTimeString('en-IN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'Asia/Kolkata'
+    });
+  }
+
+  // Formatting for Date + Time (used in Financial Requests)
+  function formatDateTimeIST(utcString) {
+    if (!utcString) return '';
+    const d = new Date(utcString);
+    return d.toLocaleString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: 'Asia/Kolkata'
+    });
+  }
+
+  function calculateHours(punchIn, punchOut) {
+    if (!punchIn || !punchOut) return '–';
+    try {
+      const inTime = new Date(punchIn);
+      const outTime = new Date(punchOut);
+      const diffMs = outTime - inTime;
+      if (diffMs <= 0) return '–';
+      const hours = Math.floor(diffMs / (1000 * 60 * 60));
+      const minutes = Math.floor((diffMs / (1000 * 60)) % 60);
+      return `${hours}h ${minutes}m`;
+    } catch {
+      return '–';
+    }
+  }
+
+  function calculateOT(punchIn, punchOut, stdIn, stdOut) {
+    if (!punchIn || !punchOut || !stdIn || !stdOut) return '–';
+    try {
+      // Parse punchIn and punchOut as date/time
+      const inTime = new Date(punchIn);
+      const outTime = new Date(punchOut);
+      // Parse standard login/logout as time only, using today's date
+      const today = new Date();
+      const stdInParts = stdIn.split(':');
+      const stdOutParts = stdOut.split(':');
+      const stdInTime = new Date(today.getFullYear(), today.getMonth(), today.getDate(), parseInt(stdInParts[0]), parseInt(stdInParts[1]));
+      const stdOutTime = new Date(today.getFullYear(), today.getMonth(), today.getDate(), parseInt(stdOutParts[0]), parseInt(stdOutParts[1]));
+      // Calculate actual worked minutes
+      const workedMinutes = (outTime - inTime) / (1000 * 60);
+      // Calculate standard shift minutes
+      const stdMinutes = (stdOutTime - stdInTime) / (1000 * 60);
+      const extraMinutes = workedMinutes - stdMinutes;
+      if (isNaN(extraMinutes) || extraMinutes <= 0) return '–';
+      const hours = Math.floor(extraMinutes / 60);
+      const minutes = Math.floor(extraMinutes % 60);
+      return `${hours}h ${minutes}m`;
+    } catch {
+      return '–';
+    }
+  }
+
+  function formatDuration(minutes) {
+    if (!minutes || isNaN(minutes)) return '–';
+    const hrs = Math.floor(minutes / 60);
+    const mins = Math.floor(minutes % 60);
+    return `${hrs}h ${mins}m`;
+  }
+
   function adminDashboard() {
     return {
       refreshing: false,
@@ -182,6 +305,9 @@
       },
       attendance: [],
       requests: [],
+      requestStatus: '',
+      requestStartDate: '',
+      requestEndDate: '',
 
       async loadAll() {
         this.refreshing = true;
@@ -208,10 +334,11 @@
           const res = await fetch('/api/dashboard/summary', { credentials: 'include' });
           if (res.ok) {
             const data = await res.json();
-            this.stats.totalStaff = data.total_staff ?? data.active_staff ?? 0;
-            this.stats.todayPresent = data.today_present ?? data.present_today ?? 0;
-            this.stats.pendingApprovals = data.pending_approvals ?? data.pending_financial ?? 0;
-            this.stats.pendingOvertime = data.pending_overtime ?? 0;
+            const summary = data.summary || {};
+            this.stats.totalStaff = summary.total_active_staff ?? summary.total_staff ?? summary.active_staff ?? 0;
+            this.stats.todayPresent = summary.punched_in ?? summary.today_present ?? summary.present_today ?? 0;
+            this.stats.pendingApprovals = summary.pending_financial_requests ?? summary.pending_approvals ?? summary.pending_financial ?? 0;
+            this.stats.pendingOvertime = summary.pending_overtime_approvals ?? summary.pending_overtime ?? 0;
           }
         } catch (e) {
           console.error('Dashboard fetch error:', e);
@@ -224,7 +351,8 @@
           const res = await fetch('/api/dashboard/summary', { credentials: 'include' });
           if (res.ok) {
             const data = await res.json();
-            this.attendance = data.today_attendance || data.attendance || [];
+            const summary = data.summary || {};
+            this.attendance = summary.today_attendance || summary.attendance || [];
           }
         } catch (e) {
           console.error('Attendance fetch error:', e);
@@ -236,28 +364,22 @@
       async fetchRequests() {
         this.requestsLoading = true;
         try {
-          const res = await fetch('/api/financial/requests?status=pending', { credentials: 'include' });
+          let url = '/api/financial/requests';
+          const params = [];
+          if (this.requestStatus) params.push(`status=${this.requestStatus}`);
+          if (this.requestStartDate) params.push(`start_date=${this.requestStartDate}`);
+          if (this.requestEndDate) params.push(`end_date=${this.requestEndDate}`);
+          if (params.length) url += '?' + params.join('&');
+          const res = await fetch(url, { credentials: 'include' });
           if (res.ok) {
             const data = await res.json();
-            this.requests = data.requests || data.data || [];
+            this.requests = data.requests || data || [];
           }
         } catch (e) {
           console.error('Requests fetch error:', e);
         } finally {
           this.requestsLoading = false;
         }
-      },
-
-      getInitials(name) {
-        if (!name) return '?';
-        const parts = name.trim().split(/\s+/);
-        if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-        return parts[0].substring(0, 2).toUpperCase();
-      },
-
-      formatStatus(status) {
-        const map = { in: 'In', out: 'Out', absent: 'Absent', present: 'Present', completed: 'Out' };
-        return map[status] || status || '–';
       },
     };
   }

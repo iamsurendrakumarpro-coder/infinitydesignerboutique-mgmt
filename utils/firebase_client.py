@@ -1,14 +1,3 @@
-"""
-utils/firebase_client.py – Firebase Admin SDK initialisation.
-
-Usage::
-
-    from utils.firebase_client import get_firestore, get_storage_bucket
-
-The module is lazily initialised on first use.
-All Firebase interactions in the app go through these helpers so
-that credentials are managed in one place.
-"""
 from __future__ import annotations
 
 import os
@@ -20,6 +9,28 @@ from google.cloud.firestore_v1 import Client as FirestoreClient
 from firebase_admin import storage as fb_storage
 
 from utils.logger import get_logger
+from google.cloud import storage as gcs_storage
+from datetime import timedelta
+
+def generate_signed_url(blob_name: str, expiration_minutes: int = 60) -> str:
+    """Generate a signed URL for a GCS object."""
+    bucket = get_storage_bucket()
+    blob = bucket.blob(blob_name)
+    # Use google-cloud-storage's generate_signed_url
+    url = blob.generate_signed_url(expiration=timedelta(minutes=expiration_minutes), version="v4", method="GET")
+    return url
+"""
+utils/firebase_client.py – Firebase Admin SDK initialisation.
+
+Usage::
+
+    from utils.firebase_client import get_firestore, get_storage_bucket
+
+The module is lazily initialised on first use.
+All Firebase interactions in the app go through these helpers so
+that credentials are managed in one place.
+"""
+
 
 log = get_logger(__name__)
 

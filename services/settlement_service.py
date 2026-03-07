@@ -46,9 +46,22 @@ def calculate_settlement(user_id: str, week_start: date, week_end: date) -> dict
     daily_salary = compute_daily_salary(weekly_salary)
 
     records = get_attendance_history(user_id, week_start, week_end)
-    days_present = sum(1 for r in records if r.get("punch_in"))
-
-    base_pay = round(daily_salary * days_present, 2)
+    cfg = get_config()
+    standard_hours = cfg.STANDARD_HOURS_PER_DAY
+    base_pay = 0.0
+    days_present = 0
+    for r in records:
+        mins = r.get("duration_minutes", 0)
+        if mins > 0:
+            days_present += 1
+            # Convert minutes to hours (float)
+            hours_worked = mins / 60.0
+            # If less than 1 hour, round minutes to nearest minute
+            if hours_worked < 1:
+                hours_worked = round(mins) / 60.0
+            # Prorate daily salary by hours worked
+            base_pay += daily_salary * (hours_worked / standard_hours)
+    base_pay = round(base_pay, 2)
 
     overtime_records = get_approved_overtime_for_period(user_id, week_start, week_end)
     overtime_pay = round(sum(float(r.get("calculated_payout", 0)) for r in overtime_records), 2)

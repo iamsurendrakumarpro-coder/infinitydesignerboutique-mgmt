@@ -93,9 +93,11 @@ def api_change_pin():
     if "user_id" not in session:
         return jsonify({"success": False, "error": "Not authenticated."}), 401
 
+
     body = request.get_json(silent=True) or {}
     new_pin = str(body.get("new_pin", "")).strip()
-    old_pin = str(body.get("old_pin", "")).strip() or None
+    # Accept both 'old_pin' and 'current_pin' for compatibility
+    old_pin = str(body.get("old_pin") or body.get("current_pin") or "").strip() or None
 
     ok, err = validate_pin(new_pin)
     if not ok:

@@ -1,6 +1,181 @@
 <!DOCTYPE html>
 <html lang="en" class="h-full">
 <head>
+    <script>
+      window.myMoney = function() {
+        return {
+          tab: 'new',
+          modalOpen: false,
+          submitting: false,
+          historyLoading: false,
+          requests: [],
+          filterPeriod: '',
+          filterStatus: '',
+          get filteredRequests() {
+            return this.requests.filter(req => {
+              const stat = this.filterStatus;
+              const period = this.filterPeriod;
+              let matchStat = !stat || req.status === stat;
+              let matchPeriod = true;
+              if (period) {
+                const d = new Date(req.created_at || req.date);
+                const now = new Date();
+                if (period === 'daily') {
+                  matchPeriod = d.toDateString() === now.toDateString();
+                } else if (period === 'weekly') {
+                  const weekStart = new Date(now);
+                  weekStart.setDate(now.getDate() - now.getDay());
+                  const weekEnd = new Date(weekStart);
+                  weekEnd.setDate(weekStart.getDate() + 6);
+                  matchPeriod = d >= weekStart && d <= weekEnd;
+                } else if (period === 'monthly') {
+                  matchPeriod = d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+                }
+              }
+              return matchStat && matchPeriod;
+            });
+          },
+          form: {
+            type: '',
+            category: '',
+            icon: '',
+            label: '',
+            amount: null,
+            reason: '',
+            receiptFile: null,
+            receiptPreview: '',
+          },
+          init() {
+            this.fetchRequests();
+            this.$watch('tab', (val) => {
+              if (val !== 'new') this.modalOpen = false;
+            });
+          },
+          selectCategory(type, category, icon, label) {
+            this.tab = 'new';
+            this.form.type = type;
+            this.form.category = category;
+            this.form.icon = icon;
+            this.form.label = label;
+            this.form.amount = null;
+            this.form.reason = '';
+            this.form.receiptFile = null;
+            this.form.receiptPreview = '';
+            this.modalOpen = true;
+            if (navigator.vibrate) navigator.vibrate(30);
+          },
+          handleReceiptUpload(event) {
+            const file = event.target.files[0];
+            if (!file) {
+              this.form.receiptFile = null;
+              this.form.receiptPreview = '';
+              return;
+            }
+            this.form.receiptFile = file;
+            const reader = new FileReader();
+            reader.onload = e => {
+              this.form.receiptPreview = e.target.result;
+            };
+            reader.readAsDataURL(file);
+          },
+          closeModal() {
+            this.modalOpen = false;
+          },
+          async submitRequest() {
+            if (!this.form.amount || this.form.amount <= 0) {
+              dispatchToast('error', 'Invalid Amount', 'Please enter a valid amount');
+              return;
+            }
+            if (this.submitting) return;
+            this.submitting = true;
+            try {
+              let receiptUrl = '';
+              if (this.form.receiptFile) {
+                const formData = new FormData();
+                formData.append('file', this.form.receiptFile);
+                const uploadRes = await fetch('/api/upload/receipt', {
+                  method: 'POST',
+                  credentials: 'include',
+                  body: formData,
+                });
+                const uploadData = await uploadRes.json();
+                if (uploadRes.ok && uploadData.url) {
+                  receiptUrl = uploadData.url;
+                } else {
+                  dispatchToast('error', 'Receipt Upload Failed', uploadData.error || 'Could not upload receipt');
+                  this.submitting = false;
+                  return;
+                }
+              }
+              const payload = {
+                type: this.form.type,
+                amount: this.form.amount,
+                reason: this.form.reason || this.form.label,
+                receipt_url: receiptUrl,
+              };
+              if (this.form.type === 'shop_expense') {
+                payload.category = this.form.category;
+              }
+              const res = await fetch('/api/financial/requests', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+              });
+              const data = await res.json();
+              if (!res.ok) {
+                dispatchToast('error', 'Request Failed', data.error || data.message || 'Could not submit request');
+                this.submitting = false;
+                return;
+              }
+              dispatchToast('success', 'Request Submitted! ✅', `₹${this.form.amount} request sent for approval`);
+              if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
+              this.closeModal();
+              this.fetchRequests();
+            } catch (e) {
+              dispatchToast('error', 'Network Error', 'Please check your connection');
+            } finally {
+              this.submitting = false;
+            }
+          },
+          async fetchRequests() {
+            this.historyLoading = true;
+            try {
+              const res = await fetch('/api/financial/requests', { credentials: 'include' });
+              if (res.ok) {
+                const data = await res.json();
+                this.requests = data.requests || data.data || [];
+                this.requests.sort((a, b) => {
+                  const da = new Date(a.created_at || a.date || 0);
+                  const db = new Date(b.created_at || b.date || 0);
+                  return db - da;
+                });
+              }
+            } catch (e) {
+              console.error('Failed to fetch requests:', e);
+            } finally {
+              this.historyLoading = false;
+            }
+          },
+          getCategoryIcon(req) {
+            if (req.category === 'materials') return '🧵';
+            if (req.category === 'food') return '🍵';
+            if (req.category === 'personal') return '💳';
+            return '';
+          },
+          formatDate(dateStr) {
+            if (!dateStr) return '';
+            try {
+              const d = new Date(dateStr);
+              if (isNaN(d.getTime())) return dateStr;
+              return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
+            } catch {
+              return dateStr;
+            }
+          },
+        }
+      }
+    </script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="theme-color" content="#4f46e5">

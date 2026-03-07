@@ -1,3 +1,23 @@
+
+from __future__ import annotations
+
+def update_receipt_url(request_id: str, url: str) -> tuple[bool, str]:
+    """Update the receipt_url for a financial request."""
+    db = get_firestore()
+    ref = db.collection(_COLLECTION).document(request_id)
+    doc = ref.get()
+    if not doc.exists:
+        return False, "Request not found."
+    data = doc.to_dict()
+    if data.get("status") != "pending" or data.get("category") != "materials":
+        return False, "Only pending Material requests can be updated."
+    ref.update({
+        "receipt_gcs_path": url,
+        "updated_at": SERVER_TIMESTAMP,
+    })
+    log.info("Receipt updated | request_id=%s", request_id)
+    return True, ""
+
 """
 services/financial_service.py – Financial request business logic.
 
@@ -7,7 +27,6 @@ Supports two request types:
   - shop_expense: Approved expenses reimbursed in settlement.
   - personal_advance: Salary advance deducted from settlement.
 """
-from __future__ import annotations
 
 import uuid
 from datetime import date
@@ -41,8 +60,9 @@ def create_request(user_id: str, data: dict) -> tuple[bool, str, dict]:
         return False, f"Type must be one of: {', '.join(_VALID_TYPES)}.", {}
 
     category = str(data.get("category", "")).strip()
-    if not category:
-        return False, "Category is required.", {}
+    if req_type == "shop_expense" and not category:
+        return False, "Category is required for shop expenses.", {}
+    # For personal_advance, category is optional
 
     try:
         amount = float(data.get("amount", 0))
@@ -52,19 +72,24 @@ def create_request(user_id: str, data: dict) -> tuple[bool, str, dict]:
         return False, "Amount must be greater than zero.", {}
 
     if req_type == "personal_advance":
-        earned = get_week_to_date_earned(user_id)
-        if earned is not None and amount > earned:
-            return False, f"Advance amount (₹{amount:.0f}) exceeds earned salary this week (₹{earned:.0f}).", {}
+        from services.user_service import get_staff
+        staff = get_staff(user_id)
+        weekly_salary = float(staff.get("weekly_salary", 0)) if staff else 0
+        if weekly_salary > 0 and amount > weekly_salary:
+            return False, f"Advance amount (₹{amount:.0f}) exceeds weekly salary (₹{weekly_salary:.0f}).", {}
 
     request_id = str(uuid.uuid4())
+    notes_val = str(data.get("notes", "")).strip()
+    log.info("create_request | notes=%s | data=%s", notes_val, data)
     doc = {
         "request_id": request_id,
         "user_id": user_id,
         "type": req_type,
         "category": category,
         "amount": amount,
-        "receipt_url": str(data.get("receipt_url", "")).strip(),
-        "notes": str(data.get("notes", "")).strip(),
+        # Store only the GCS path, not a signed URL
+        "receipt_gcs_path": str(data.get("gcs_path", "")).strip(),
+        "notes": notes_val,
         "status": "pending",
         "admin_notes": "",
         "reviewed_by": None,
@@ -78,6 +103,9 @@ def create_request(user_id: str, data: dict) -> tuple[bool, str, dict]:
              request_id, user_id, req_type, amount)
     audit_log(user_id, "CREATE_FINANCIAL_REQUEST", f"{_COLLECTION}/{request_id}",
               f"type={req_type}, amount={amount}")
+    # Remove Firestore SERVER_TIMESTAMP fields before returning
+    doc.pop("created_at", None)
+    doc.pop("updated_at", None)
     return True, "", doc
 
 
@@ -95,10 +123,38 @@ def get_requests(filters: dict | None = None) -> list[dict]:
             query = query.where("status", "==", filters["status"])
         if filters.get("user_id"):
             query = query.where("user_id", "==", filters["user_id"])
+        if filters.get("category"):
+            query = query.where("category", "==", filters["category"])
+        # Date range filtering
+        if filters.get("start_date"):
+            query = query.where("created_at", ">=", filters["start_date"])
+        if filters.get("end_date"):
+            query = query.where("created_at", "<=", filters["end_date"])
 
     query = query.order_by("created_at", direction="DESCENDING")
     docs = query.stream()
-    result = [_sanitise(d.to_dict()) for d in docs]
+    from utils.firebase_client import generate_signed_url
+    from services.user_service import get_staff
+    result = []
+    for d in docs:
+        data = d.to_dict()
+        gcs_path = data.get("receipt_gcs_path")
+        if gcs_path:
+            try:
+                data["receipt_url"] = generate_signed_url(gcs_path, expiration_minutes=60)
+            except Exception as e:
+                log.error(f"Failed to generate signed URL for {gcs_path}: {e}")
+                data["receipt_url"] = None
+        else:
+            data["receipt_url"] = None
+        # Add employee name from staff collection
+        user_id = data.get("user_id")
+        staff_profile = get_staff(user_id) if user_id else None
+        if staff_profile:
+            data["employee_name"] = staff_profile.get("full_name", "Unknown Staff")
+        else:
+            data["employee_name"] = "Unknown Staff"
+        result.append(_sanitise(data))
     log.info("get_requests | filters=%s | count=%d", filters, len(result))
     return result
 
@@ -111,7 +167,26 @@ def get_request(request_id: str) -> dict | None:
         log.debug("get_request | request_id=%s | found=false", request_id)
         return None
     log.debug("get_request | request_id=%s | found=true", request_id)
-    return _sanitise(doc.to_dict())
+    data = doc.to_dict()
+    from utils.firebase_client import generate_signed_url
+    from services.user_service import get_staff
+    gcs_path = data.get("receipt_gcs_path")
+    if gcs_path:
+        try:
+            data["receipt_url"] = generate_signed_url(gcs_path, expiration_minutes=60)
+        except Exception as e:
+            log.error(f"Failed to generate signed URL for {gcs_path}: {e}")
+            data["receipt_url"] = None
+    else:
+        data["receipt_url"] = None
+    # Add employee name from staff collection
+    user_id = data.get("user_id")
+    staff_profile = get_staff(user_id) if user_id else None
+    if staff_profile:
+        data["employee_name"] = staff_profile.get("full_name", "Unknown Staff")
+    else:
+        data["employee_name"] = "Unknown Staff"
+    return _sanitise(data)
 
 
 def approve_request(request_id: str, admin_id: str, notes: str = "") -> tuple[bool, str]:

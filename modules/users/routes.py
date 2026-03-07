@@ -79,7 +79,7 @@ def api_create_staff():
 
 
 @users_bp.get("/api/users/staff/<uid>")
-@admin_required
+@login_required
 def api_get_staff(uid: str):
     log.info("Fetching staff profile | admin_id=%s | staff_id=%s", session["user_id"], uid)
     staff = user_service.get_staff(uid)

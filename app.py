@@ -100,6 +100,7 @@ def create_app(config: Config | None = None) -> Flask:
     app.register_blueprint(overtime_bp)
     app.register_blueprint(settlements_bp)
     app.register_blueprint(dashboard_bp)
+    # Receipt upload blueprint removed
 
     # ── Register page-serving blueprint ───────────────────────────────────────
     app.register_blueprint(pages_bp)

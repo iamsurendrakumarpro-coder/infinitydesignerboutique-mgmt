@@ -168,6 +168,13 @@
         window.addEventListener('offline', () => this.online = false);
 
         await this.fetchStatus();
+
+        // Always refresh punch status when page/tab becomes visible
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') {
+            this.fetchStatus();
+          }
+        });
       },
 
       updateClock() {
@@ -188,19 +195,20 @@
       async fetchStatus() {
         this.loading = true;
         try {
-          const res = await fetch('/api/attendance/status', { credentials: 'include' });
-          if (!res.ok) throw new Error('Failed to fetch status');
-          const data = await res.json();
+          let res = await fetch('/api/attendance/status', { credentials: 'include' });
+          let data = await res.json();
+          let record = data.record || data;
+          if (!record.status && data.status) record.status = data.status;
 
-          if (data.punch_out || data.punch_out_time || data.status === 'completed') {
+          if (record.status === 'out') {
             this.state = 'shift_complete';
-            this.punchInTime = this.formatTime(data.punch_in || data.punch_in_time || data.login_time);
-            this.punchOutTime = this.formatTime(data.punch_out || data.punch_out_time || data.logout_time);
-            this.totalDuration = data.duration || data.total_hours || this.calcDuration(data.punch_in || data.punch_in_time, data.punch_out || data.punch_out_time);
-          } else if (data.punch_in || data.punch_in_time || data.status === 'in' || data.status === 'present') {
+            this.punchInTime = this.formatTime(record.punch_in);
+            this.punchOutTime = this.formatTime(record.punch_out);
+            this.totalDuration = record.duration || this.calcDuration(record.punch_in, record.punch_out);
+          } else if (record.status === 'in') {
             this.state = 'punched_in';
-            this.punchInTime = this.formatTime(data.punch_in || data.punch_in_time || data.login_time);
-            this.punchInTimestamp = new Date(data.punch_in || data.punch_in_time || data.login_time).getTime();
+            this.punchInTime = this.formatTime(record.punch_in);
+            this.punchInTimestamp = new Date(record.punch_in).getTime();
             this.startElapsedTimer();
           } else {
             this.state = 'not_punched_in';

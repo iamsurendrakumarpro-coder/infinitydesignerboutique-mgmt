@@ -5,7 +5,6 @@
 {% block page_content %}
 <div x-data="myMoney()" x-init="init()" x-cloak>
 
-  <!-- ── Tabs ─────────────────────────────────────────────────────────── -->
   <div class="mb-5 flex gap-1 rounded-2xl bg-gray-100 p-1">
     <button @click="tab = 'new'"
             class="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all"
@@ -23,17 +22,12 @@
     </button>
   </div>
 
-  <!-- ═══════════════════════════════════════════════════════════════════ -->
-  <!-- TAB: New Request                                                    -->
-  <!-- ═══════════════════════════════════════════════════════════════════ -->
   <div x-show="tab === 'new'" x-transition class="space-y-4">
 
     <p class="text-center text-sm text-gray-400">What do you need money for?</p>
 
-    <!-- Category Cards -->
     <div class="grid grid-cols-1 gap-3">
 
-      <!-- Materials / Thread -->
       <button @click="selectCategory('shop_expense', 'materials', '🧵', 'Materials / Thread')"
               class="flex items-center gap-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 transition-all hover:shadow-md hover:ring-brand-200 active:scale-[0.98]"
               :class="form.category === 'materials' && 'ring-2 ring-brand-400 bg-brand-50'">
@@ -44,7 +38,6 @@
         </div>
       </button>
 
-      <!-- Food / Tea -->
       <button @click="selectCategory('shop_expense', 'food', '🍵', 'Food / Tea')"
               class="flex items-center gap-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 transition-all hover:shadow-md hover:ring-brand-200 active:scale-[0.98]"
               :class="form.category === 'food' && 'ring-2 ring-brand-400 bg-brand-50'">
@@ -55,7 +48,6 @@
         </div>
       </button>
 
-      <!-- Personal Advance -->
       <button @click="selectCategory('personal_advance', 'personal', '💳', 'Personal Advance')"
               class="flex items-center gap-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 transition-all hover:shadow-md hover:ring-brand-200 active:scale-[0.98]"
               :class="form.category === 'personal' && 'ring-2 ring-brand-400 bg-brand-50'">
@@ -69,12 +61,8 @@
     </div>
   </div>
 
-  <!-- ═══════════════════════════════════════════════════════════════════ -->
-  <!-- TAB: My Requests History                                            -->
-  <!-- ═══════════════════════════════════════════════════════════════════ -->
   <div x-show="tab === 'history'" x-transition class="space-y-3">
 
-    <!-- Loading -->
     <div x-show="historyLoading" class="py-12 text-center">
       <svg class="mx-auto h-8 w-8 animate-spin text-brand-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -82,7 +70,23 @@
       </svg>
     </div>
 
-    <!-- Empty State -->
+    <div class="mb-4 flex flex-wrap gap-3 items-center justify-end">
+      <label class="text-sm text-gray-600">Status:</label>
+      <select x-model="filterStatus" class="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800">
+        <option value="">All</option>
+        <option value="pending">Pending</option>
+        <option value="approved">Approved</option>
+        <option value="rejected">Rejected</option>
+      </select>
+      <label class="text-sm text-gray-600">Period:</label>
+      <select x-model="filterPeriod" class="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800">
+        <option value="">All</option>
+        <option value="daily">Today</option>
+        <option value="weekly">This Week</option>
+        <option value="monthly">This Month</option>
+      </select>
+    </div>
+
     <div x-show="!historyLoading && requests.length === 0" class="py-12 text-center">
       <p class="text-4xl mb-3">📭</p>
       <p class="text-base font-semibold text-gray-600">No requests yet</p>
@@ -93,10 +97,8 @@
       </button>
     </div>
 
-    <!-- Request Cards -->
-    <template x-for="req in requests" :key="req.id || req.request_id">
+    <template x-for="req in filteredRequests" :key="req.id || req.request_id">
       <div class="flex overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 transition-all hover:shadow-md">
-        <!-- Color bar -->
         <div class="w-1.5 shrink-0"
              :class="{
                'bg-yellow-400': req.status === 'pending',
@@ -104,7 +106,6 @@
                'bg-red-500':    req.status === 'rejected',
              }"></div>
         <div class="flex flex-1 items-center gap-3 p-4">
-          <!-- Icon -->
           <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-xl"
                :class="{
                  'bg-purple-50': req.category === 'materials',
@@ -112,7 +113,6 @@
                  'bg-blue-50': req.type === 'personal_advance' || req.category === 'personal',
                }"
                x-text="getCategoryIcon(req)"></div>
-          <!-- Details -->
           <div class="min-w-0 flex-1">
             <div class="flex items-center justify-between">
               <p class="text-sm font-semibold text-gray-800">
@@ -126,17 +126,17 @@
                     }"
                     x-text="req.status"></span>
             </div>
-            <p class="mt-0.5 truncate text-xs text-gray-500" x-text="req.reason || req.description || '—'"></p>
+            <p class="mt-0.5 truncate text-xs text-gray-500" x-text="req.notes || '—'"></p>
             <p class="mt-1 text-[10px] text-gray-300" x-text="formatDate(req.created_at || req.date)"></p>
+            
+            <!-- Receipt-related UI removed -->
+            
           </div>
         </div>
       </div>
     </template>
   </div>
 
-  <!-- ═══════════════════════════════════════════════════════════════════ -->
-  <!-- Slide-up Modal for Amount + Reason                                  -->
-  <!-- ═══════════════════════════════════════════════════════════════════ -->
   <div x-show="modalOpen" x-transition.opacity
        class="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm"
        @click.self="closeModal()">
@@ -149,12 +149,10 @@
          x-transition:leave-end="translate-y-full"
          class="w-full max-w-lg rounded-t-3xl bg-white pb-8 shadow-2xl safe-area-bottom">
 
-      <!-- Drag handle -->
       <div class="flex justify-center py-3">
         <div class="h-1 w-10 rounded-full bg-gray-200"></div>
       </div>
 
-      <!-- Modal Header -->
       <div class="flex items-center gap-3 px-6 pb-4">
         <span class="text-2xl" x-text="form.icon"></span>
         <div>
@@ -163,10 +161,8 @@
         </div>
       </div>
 
-      <!-- Form -->
       <div class="space-y-4 px-6">
 
-        <!-- Amount -->
         <div>
           <label class="mb-1.5 block text-sm font-medium text-gray-600">Amount (₹)</label>
           <div class="relative">
@@ -181,18 +177,20 @@
           </div>
         </div>
 
-        <!-- Reason -->
         <div>
-          <label class="mb-1.5 block text-sm font-medium text-gray-600">Reason</label>
+          <label class="mb-1.5 block text-sm font-medium text-gray-600">Reason <span class="text-gray-400 text-xs">(optional)</span></label>
           <input type="text"
                  x-ref="reasonInput"
                  x-model="form.reason"
-                 placeholder="What is this for?"
+                 placeholder="What is this for? (optional)"
                  class="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm text-gray-800 transition-colors focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-100"
                  @keydown.enter="submitRequest()">
         </div>
 
-        <!-- Submit -->
+        <template x-if="form.category === 'materials'">
+          <!-- Receipt screenshot input removed -->
+        </template>
+
         <button @click="submitRequest()"
                 :disabled="!form.amount || form.amount <= 0 || submitting"
                 class="w-full rounded-2xl bg-brand-600 py-4 text-base font-bold text-white shadow-lg shadow-brand-600/30 transition-all hover:bg-brand-700 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed">
@@ -206,7 +204,6 @@
           </span>
         </button>
 
-        <!-- Cancel -->
         <button @click="closeModal()"
                 class="w-full rounded-2xl border border-gray-200 py-3 text-sm font-medium text-gray-500 transition-colors hover:bg-gray-50">
           Cancel
@@ -220,14 +217,39 @@
 
 {% block page_scripts %}
 <script>
-  function myMoney() {
+  window.myMoney = function() {
     return {
       tab: 'new',
       modalOpen: false,
       submitting: false,
       historyLoading: false,
       requests: [],
-
+      filterPeriod: '',
+      filterStatus: '',
+      get filteredRequests() {
+        return this.requests.filter(req => {
+          const stat = this.filterStatus;
+          const period = this.filterPeriod;
+          let matchStat = !stat || req.status === stat;
+          let matchPeriod = true;
+          if (period) {
+            const d = new Date(req.created_at || req.date);
+            const now = new Date();
+            if (period === 'daily') {
+              matchPeriod = d.toDateString() === now.toDateString();
+            } else if (period === 'weekly') {
+              const weekStart = new Date(now);
+              weekStart.setDate(now.getDate() - now.getDay());
+              const weekEnd = new Date(weekStart);
+              weekEnd.setDate(weekStart.getDate() + 6);
+              matchPeriod = d >= weekStart && d <= weekEnd;
+            } else if (period === 'monthly') {
+              matchPeriod = d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+            }
+          }
+          return matchStat && matchPeriod;
+        });
+      },
       form: {
         type: '',
         category: '',
@@ -235,71 +257,94 @@
         label: '',
         amount: null,
         reason: '',
+        // Receipt state removed
       },
-
       init() {
-        // Prefetch history
         this.fetchRequests();
+        this.$watch('tab', (val) => {
+          if (val !== 'new') this.modalOpen = false;
+        });
       },
-
       selectCategory(type, category, icon, label) {
+        this.tab = 'new';
         this.form.type = type;
         this.form.category = category;
         this.form.icon = icon;
         this.form.label = label;
         this.form.amount = null;
         this.form.reason = '';
+        // Receipt state reset removed
         this.modalOpen = true;
         if (navigator.vibrate) navigator.vibrate(30);
       },
-
+      handleReceiptUpload(event) {
+        // Receipt upload handler removed
+      },
+      async replaceReceipt(event, req) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('request_id', req.id || req.request_id);
+        try {
+          const res = await fetch('/api/financial/replace_receipt', {
+            method: 'POST',
+            credentials: 'include',
+            body: formData,
+          });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            dispatchToast && dispatchToast('success', 'Receipt Updated', 'Receipt replaced successfully');
+            this.fetchRequests();
+          } else {
+            dispatchToast && dispatchToast('error', 'Error', data.error || 'Failed to replace receipt');
+          }
+        } catch (e) {
+          dispatchToast && dispatchToast('error', 'Network Error', 'Could not reach the server');
+        }
+      },
+      removeReceipt() {
+        this.form.receiptFile = null;
+        this.form.receiptPreview = '';
+        if (this.$refs.receiptInput) {
+          this.$refs.receiptInput.value = '';
+        }
+      },
       closeModal() {
         this.modalOpen = false;
       },
-
       async submitRequest() {
-        if (!this.form.amount || this.form.amount <= 0) {
-          dispatchToast('error', 'Invalid Amount', 'Please enter a valid amount');
-          return;
+        const payload = {
+          type: this.form.type,
+          amount: this.form.amount,
+          notes: this.form.reason || this.form.label,
+        };
+        if (this.form.type === 'shop_expense') {
+          payload.category = this.form.category;
         }
-        if (this.submitting) return;
-        this.submitting = true;
-
         try {
-          const payload = {
-            type: this.form.type,
-            amount: this.form.amount,
-            reason: this.form.reason || this.form.label,
-          };
-          if (this.form.type === 'shop_expense') {
-            payload.category = this.form.category;
-          }
-
           const res = await fetch('/api/financial/requests', {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
           });
-
           const data = await res.json();
-
           if (!res.ok) {
-            dispatchToast('error', 'Request Failed', data.error || data.message || 'Could not submit request');
+            if (typeof dispatchToast === 'function') dispatchToast('error', 'Request Failed', data.error || data.message || 'Could not submit request');
+            this.submitting = false;
             return;
           }
-
-          dispatchToast('success', 'Request Submitted! ✅', `₹${this.form.amount} request sent for approval`);
+          if (typeof dispatchToast === 'function') dispatchToast('success', 'Request Submitted! ✅', `₹${this.form.amount} request sent for approval`);
           if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
           this.closeModal();
           this.fetchRequests();
         } catch (e) {
-          dispatchToast('error', 'Network Error', 'Please check your connection');
+          if (typeof dispatchToast === 'function') dispatchToast('error', 'Network Error', 'Please check your connection');
         } finally {
           this.submitting = false;
         }
       },
-
       async fetchRequests() {
         this.historyLoading = true;
         try {
@@ -307,7 +352,6 @@
           if (res.ok) {
             const data = await res.json();
             this.requests = data.requests || data.data || [];
-            // Sort by date desc
             this.requests.sort((a, b) => {
               const da = new Date(a.created_at || a.date || 0);
               const db = new Date(b.created_at || b.date || 0);
@@ -320,14 +364,12 @@
           this.historyLoading = false;
         }
       },
-
       getCategoryIcon(req) {
         if (req.category === 'materials') return '🧵';
         if (req.category === 'food') return '🍵';
-        if (req.type === 'personal_advance' || req.category === 'personal') return '💳';
-        return '💰';
+        if (req.category === 'personal') return '💳';
+        return '';
       },
-
       formatDate(dateStr) {
         if (!dateStr) return '';
         try {
@@ -338,7 +380,7 @@
           return dateStr;
         }
       },
-    };
+    }
   }
 </script>
 {% endblock %}

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 modules/financial/routes.py – Financial Requests Blueprint.
 
@@ -8,7 +10,6 @@ GET   /api/financial/requests       – List requests (filterable)
 GET   /api/financial/requests/<id>  – Get request detail
 PATCH /api/financial/requests/<id>  – Admin approve/reject
 """
-from __future__ import annotations
 
 from flask import Blueprint, request, session, jsonify
 
@@ -21,6 +22,9 @@ log = get_logger(__name__)
 financial_bp = Blueprint("financial", __name__)
 
 
+    # Receipt upload endpoint removed
+
+
 @financial_bp.post("/api/financial/requests")
 @login_required
 def api_create_request():
@@ -28,7 +32,7 @@ def api_create_request():
     body = request.get_json(silent=True) or {}
     user_id = session["user_id"]
 
-    log.info("Create financial request | user_id=%s | type=%s", user_id, body.get("type"))
+    log.info("Create financial request | user_id=%s | type=%s | payload=%s", user_id, body.get("type"), body)
 
     success, error, doc = financial_service.create_request(user_id, body)
     if not success:
@@ -55,6 +59,10 @@ def api_list_requests():
     if status_filter:
         filters["status"] = status_filter
 
+    category_filter = request.args.get("category")
+    if category_filter:
+        filters["category"] = category_filter
+
     if role == "admin":
         uid = request.args.get("user_id")
         if uid:
@@ -64,6 +72,9 @@ def api_list_requests():
 
     log.info("List financial requests | role=%s | filters=%s", role, filters)
     requests_list = financial_service.get_requests(filters)
+    log.info("Returned requests count: %d", len(requests_list))
+    for req in requests_list:
+        log.info("Returned request: %s", req)
     return jsonify({"success": True, "requests": requests_list})
 
 
@@ -89,7 +100,7 @@ def api_review_request(request_id: str):
     """Admin approve or reject a financial request."""
     body = request.get_json(silent=True) or {}
     action = str(body.get("action", "")).strip().lower()
-    notes = str(body.get("notes", "")).strip()
+    notes = str(body.get("admin_notes", body.get("notes", "")).strip())
     admin_id = session["user_id"]
 
     if action not in ("approve", "reject"):

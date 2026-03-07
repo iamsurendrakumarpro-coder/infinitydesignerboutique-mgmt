@@ -116,12 +116,12 @@
         </div>
 
         <!-- Submit Button (visible on last step) -->
-        <button x-show="currentStep === totalSteps - 1 && currentPin.length === 4"
-                x-transition
-                @click="doChangePin()"
-                :disabled="submitting"
-                class="mt-6 flex w-full items-center justify-center gap-2 rounded-xl py-4 text-base font-semibold text-white shadow-lg transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
-                :class="submitting ? 'bg-brand-400' : 'bg-brand-600 shadow-brand-600/30 hover:bg-brand-700'">
+        <button x-show="currentStep === totalSteps - 1"
+          x-transition
+          @click="doChangePin()"
+          :disabled="submitting || pins.some(p => p.length !== 4)"
+          class="mt-6 flex w-full items-center justify-center gap-2 rounded-xl py-4 text-base font-semibold text-white shadow-lg transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+          :class="submitting ? 'bg-brand-400' : 'bg-brand-600 shadow-brand-600/30 hover:bg-brand-700'">
           <svg x-show="submitting" class="h-5 w-5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -197,6 +197,12 @@
       },
 
       advance() {
+        // Only allow advancing if current PIN is exactly 4 digits
+        if (this.currentPin.length !== 4) {
+          this.error = 'Please enter a 4-digit PIN.';
+          if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
+          return;
+        }
         // Confirm step: check match
         if (this.currentStep === this.totalSteps - 1) {
           const newIdx = this.totalSteps === 2 ? 0 : 1;
@@ -229,7 +235,7 @@
 
         const body = { new_pin: this.pins[newIdx] };
         if (!isFirstLogin) {
-          body.old_pin = this.pins[0];
+          body.old_pin = this.pins[0]; // Use 'old_pin' as required by backend
         }
 
         try {
@@ -245,26 +251,64 @@
             if (navigator.vibrate) navigator.vibrate([20, 50, 20]);
             dispatchToast('success', 'PIN Updated', 'Your PIN has been changed successfully.');
             setTimeout(() => { window.location.href = '/'; }, 800);
-          } else {
-            throw new Error(data.error || 'Failed to change PIN.');
-          }
-        } catch (err) {
-          this.error = err.message || 'Something went wrong.';
-          if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
-          dispatchToast('error', 'Error', this.error);
+          async doChangePin() {
+            const newIdx = this.totalSteps === 2 ? 0 : 1;
+            const confirmIdx = this.totalSteps - 1;
 
-          // If old PIN was wrong, go back to step 0
-          if (this.error.toLowerCase().includes('current') ||
-              this.error.toLowerCase().includes('old') ||
-              this.error.toLowerCase().includes('incorrect')) {
-            this.pins = Array(this.totalSteps).fill('');
-            this.currentStep = 0;
-          }
-        } finally {
-          this.submitting = false;
-        }
-      },
-    };
-  }
-</script>
-{% endblock %}
+            // All required PINs must be 4 digits
+            for (let i = 0; i < this.totalSteps; i++) {
+              if (this.pins[i].length !== 4) {
+                this.error = 'Please fill all PINs with 4 digits.';
+                this.currentStep = i;
+                if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
+                return;
+              }
+            }
+
+            if (this.pins[newIdx] !== this.pins[confirmIdx]) {
+              this.error = 'PINs do not match.';
+              this.pins[confirmIdx] = '';
+              this.currentStep = confirmIdx;
+              if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
+              return;
+            }
+
+            this.submitting = true;
+            this.error = '';
+
+            const body = { new_pin: this.pins[newIdx] };
+            if (!isFirstLogin) {
+              body.old_pin = this.pins[0];
+            }
+
+            try {
+              const res = await fetch('/api/auth/change-pin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+              });
+              const data = await res.json();
+
+              if (res.ok) {
+                if (navigator.vibrate) navigator.vibrate([20, 50, 20]);
+                dispatchToast('success', 'PIN Updated', 'Your PIN has been changed successfully.');
+                setTimeout(() => { window.location.href = '/'; }, 800);
+              } else {
+                throw new Error(data.error || 'Failed to change PIN.');
+              }
+            } catch (err) {
+              this.error = err.message || 'Something went wrong.';
+              if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
+              dispatchToast('error', 'Error', this.error);
+
+              // If old PIN was wrong, go back to step 0
+              if (this.error.toLowerCase().includes('current') ||
+                  this.error.toLowerCase().includes('old') ||
+                  this.error.toLowerCase().includes('incorrect')) {
+                this.pins = Array(this.totalSteps).fill('');
+                this.currentStep = 0;
+              }
+            } finally {
+              this.submitting = false;
+            }
+          },

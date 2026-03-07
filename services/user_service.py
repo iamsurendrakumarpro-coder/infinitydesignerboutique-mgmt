@@ -189,6 +189,9 @@ def create_staff(data: dict, created_by: str) -> tuple[bool, str, dict]:
     )
     audit_log(created_by, "CREATE_STAFF", f"staff/{user_id}", f"phone={phone}")
     doc.pop("pin_hash", None)
+    # Remove Firestore SERVER_TIMESTAMP fields before returning
+    doc.pop("created_at", None)
+    doc.pop("updated_at", None)
     return True, "", doc
 
 
@@ -201,6 +204,20 @@ def get_staff(user_id: str) -> dict | None:
         return None
     data = doc.to_dict()
     data.pop("pin_hash", None)
+    # Guarantee all required fields for frontend
+    if "joining_date" not in data or not data["joining_date"]:
+        data["joining_date"] = "—"
+    if "weekly_salary" not in data or not data["weekly_salary"]:
+        data["weekly_salary"] = None
+    if "daily_salary" not in data or not data["daily_salary"]:
+        # Try to compute from weekly_salary if possible
+        ws = data.get("weekly_salary")
+        try:
+            data["daily_salary"] = compute_daily_salary(float(ws)) if ws else None
+        except Exception:
+            data["daily_salary"] = None
+    if "skills" not in data or not isinstance(data["skills"], list):
+        data["skills"] = []
     return data
 
 

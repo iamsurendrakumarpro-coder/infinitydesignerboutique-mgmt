@@ -166,19 +166,7 @@
           </div>
 
           <!-- Status -->
-          <div>
-            <label class="mb-1.5 block text-sm font-medium text-gray-700">Status</label>
-            <div class="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-              <button type="button" @click="form.status = form.status === 'active' ? 'inactive' : 'active'"
-                      class="relative h-6 w-11 rounded-full transition-colors"
-                      :class="form.status === 'active' ? 'bg-green-500' : 'bg-gray-300'">
-                <span class="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform"
-                      :class="form.status === 'active' && 'translate-x-5'"></span>
-              </button>
-              <span class="text-sm font-medium" :class="form.status === 'active' ? 'text-green-700' : 'text-gray-500'"
-                    x-text="form.status === 'active' ? 'Active' : 'Inactive'"></span>
-            </div>
-          </div>
+          <!-- Status field removed for user creation -->
         </div>
 
         <!-- Salary Card -->
@@ -250,9 +238,6 @@
         'Cutting Master',
         'Tailor',
         'Embroidery Artist',
-        'Handwork Expert',
-        'Designer',
-        'Helper',
       ],
 
       form: {
@@ -333,7 +318,18 @@
         this.submitting = true;
         const isEdit = this.mode === 'edit';
 
+        // Map designation label to backend key
+        const designationMap = {
+          'Cutting Master': 'cutting_master',
+          'Tailor': 'tailor',
+          'Embroidery Artist': 'embroidery_artist',
+        };
         const payload = { ...this.form };
+        payload.designation = designationMap[this.form.designation] || '';
+        // Send pin as temp_pin for create
+        if (!isEdit) {
+          payload.temp_pin = this.form.pin;
+        }
         if (isEdit) {
           delete payload.pin;
         }

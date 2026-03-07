@@ -30,16 +30,6 @@
       <p class="mt-1 text-xs font-medium text-gray-400">Weekly Salary</p>
       <p class="mt-0.5 text-sm font-bold text-gray-800" x-text="profile.weekly_salary ? '₹' + Number(profile.weekly_salary).toLocaleString('en-IN') : '—'"></p>
     </div>
-    <div class="rounded-2xl bg-white p-4 text-center shadow-sm ring-1 ring-gray-100">
-      <p class="text-2xl">📊</p>
-      <p class="mt-1 text-xs font-medium text-gray-400">Daily Salary</p>
-      <p class="mt-0.5 text-sm font-bold text-gray-800" x-text="profile.daily_salary ? '₹' + Number(profile.daily_salary).toLocaleString('en-IN') : '—'"></p>
-    </div>
-    <div class="rounded-2xl bg-white p-4 text-center shadow-sm ring-1 ring-gray-100">
-      <p class="text-2xl">✂️</p>
-      <p class="mt-1 text-xs font-medium text-gray-400">Skills</p>
-      <p class="mt-0.5 text-sm font-bold text-gray-800 truncate" x-text="(profile.skills && profile.skills.length) ? profile.skills.join(', ') : '—'"></p>
-    </div>
   </div>
 
   <!-- ── Recent Attendance (Last 7 Days) ──────────────────────────────── -->
@@ -220,21 +210,38 @@
 
       async fetchProfile() {
         try {
-          const res = await fetch('/api/auth/me', { credentials: 'include' });
+          // Step 1: Get logged-in user ID
+          const authRes = await fetch('/api/auth/me', { credentials: 'include' });
+          let userId = null;
+          if (authRes.ok) {
+            const authData = await authRes.json();
+            userId = authData.user ? authData.user.user_id : authData.user_id;
+          }
+          if (!userId) throw new Error('Could not determine user ID');
+
+          // Step 2: Fetch staff profile from correct endpoint
+          const res = await fetch(`/api/users/staff/${userId}`, { credentials: 'include' });
           if (res.ok) {
             const data = await res.json();
-            const u = data.user || data;
-            this.profile.full_name = u.full_name || this.profile.full_name;
-            this.profile.phone_number = u.phone_number || this.profile.phone_number;
-            this.profile.role = u.role || u.designation || this.profile.role;
-            this.profile.joining_date = u.joining_date || u.joined || u.created_at || null;
-            this.profile.weekly_salary = u.weekly_salary || u.salary || null;
+            const u = data.staff || data.user || data;
+            // Always map all fields, fallback to default if missing
+            this.profile.full_name = u.full_name || this.profile.full_name || 'Staff';
+            this.profile.phone_number = u.phone_number || this.profile.phone_number || '';
+            this.profile.role = u.role || u.designation || this.profile.role || 'staff';
+            this.profile.joining_date = u.joining_date || u.joined || u.created_at || '—';
+            this.profile.weekly_salary = typeof u.weekly_salary !== 'undefined' ? u.weekly_salary : (typeof u.salary !== 'undefined' ? u.salary : null);
             const WORKING_DAYS_PER_WEEK = 6; // Mon–Sat
-            this.profile.daily_salary = u.daily_salary || (u.weekly_salary ? Math.round(u.weekly_salary / WORKING_DAYS_PER_WEEK) : null);
-            this.profile.skills = u.skills || u.specializations || [];
+            this.profile.daily_salary = typeof u.daily_salary !== 'undefined' ? u.daily_salary : (typeof this.profile.weekly_salary === 'number' ? Math.round(this.profile.weekly_salary / WORKING_DAYS_PER_WEEK) : null);
+            this.profile.skills = Array.isArray(u.skills) ? u.skills : (Array.isArray(u.specializations) ? u.specializations : []);
             this.initials = this.computeInitials(this.profile.full_name);
 
-            if (this.profile.joining_date) {
+            // Defensive: ensure all fields are set
+            if (!this.profile.joining_date) this.profile.joining_date = '—';
+            if (!this.profile.weekly_salary) this.profile.weekly_salary = null;
+            if (!this.profile.daily_salary) this.profile.daily_salary = null;
+            if (!this.profile.skills) this.profile.skills = [];
+
+            if (this.profile.joining_date && this.profile.joining_date !== '—') {
               try {
                 const d = new Date(this.profile.joining_date);
                 if (!isNaN(d.getTime())) {

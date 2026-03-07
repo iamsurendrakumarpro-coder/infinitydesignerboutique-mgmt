@@ -38,6 +38,7 @@ def get_daily_summary(target_date: date | None = None) -> dict:
     punched_in = 0
     punched_out = 0
     still_in = 0
+    today_attendance = []
     for staff in active_staff:
         uid = staff["user_id"]
         rec = db.collection("attendance").document(uid).collection("records").document(doc_id).get()
@@ -48,6 +49,17 @@ def get_daily_summary(target_date: date | None = None) -> dict:
                 punched_out += 1
             else:
                 still_in += 1
+            today_attendance.append({
+                "user_id": uid,
+                "full_name": staff.get("full_name", ""),
+                "designation": staff.get("designation", ""),
+                "punch_in_time": data.get("punch_in"),
+                "punch_out_time": data.get("punch_out"),
+                "duration_minutes": data.get("duration_minutes"),
+                "status": data.get("status", "in"),
+                "standard_login_time": staff.get("standard_login_time", "09:30"),
+                "standard_logout_time": staff.get("standard_logout_time", "18:30"),
+            })
 
     absent = total_active - punched_in
 
@@ -74,6 +86,7 @@ def get_daily_summary(target_date: date | None = None) -> dict:
         "absent": absent,
         "pending_financial_requests": len(pending_financial),
         "pending_overtime_approvals": len(pending_overtime),
+        "today_attendance": today_attendance,
     }
 
     log.info("Daily summary generated | date=%s | staff=%d | present=%d",

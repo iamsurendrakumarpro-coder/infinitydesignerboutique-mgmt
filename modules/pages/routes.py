@@ -125,7 +125,9 @@ def admin_settlements():
 @pages_bp.get("/staff/duty")
 def duty_station():
     """Duty station – daily task view."""
-    if not _is_staff_or_admin():
+    if not _is_staff():
+        if _is_admin():
+            return redirect(url_for("pages.admin_dashboard"))
         return redirect(url_for("pages.login"))
     if session.get("is_first_login"):
         return redirect(url_for("pages.change_pin"))
@@ -135,7 +137,9 @@ def duty_station():
 @pages_bp.get("/staff/money")
 def my_money():
     """Staff earnings / money overview."""
-    if not _is_staff_or_admin():
+    if not _is_staff():
+        if _is_admin():
+            return redirect(url_for("pages.admin_dashboard"))
         return redirect(url_for("pages.login"))
     if session.get("is_first_login"):
         return redirect(url_for("pages.change_pin"))
@@ -145,7 +149,9 @@ def my_money():
 @pages_bp.get("/staff/profile")
 def staff_profile():
     """Staff profile page."""
-    if not _is_staff_or_admin():
+    if not _is_staff():
+        if _is_admin():
+            return redirect(url_for("pages.admin_dashboard"))
         return redirect(url_for("pages.login"))
     if session.get("is_first_login"):
         return redirect(url_for("pages.change_pin"))
@@ -171,6 +177,6 @@ def _is_admin() -> bool:
     return "user_id" in session and session.get("role") == "admin"
 
 
-def _is_staff_or_admin() -> bool:
-    """Return True when the session belongs to any authenticated user."""
-    return "user_id" in session and session.get("role") in ("admin", "staff")
+def _is_staff() -> bool:
+    """Return True when the session belongs to a staff user."""
+    return "user_id" in session and session.get("role") == "staff"
