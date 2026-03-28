@@ -1,5 +1,5 @@
 """
-app.py – Infinity Designer Boutique Management System.
+app.py - Infinity Designer Boutique Management System.
 
 Full-stack Flask application: JSON REST API + Jinja2 HTML templates (PWA).
 
@@ -19,7 +19,7 @@ from flask_cors import CORS
 from config import get_config, Config
 from utils.logger import init_logging, get_logger
 
-# ── Module imports ────────────────────────────────────────────────────────────
+# -- Module imports ------------------------------------------------------------
 from modules.auth.routes import auth_bp
 from modules.users.routes import users_bp
 from modules.attendance.routes import attendance_bp
@@ -27,6 +27,7 @@ from modules.financial.routes import financial_bp
 from modules.overtime.routes import overtime_bp
 from modules.settlements.routes import settlements_bp
 from modules.dashboard.routes import dashboard_bp
+from modules.settings.routes import settings_bp
 from modules.pages.routes import pages_bp
 
 
@@ -40,7 +41,7 @@ def create_app(config: Config | None = None) -> Flask:
     """
     cfg = config or get_config()
 
-    # ── Logging first (before anything else) ─────────────────────────────────
+    # -- Logging first (before anything else) ---------------------------------
     init_logging(
         log_dir=cfg.LOG_DIR,
         log_level=cfg.LOG_LEVEL,
@@ -52,7 +53,7 @@ def create_app(config: Config | None = None) -> Flask:
     log.info("Starting %s | env=%s | debug=%s", cfg.BOUTIQUE_NAME, os.getenv("FLASK_ENV", "development"), cfg.DEBUG)
     log.info("=" * 70)
 
-    # ── Create Flask app with templates and static files ──────────────────────
+    # -- Create Flask app with templates and static files ----------------------
     base_dir = os.path.dirname(os.path.abspath(__file__))
     app = Flask(
         __name__,
@@ -61,7 +62,7 @@ def create_app(config: Config | None = None) -> Flask:
         static_url_path="/static",
     )
 
-    # ── Apply config ──────────────────────────────────────────────────────────
+    # -- Apply config ----------------------------------------------------------
     app.secret_key = cfg.SECRET_KEY
     app.config["DEBUG"] = cfg.DEBUG
     app.config["PERMANENT_SESSION_LIFETIME"] = cfg.PERMANENT_SESSION_LIFETIME
@@ -71,9 +72,10 @@ def create_app(config: Config | None = None) -> Flask:
     app.config["TIMEZONE"] = cfg.TIMEZONE
     app.config["DESIGNATIONS"] = cfg.DESIGNATIONS
     app.config["DESIGNATION_LABELS"] = cfg.DESIGNATION_LABELS
-    app.config["JWT_SECRET_KEY"] = cfg.JWT_SECRET_KEY
+    # Authentication is handled exclusively via server-side Flask sessions.
+    # JWT config has been removed as it was unused throughout the codebase.
 
-    # ── CORS ──────────────────────────────────────────────────────────────────
+    # -- CORS ------------------------------------------------------------------
     CORS(
         app,
         supports_credentials=True,
@@ -83,7 +85,7 @@ def create_app(config: Config | None = None) -> Flask:
     )
     log.info("CORS origins: %s", cfg.CORS_ORIGINS)
 
-    # ── Initialise Firebase (eagerly so errors surface at startup) ────────────
+    # -- Initialise Firebase (eagerly so errors surface at startup) ------------
     try:
         from utils.firebase_client import get_firestore
         get_firestore()
@@ -92,7 +94,7 @@ def create_app(config: Config | None = None) -> Flask:
         log.error("Firebase initialisation failed: %s", exc)
         log.warning("App will start, but DB operations will fail until Firebase is configured.")
 
-    # ── Register API blueprints ───────────────────────────────────────────────
+    # -- Register API blueprints -----------------------------------------------
     app.register_blueprint(auth_bp)
     app.register_blueprint(users_bp)
     app.register_blueprint(attendance_bp)
@@ -100,17 +102,18 @@ def create_app(config: Config | None = None) -> Flask:
     app.register_blueprint(overtime_bp)
     app.register_blueprint(settlements_bp)
     app.register_blueprint(dashboard_bp)
+    app.register_blueprint(settings_bp)
     # Receipt upload blueprint removed
 
-    # ── Register page-serving blueprint ───────────────────────────────────────
+    # -- Register page-serving blueprint ---------------------------------------
     app.register_blueprint(pages_bp)
 
     log.info(
         "Blueprints registered: auth, users, attendance, financial, "
-        "overtime, settlements, dashboard, pages"
+        "overtime, settlements, dashboard, settings, pages"
     )
 
-    # ── Request / response logging ────────────────────────────────────────────
+    # -- Request / response logging --------------------------------------------
     @app.before_request
     def log_incoming_request():
         if request.path == "/api/health" or request.path.startswith("/static"):
@@ -136,7 +139,7 @@ def create_app(config: Config | None = None) -> Flask:
         )
         return response
 
-    # ── Global error handlers (JSON for API, redirect for pages) ──────────────
+    # -- Global error handlers (JSON for API, redirect for pages) --------------
     @app.errorhandler(404)
     def not_found(e):
         log.warning("404 Not Found | path=%s", request.path)
@@ -164,7 +167,7 @@ def create_app(config: Config | None = None) -> Flask:
         log.warning("400 Bad Request | path=%s | error=%s", request.path, str(e))
         return jsonify({"success": False, "error": "Bad request."}), 400
 
-    # ── Health check ──────────────────────────────────────────────────────────
+    # -- Health check ----------------------------------------------------------
     @app.get("/api/health")
     def health_check():
         return jsonify({"success": True, "status": "healthy", "app": cfg.BOUTIQUE_NAME})
@@ -173,7 +176,7 @@ def create_app(config: Config | None = None) -> Flask:
     return app
 
 
-# ── Dev server entry point ────────────────────────────────────────────────────
+# -- Dev server entry point ----------------------------------------------------
 if __name__ == "__main__":
     application = create_app()
     port = int(os.getenv("PORT", "5000"))

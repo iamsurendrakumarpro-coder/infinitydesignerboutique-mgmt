@@ -16,30 +16,114 @@
       <svg class="h-4 w-4" :class="refreshing && 'animate-spin'" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182M2.985 19.644l3.181-3.182"/>
       </svg>
-      <span x-text="refreshing ? 'Refreshing…' : 'Refresh'"></span>
+      <span x-text="refreshing ? 'Refreshing...' : 'Refresh'"></span>
     </button>
   </div>
 
+  <!-- KPI Cards -->
   <div class="mb-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
     <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100 sm:p-5">
-      <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-lg">👥</div>
-      <p class="text-2xl font-bold text-gray-900" x-text="stats.totalStaff">–</p>
+      <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600"
+           x-html="renderIcon('users', 'h-5 w-5')"></div>
+      <p class="text-2xl font-bold text-gray-900" x-text="stats.totalStaff">-</p>
       <p class="mt-0.5 text-xs font-medium text-gray-400">Active Staff</p>
     </div>
     <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100 sm:p-5">
-      <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-lg">🟢</div>
-      <p class="text-2xl font-bold text-gray-900" x-text="stats.todayPresent">–</p>
+      <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-600"
+           x-html="renderIcon('check-circle', 'h-5 w-5')"></div>
+      <p class="text-2xl font-bold text-gray-900" x-text="stats.todayPresent">-</p>
       <p class="mt-0.5 text-xs font-medium text-gray-400">Present Today</p>
     </div>
     <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100 sm:p-5">
-      <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-lg">📋</div>
-      <p class="text-2xl font-bold text-gray-900" x-text="stats.pendingApprovals">–</p>
+      <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600"
+           x-html="renderIcon('clipboard-document-list', 'h-5 w-5')"></div>
+      <p class="text-2xl font-bold text-gray-900" x-text="stats.pendingApprovals">-</p>
       <p class="mt-0.5 text-xs font-medium text-gray-400">Pending Approvals</p>
     </div>
     <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100 sm:p-5">
-      <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-purple-50 text-lg">⏰</div>
-      <p class="text-2xl font-bold text-gray-900" x-text="stats.pendingOvertime">–</p>
+      <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-purple-50 text-purple-600"
+           x-html="renderIcon('clock', 'h-5 w-5')"></div>
+      <p class="text-2xl font-bold text-gray-900" x-text="stats.pendingOvertime">-</p>
       <p class="mt-0.5 text-xs font-medium text-gray-400">Pending Overtime</p>
+    </div>
+  </div>
+
+  <!-- Charts Section -->
+  <div class="mb-6 grid gap-4 lg:grid-cols-3">
+    <!-- Attendance Trend Chart -->
+    <div class="lg:col-span-2 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-semibold text-gray-900">Weekly Attendance Trend</h3>
+        <span class="text-xs text-gray-400">Last 7 days</span>
+      </div>
+      <div class="h-64">
+        <canvas id="attendanceChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Financial Overview Doughnut -->
+    <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-semibold text-gray-900">Financial Overview</h3>
+        <span class="text-xs text-gray-400">This Month</span>
+      </div>
+      <div class="h-64 flex items-center justify-center">
+        <canvas id="financialChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Staff Distribution + Staff by Designation -->
+  <div class="mb-6 grid gap-4 lg:grid-cols-2">
+    <!-- Staff Distribution Bar Chart -->
+    <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-semibold text-gray-900">Staff by Designation</h3>
+      </div>
+      <div class="h-48">
+        <canvas id="designationChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-semibold text-gray-900">Quick Actions</h3>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <a href="/admin/staff/new" class="flex items-center gap-3 rounded-xl border border-gray-200 p-4 transition-all hover:border-brand-300 hover:bg-brand-50">
+          <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-100 text-brand-600"
+               x-html="renderIcon('user-plus', 'h-5 w-5')"></div>
+          <div>
+            <p class="text-sm font-medium text-gray-900">Add Staff</p>
+            <p class="text-xs text-gray-400">Register new employee</p>
+          </div>
+        </a>
+        <a href="/admin/approvals" class="flex items-center gap-3 rounded-xl border border-gray-200 p-4 transition-all hover:border-amber-300 hover:bg-amber-50">
+          <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 text-amber-600"
+               x-html="renderIcon('check-badge', 'h-5 w-5')"></div>
+          <div>
+            <p class="text-sm font-medium text-gray-900">Approvals</p>
+            <p class="text-xs text-gray-400">Review pending requests</p>
+          </div>
+        </a>
+        <a href="/admin/settlements" class="flex items-center gap-3 rounded-xl border border-gray-200 p-4 transition-all hover:border-green-300 hover:bg-green-50">
+          <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100 text-green-600"
+               x-html="renderIcon('banknotes', 'h-5 w-5')"></div>
+          <div>
+            <p class="text-sm font-medium text-gray-900">Settlements</p>
+            <p class="text-xs text-gray-400">Process weekly payouts</p>
+          </div>
+        </a>
+        <a href="/admin/settings" class="flex items-center gap-3 rounded-xl border border-gray-200 p-4 transition-all hover:border-gray-300 hover:bg-gray-50">
+          <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-600"
+               x-html="renderIcon('cog', 'h-5 w-5')"></div>
+          <div>
+            <p class="text-sm font-medium text-gray-900">Settings</p>
+            <p class="text-xs text-gray-400">Configure app settings</p>
+          </div>
+        </a>
+      </div>
     </div>
   </div>
 
@@ -47,13 +131,16 @@
 
     <div class="rounded-2xl bg-white shadow-sm ring-1 ring-gray-100">
       <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-        <h2 class="text-base font-semibold text-gray-900">📅 Today's Attendance</h2>
+        <div class="flex items-center gap-2">
+          <span class="text-brand-600" x-html="renderIcon('calendar', 'h-5 w-5')"></span>
+          <h2 class="text-base font-semibold text-gray-900">Today's Attendance</h2>
+        </div>
         <span class="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-500"
               x-text="attendance.length + ' employees'"></span>
       </div>
 
       <div x-show="!attendanceLoading && attendance.length === 0" class="px-5 py-10 text-center">
-        <p class="text-3xl mb-2">📭</p>
+        <div class="mb-3 text-gray-300" x-html="renderIcon('inbox', 'h-12 w-12 mx-auto')"></div>
         <p class="text-sm text-gray-400">No attendance records for today</p>
       </div>
 
@@ -83,11 +170,11 @@
                   <div class="flex items-center gap-2.5">
                     <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700"
                          x-text="getInitials(row.staff_name || row.full_name || row.employee_name)"></div>
-                    <span class="font-medium text-gray-800" x-text="row.staff_name || row.full_name || row.employee_name || '–'"></span>
+                    <span class="font-medium text-gray-800" x-text="row.staff_name || row.full_name || row.employee_name || '-'"></span>
                   </div>
                 </td>
-                <td class="px-3 py-3 text-gray-600" x-text="formatDateTimeIST(row.punch_in_time) || formatDateTimeIST(row.punch_in) || formatDateTimeIST(row.login_time) || '–'"></td>
-                <td class="px-3 py-3 text-gray-600" x-text="formatDateTimeIST(row.punch_out_time) || formatDateTimeIST(row.punch_out) || '–'"></td>
+                <td class="px-3 py-3 text-gray-600" x-text="formatDateTimeIST(row.punch_in_time) || formatDateTimeIST(row.punch_in) || formatDateTimeIST(row.login_time) || '-'"></td>
+                <td class="px-3 py-3 text-gray-600" x-text="formatDateTimeIST(row.punch_out_time) || formatDateTimeIST(row.punch_out) || '-'"></td>
                 <td class="px-3 py-3 text-gray-600">
                   <span x-text="row.duration_minutes ? formatDuration(row.duration_minutes) : calculateHours(row.punch_in_time, row.punch_out_time)"></span>
                 </td>
@@ -122,7 +209,10 @@
 
     <div class="rounded-2xl bg-white shadow-sm ring-1 ring-gray-100">
       <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-        <h2 class="text-base font-semibold text-gray-900">💳 Financial Requests</h2>
+        <div class="flex items-center gap-2">
+          <span class="text-brand-600" x-html="renderIcon('credit-card', 'h-5 w-5')"></span>
+          <h2 class="text-base font-semibold text-gray-900">Financial Requests</h2>
+        </div>
         <div class="flex items-center gap-3">
           <select x-model="requestStatus" class="rounded-lg border border-gray-200 px-2 py-1 text-xs">
             <option value="">All Status</option>
@@ -138,7 +228,7 @@
       </div>
 
       <div x-show="!requestsLoading && requests.length === 0" class="px-5 py-10 text-center">
-        <p class="text-4xl mb-4">✨</p>
+        <div class="mb-3 text-gray-300" x-html="renderIcon('sparkles', 'h-12 w-12 mx-auto')"></div>
         <p class="text-sm text-gray-400">No recent financial requests</p>
       </div>
 
@@ -173,8 +263,8 @@
                 </td>
                 <td class="px-3 py-3 text-gray-600" x-text="formatDateTimeIST(req.created_at)"></td>
                 <td class="px-3 py-3 text-gray-800">₹<span x-text="Number(req.amount).toLocaleString('en-IN')"></span></td>
-                <td class="px-3 py-3 text-gray-600" x-text="req.category || '–'"></td>
-                <td class="px-3 py-3 text-gray-600" x-text="formatDateTimeIST(req.reviewed_at) || '–'"></td>
+                <td class="px-3 py-3 text-gray-600" x-text="req.category || '-'"></td>
+                <td class="px-3 py-3 text-gray-600" x-text="formatDateTimeIST(req.reviewed_at) || '-'"></td>
                 <td class="px-3 py-3 text-right">
                   <span class="inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold"
                         :class="{
@@ -213,11 +303,10 @@
   }
 
   function formatStatus(status) {
-    if (!status) return '–';
+    if (!status) return '-';
     return status.charAt(0).toUpperCase() + status.slice(1);
   }
 
-  // Formatting strictly for time (used in Attendance)
   function formatIST(utcString) {
     if (!utcString) return '';
     const d = new Date(utcString);
@@ -228,7 +317,6 @@
     });
   }
 
-  // Formatting for Date + Time (used in Financial Requests)
   function formatDateTimeIST(utcString) {
     if (!utcString) return '';
     const d = new Date(utcString);
@@ -244,48 +332,44 @@
   }
 
   function calculateHours(punchIn, punchOut) {
-    if (!punchIn || !punchOut) return '–';
+    if (!punchIn || !punchOut) return '-';
     try {
       const inTime = new Date(punchIn);
       const outTime = new Date(punchOut);
       const diffMs = outTime - inTime;
-      if (diffMs <= 0) return '–';
+      if (diffMs <= 0) return '-';
       const hours = Math.floor(diffMs / (1000 * 60 * 60));
       const minutes = Math.floor((diffMs / (1000 * 60)) % 60);
       return `${hours}h ${minutes}m`;
     } catch {
-      return '–';
+      return '-';
     }
   }
 
   function calculateOT(punchIn, punchOut, stdIn, stdOut) {
-    if (!punchIn || !punchOut || !stdIn || !stdOut) return '–';
+    if (!punchIn || !punchOut || !stdIn || !stdOut) return '-';
     try {
-      // Parse punchIn and punchOut as date/time
       const inTime = new Date(punchIn);
       const outTime = new Date(punchOut);
-      // Parse standard login/logout as time only, using today's date
       const today = new Date();
       const stdInParts = stdIn.split(':');
       const stdOutParts = stdOut.split(':');
       const stdInTime = new Date(today.getFullYear(), today.getMonth(), today.getDate(), parseInt(stdInParts[0]), parseInt(stdInParts[1]));
       const stdOutTime = new Date(today.getFullYear(), today.getMonth(), today.getDate(), parseInt(stdOutParts[0]), parseInt(stdOutParts[1]));
-      // Calculate actual worked minutes
       const workedMinutes = (outTime - inTime) / (1000 * 60);
-      // Calculate standard shift minutes
       const stdMinutes = (stdOutTime - stdInTime) / (1000 * 60);
       const extraMinutes = workedMinutes - stdMinutes;
-      if (isNaN(extraMinutes) || extraMinutes <= 0) return '–';
+      if (isNaN(extraMinutes) || extraMinutes <= 0) return '-';
       const hours = Math.floor(extraMinutes / 60);
       const minutes = Math.floor(extraMinutes % 60);
       return `${hours}h ${minutes}m`;
     } catch {
-      return '–';
+      return '-';
     }
   }
 
   function formatDuration(minutes) {
-    if (!minutes || isNaN(minutes)) return '–';
+    if (!minutes || isNaN(minutes)) return '-';
     const hrs = Math.floor(minutes / 60);
     const mins = Math.floor(minutes % 60);
     return `${hrs}h ${mins}m`;
@@ -296,26 +380,32 @@
       refreshing: false,
       attendanceLoading: true,
       requestsLoading: true,
+      analyticsLoading: true,
       currentDateTime: '',
       stats: {
-        totalStaff: '–',
-        todayPresent: '–',
-        pendingApprovals: '–',
-        pendingOvertime: '–',
+        totalStaff: '-',
+        todayPresent: '-',
+        pendingApprovals: '-',
+        pendingOvertime: '-',
       },
       attendance: [],
       requests: [],
       requestStatus: '',
       requestStartDate: '',
       requestEndDate: '',
+      charts: {
+        attendance: null,
+        financial: null,
+        designation: null,
+      },
 
       async loadAll() {
         this.refreshing = true;
         this.updateDateTime();
         await Promise.all([
           this.fetchDashboard(),
-          this.fetchAttendance(),
           this.fetchRequests(),
+          this.fetchAnalytics(),
         ]);
         this.refreshing = false;
       },
@@ -330,32 +420,20 @@
       },
 
       async fetchDashboard() {
-        try {
-          const res = await fetch('/api/dashboard/summary', { credentials: 'include' });
-          if (res.ok) {
-            const data = await res.json();
-            const summary = data.summary || {};
-            this.stats.totalStaff = summary.total_active_staff ?? summary.total_staff ?? summary.active_staff ?? 0;
-            this.stats.todayPresent = summary.punched_in ?? summary.today_present ?? summary.present_today ?? 0;
-            this.stats.pendingApprovals = summary.pending_financial_requests ?? summary.pending_approvals ?? summary.pending_financial ?? 0;
-            this.stats.pendingOvertime = summary.pending_overtime_approvals ?? summary.pending_overtime ?? 0;
-          }
-        } catch (e) {
-          console.error('Dashboard fetch error:', e);
-        }
-      },
-
-      async fetchAttendance() {
         this.attendanceLoading = true;
         try {
           const res = await fetch('/api/dashboard/summary', { credentials: 'include' });
           if (res.ok) {
             const data = await res.json();
             const summary = data.summary || {};
+            this.stats.totalStaff       = summary.total_active_staff ?? summary.total_staff ?? summary.active_staff ?? 0;
+            this.stats.todayPresent     = summary.punched_in ?? summary.today_present ?? summary.present_today ?? 0;
+            this.stats.pendingApprovals = summary.pending_financial_requests ?? summary.pending_approvals ?? summary.pending_financial ?? 0;
+            this.stats.pendingOvertime  = summary.pending_overtime_approvals ?? summary.pending_overtime ?? 0;
             this.attendance = summary.today_attendance || summary.attendance || [];
           }
         } catch (e) {
-          console.error('Attendance fetch error:', e);
+          console.error('Dashboard fetch error:', e);
         } finally {
           this.attendanceLoading = false;
         }
@@ -379,6 +457,147 @@
           console.error('Requests fetch error:', e);
         } finally {
           this.requestsLoading = false;
+        }
+      },
+
+      async fetchAnalytics() {
+        this.analyticsLoading = true;
+        try {
+          const res = await fetch('/api/dashboard/analytics', { credentials: 'include' });
+          if (res.ok) {
+            const data = await res.json();
+            const analytics = data.analytics || {};
+            this.renderCharts(analytics);
+          }
+        } catch (e) {
+          console.error('Analytics fetch error:', e);
+        } finally {
+          this.analyticsLoading = false;
+        }
+      },
+
+      renderCharts(analytics) {
+        // Destroy existing charts
+        if (this.charts.attendance) this.charts.attendance.destroy();
+        if (this.charts.financial) this.charts.financial.destroy();
+        if (this.charts.designation) this.charts.designation.destroy();
+
+        const brandColor = '#4f46e5';
+        const brandColorLight = 'rgba(79, 70, 229, 0.1)';
+
+        // Attendance Trend Line Chart
+        const attendanceCtx = document.getElementById('attendanceChart');
+        if (attendanceCtx && analytics.attendance_trend) {
+          const trend = analytics.attendance_trend;
+          this.charts.attendance = new Chart(attendanceCtx, {
+            type: 'line',
+            data: {
+              labels: trend.map(d => d.day),
+              datasets: [
+                {
+                  label: 'Present',
+                  data: trend.map(d => d.present),
+                  borderColor: '#10b981',
+                  backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                  fill: true,
+                  tension: 0.4,
+                },
+                {
+                  label: 'Absent',
+                  data: trend.map(d => d.absent),
+                  borderColor: '#ef4444',
+                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                  fill: true,
+                  tension: 0.4,
+                },
+              ],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: {
+                  position: 'top',
+                  labels: { usePointStyle: true, padding: 20 },
+                },
+              },
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  ticks: { stepSize: 1 },
+                  grid: { color: 'rgba(0,0,0,0.05)' },
+                },
+                x: {
+                  grid: { display: false },
+                },
+              },
+            },
+          });
+        }
+
+        // Financial Overview Doughnut Chart
+        const financialCtx = document.getElementById('financialChart');
+        if (financialCtx && analytics.financial_overview) {
+          const fin = analytics.financial_overview;
+          this.charts.financial = new Chart(financialCtx, {
+            type: 'doughnut',
+            data: {
+              labels: ['Expenses', 'Advances', 'Pending'],
+              datasets: [{
+                data: [fin.approved_expenses, fin.approved_advances, fin.pending_count * 100],
+                backgroundColor: ['#f59e0b', '#3b82f6', '#6b7280'],
+                borderWidth: 0,
+              }],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              cutout: '65%',
+              plugins: {
+                legend: {
+                  position: 'bottom',
+                  labels: { usePointStyle: true, padding: 15 },
+                },
+              },
+            },
+          });
+        }
+
+        // Staff Distribution Bar Chart
+        const designationCtx = document.getElementById('designationChart');
+        if (designationCtx && analytics.staff_distribution) {
+          const dist = analytics.staff_distribution;
+          this.charts.designation = new Chart(designationCtx, {
+            type: 'bar',
+            data: {
+              labels: dist.map(d => d.designation),
+              datasets: [{
+                label: 'Staff Count',
+                data: dist.map(d => d.count),
+                backgroundColor: brandColor,
+                borderRadius: 6,
+                barThickness: 24,
+              }],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              indexAxis: 'y',
+              plugins: {
+                legend: { display: false },
+              },
+              scales: {
+                x: {
+                  beginAtZero: true,
+                  ticks: { stepSize: 1 },
+                  grid: { color: 'rgba(0,0,0,0.05)' },
+                },
+                y: {
+                  grid: { display: false },
+                },
+              },
+            },
+          });
         }
       },
     };

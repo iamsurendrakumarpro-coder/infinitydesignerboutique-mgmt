@@ -1,10 +1,10 @@
 """
-services/overtime_service.py – Overtime detection and management.
+services/overtime_service.py - Overtime detection and management.
 
 Firestore collection: overtime_records/{record_id}
 
 Overtime is auto-detected after punch-out when the worked duration
-exceeds shift hours + OVERTIME_GRACE_MINUTES.
+exceeds shift hours + overtime_grace_minutes (from settings).
 """
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from datetime import datetime
 
 from google.cloud.firestore_v1 import SERVER_TIMESTAMP
 
-from config import get_config
+from services.settings_service import get_working_config
 from utils.firebase_client import get_firestore
 from utils.logger import get_logger, audit_log
 from utils.timezone_utils import format_ist
@@ -23,17 +23,35 @@ log = get_logger(__name__)
 _COLLECTION = "overtime_records"
 
 
-def calculate_hourly_rate(weekly_salary: float) -> float:
-    """Calculate hourly rate: weekly_salary / working_days / hours_per_day."""
-    cfg = get_config()
-    days = cfg.WORKING_DAYS_PER_WEEK
-    hours = cfg.STANDARD_HOURS_PER_DAY
-    if days <= 0 or hours <= 0:
-        log.warning("Invalid config: WORKING_DAYS_PER_WEEK=%d, STANDARD_HOURS_PER_DAY=%d", days, hours)
+def calculate_hourly_rate(salary: float, salary_type: str = "weekly") -> float:
+    """
+    Calculate hourly rate based on salary type.
+
+    For weekly: weekly_salary / working_days_per_week / standard_hours_per_day
+    For monthly: monthly_salary / monthly_working_days / standard_hours_per_day
+    """
+    working_config = get_working_config()
+    hours = working_config["standard_hours_per_day"]
+    if hours <= 0:
+        log.warning("Invalid config: standard_hours_per_day=%d", hours)
         return 0.0
-    rate = weekly_salary / days / hours
-    log.info("calculate_hourly_rate | weekly_salary=%.2f | days=%d | hours=%d | rate=%.2f",
-             weekly_salary, days, hours, rate)
+
+    if salary_type == "monthly":
+        days = working_config["monthly_working_days"]
+        if days <= 0:
+            log.warning("Invalid config: monthly_working_days=%d", days)
+            return 0.0
+        rate = salary / days / hours
+        log.info("calculate_hourly_rate | monthly_salary=%.2f | days=%d | hours=%d | rate=%.2f",
+                 salary, days, hours, rate)
+    else:
+        days = working_config["working_days_per_week"]
+        if days <= 0:
+            log.warning("Invalid config: working_days_per_week=%d", days)
+            return 0.0
+        rate = salary / days / hours
+        log.info("calculate_hourly_rate | weekly_salary=%.2f | days=%d | hours=%d | rate=%.2f",
+                 salary, days, hours, rate)
     return rate
 
 
@@ -44,11 +62,11 @@ def detect_overtime(user_id: str, attendance_record: dict) -> dict | None:
 
     Returns the overtime record dict, or None if no overtime.
     """
-    cfg = get_config()
+    working_config = get_working_config()
     duration_minutes = attendance_record.get("duration_minutes", 0)
 
-    shift_minutes = cfg.STANDARD_HOURS_PER_DAY * 60
-    threshold = shift_minutes + cfg.OVERTIME_GRACE_MINUTES
+    shift_minutes = working_config["standard_hours_per_day"] * 60
+    threshold = shift_minutes + working_config["overtime_grace_minutes"]
 
     if duration_minutes <= threshold:
         log.info("No overtime detected | user_id=%s | duration=%dmin | threshold=%dmin",
@@ -60,14 +78,24 @@ def detect_overtime(user_id: str, attendance_record: dict) -> dict | None:
 
     from services.user_service import get_staff
     staff = get_staff(user_id)
-    weekly_salary = float(staff.get("weekly_salary", 0)) if staff else 0
-    hourly_rate = calculate_hourly_rate(weekly_salary)
+
+    # Determine salary and salary_type for hourly rate calculation
+    salary_type = staff.get("salary_type", "weekly") if staff else "weekly"
+    if salary_type == "monthly":
+        salary = float(staff.get("monthly_salary", 0)) if staff else 0
+    else:
+        salary = float(staff.get("weekly_salary", 0)) if staff else 0
+
+    hourly_rate = calculate_hourly_rate(salary, salary_type)
     overtime_payout = round(hourly_rate * (overtime_minutes / 60), 2)
 
     record_id = str(uuid.uuid4())
+    staff_name = staff.get("full_name", "") if staff else ""
     doc = {
         "record_id": record_id,
         "user_id": user_id,
+        "staff_name": staff_name,
+        "full_name": staff_name,
         "date": record_date,
         "total_worked_minutes": duration_minutes,
         "overtime_minutes": overtime_minutes,
@@ -92,6 +120,8 @@ def detect_overtime(user_id: str, attendance_record: dict) -> dict | None:
 
 def get_pending_overtime() -> list[dict]:
     """List all overtime records awaiting admin approval."""
+    from services.user_service import get_staff
+
     db = get_firestore()
     docs = (
         db.collection(_COLLECTION)
@@ -99,13 +129,24 @@ def get_pending_overtime() -> list[dict]:
         .order_by("created_at", direction="DESCENDING")
         .stream()
     )
-    result = [_sanitise(d.to_dict()) for d in docs]
+    result = []
+    for d in docs:
+        data = _sanitise(d.to_dict())
+        # Enrich with staff name if missing (for older records)
+        if not data.get("staff_name") and not data.get("full_name"):
+            staff = get_staff(data.get("user_id"))
+            if staff:
+                data["staff_name"] = staff.get("full_name", "")
+                data["full_name"] = staff.get("full_name", "")
+        result.append(data)
     log.info("get_pending_overtime | count=%d", len(result))
     return result
 
 
 def get_overtime_for_user(user_id: str) -> list[dict]:
     """Get all overtime records for a specific user."""
+    from services.user_service import get_staff
+
     db = get_firestore()
     docs = (
         db.collection(_COLLECTION)
@@ -113,7 +154,18 @@ def get_overtime_for_user(user_id: str) -> list[dict]:
         .order_by("created_at", direction="DESCENDING")
         .stream()
     )
-    results = [_sanitise(d.to_dict()) for d in docs]
+    # Get staff name once for enrichment
+    staff = get_staff(user_id)
+    staff_name = staff.get("full_name", "") if staff else ""
+
+    results = []
+    for d in docs:
+        data = _sanitise(d.to_dict())
+        # Enrich with staff name if missing
+        if not data.get("staff_name") and not data.get("full_name"):
+            data["staff_name"] = staff_name
+            data["full_name"] = staff_name
+        results.append(data)
     log.debug("get_overtime_for_user | user_id=%s | count=%d", user_id, len(results))
     return results
 
@@ -190,7 +242,7 @@ def get_approved_overtime_for_period(user_id: str, start, end) -> list[dict]:
     return results
 
 
-# ── Helper ────────────────────────────────────────────────────────────────────
+# -- Helper --------------------------------------------------------------------
 
 def _sanitise(data: dict) -> dict:
     """Convert Firestore timestamps to IST strings."""

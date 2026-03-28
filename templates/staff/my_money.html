@@ -7,18 +7,25 @@
 
   <div class="mb-5 flex gap-1 rounded-2xl bg-gray-100 p-1">
     <button @click="tab = 'new'"
-            class="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all"
+            class="flex-1 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all"
             :class="tab === 'new'
               ? 'bg-white text-brand-700 shadow-sm'
               : 'text-gray-500 hover:text-gray-700'">
-      ➕ New Request
+      ➕ New
     </button>
     <button @click="tab = 'history'; fetchRequests()"
-            class="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all"
+            class="flex-1 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all"
             :class="tab === 'history'
               ? 'bg-white text-brand-700 shadow-sm'
               : 'text-gray-500 hover:text-gray-700'">
-      📋 My Requests
+      📋 Requests
+    </button>
+    <button @click="tab = 'overtime'; fetchOvertime()"
+            class="flex-1 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all"
+            :class="tab === 'overtime'
+              ? 'bg-white text-brand-700 shadow-sm'
+              : 'text-gray-500 hover:text-gray-700'">
+      ⏰ Overtime
     </button>
   </div>
 
@@ -28,13 +35,13 @@
 
     <div class="grid grid-cols-1 gap-3">
 
-      <button @click="selectCategory('shop_expense', 'materials', '🧵', 'Materials / Thread')"
+      <button @click="selectCategory('shop_expense', 'materials', '🧵', 'Materials')"
               class="flex items-center gap-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 transition-all hover:shadow-md hover:ring-brand-200 active:scale-[0.98]"
               :class="form.category === 'materials' && 'ring-2 ring-brand-400 bg-brand-50'">
         <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-purple-50 text-3xl">🧵</div>
         <div class="text-left">
-          <p class="text-base font-semibold text-gray-800">Materials / Thread</p>
-          <p class="text-xs text-gray-400">Fabric, thread, buttons, zippers</p>
+          <p class="text-base font-semibold text-gray-800">Materials</p>
+          <p class="text-xs text-gray-400">Fabric, thread, buttons, zippers etc...</p>
         </div>
       </button>
 
@@ -44,7 +51,7 @@
         <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-3xl">🍵</div>
         <div class="text-left">
           <p class="text-base font-semibold text-gray-800">Food / Tea</p>
-          <p class="text-xs text-gray-400">Tea, snacks, lunch expenses</p>
+          <p class="text-xs text-gray-400">Tea, snacks, food expenses</p>
         </div>
       </button>
 
@@ -137,6 +144,55 @@
     </template>
   </div>
 
+  <!-- Overtime History Tab -->
+  <div x-show="tab === 'overtime'" x-transition class="space-y-3">
+
+    <div x-show="overtimeLoading" class="py-12 text-center">
+      <svg class="mx-auto h-8 w-8 animate-spin text-brand-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+      </svg>
+    </div>
+
+    <div x-show="!overtimeLoading && overtimeRecords.length === 0" class="py-12 text-center">
+      <p class="text-4xl mb-3">⏰</p>
+      <p class="text-base font-semibold text-gray-600">No overtime records</p>
+      <p class="mt-1 text-sm text-gray-400">Your overtime will appear here after working extra hours</p>
+    </div>
+
+    <template x-for="ot in overtimeRecords" :key="ot.record_id || ot.id">
+      <div class="flex overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 transition-all hover:shadow-md">
+        <div class="w-1.5 shrink-0"
+             :class="{
+               'bg-yellow-400': ot.status === 'pending',
+               'bg-green-500':  ot.status === 'approved',
+               'bg-red-500':    ot.status === 'rejected',
+             }"></div>
+        <div class="flex flex-1 items-center gap-3 p-4">
+          <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-purple-50 text-xl">⏰</div>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center justify-between">
+              <p class="text-sm font-semibold text-gray-800">
+                <span x-text="ot.overtime_minutes"></span> min overtime
+              </p>
+              <span class="inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase"
+                    :class="{
+                      'bg-yellow-100 text-yellow-700': ot.status === 'pending',
+                      'bg-green-100 text-green-700':   ot.status === 'approved',
+                      'bg-red-100 text-red-600':       ot.status === 'rejected',
+                    }"
+                    x-text="ot.status"></span>
+            </div>
+            <p class="mt-0.5 text-xs text-gray-500">
+              Payout: ₹<span x-text="Number(ot.calculated_payout || 0).toLocaleString('en-IN')"></span>
+            </p>
+            <p class="mt-1 text-[10px] text-gray-300" x-text="formatDate(ot.date || ot.created_at)"></p>
+          </div>
+        </div>
+      </div>
+    </template>
+  </div>
+
   <div x-show="modalOpen" x-transition.opacity
        class="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm"
        @click.self="closeModal()">
@@ -200,7 +256,7 @@
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
             </svg>
-            Submitting…
+            Submitting...
           </span>
         </button>
 
@@ -223,7 +279,9 @@
       modalOpen: false,
       submitting: false,
       historyLoading: false,
+      overtimeLoading: false,
       requests: [],
+      overtimeRecords: [],
       filterPeriod: '',
       filterStatus: '',
       get filteredRequests() {
@@ -277,43 +335,18 @@
         this.modalOpen = true;
         if (navigator.vibrate) navigator.vibrate(30);
       },
-      handleReceiptUpload(event) {
-        // Receipt upload handler removed
-      },
-      async replaceReceipt(event, req) {
-        const file = event.target.files[0];
-        if (!file) return;
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('request_id', req.id || req.request_id);
-        try {
-          const res = await fetch('/api/financial/replace_receipt', {
-            method: 'POST',
-            credentials: 'include',
-            body: formData,
-          });
-          const data = await res.json();
-          if (res.ok && data.success) {
-            dispatchToast && dispatchToast('success', 'Receipt Updated', 'Receipt replaced successfully');
-            this.fetchRequests();
-          } else {
-            dispatchToast && dispatchToast('error', 'Error', data.error || 'Failed to replace receipt');
-          }
-        } catch (e) {
-          dispatchToast && dispatchToast('error', 'Network Error', 'Could not reach the server');
-        }
-      },
-      removeReceipt() {
-        this.form.receiptFile = null;
-        this.form.receiptPreview = '';
-        if (this.$refs.receiptInput) {
-          this.$refs.receiptInput.value = '';
-        }
-      },
       closeModal() {
         this.modalOpen = false;
       },
       async submitRequest() {
+        // Guard: prevent empty amount and double-submission (e.g. rapid taps or Enter key)
+        if (!this.form.amount || this.form.amount <= 0) {
+          if (typeof dispatchToast === 'function') dispatchToast('error', 'Invalid Amount', 'Please enter a valid amount');
+          return;
+        }
+        if (this.submitting) return;
+        this.submitting = true;
+
         const payload = {
           type: this.form.type,
           amount: this.form.amount,
@@ -362,6 +395,33 @@
           console.error('Failed to fetch requests:', e);
         } finally {
           this.historyLoading = false;
+        }
+      },
+      async fetchOvertime() {
+        this.overtimeLoading = true;
+        try {
+          // Get current user ID first
+          const authRes = await fetch('/api/auth/me', { credentials: 'include' });
+          if (!authRes.ok) {
+            console.error('Failed to get auth info');
+            return;
+          }
+          const authData = await authRes.json();
+          const userId = authData.user ? authData.user.user_id : authData.user_id;
+          if (!userId) {
+            console.error('No user ID found');
+            return;
+          }
+
+          const res = await fetch(`/api/overtime/user/${userId}`, { credentials: 'include' });
+          if (res.ok) {
+            const data = await res.json();
+            this.overtimeRecords = data.records || data.data || [];
+          }
+        } catch (e) {
+          console.error('Failed to fetch overtime records:', e);
+        } finally {
+          this.overtimeLoading = false;
         }
       },
       getCategoryIcon(req) {

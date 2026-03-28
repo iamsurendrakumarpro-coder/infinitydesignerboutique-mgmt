@@ -1,1 +1,1 @@
-"""modules/overtime/__init__.py – Package marker."""
+"""modules/overtime/__init__.py - Package marker."""

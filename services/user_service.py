@@ -1,16 +1,18 @@
 """
-services/user_service.py – User management business logic.
+services/user_service.py - User management business logic.
 
 Handles creation, retrieval, updates, status changes, gallery management,
 and performance-log management for both admins and staff.
 
 Firestore structure
 -------------------
-admins/{user_id}            – Admin profile documents
-staff/{user_id}             – Staff profile documents
-staff/{user_id}/work_gallery/{image_id}      – Gallery images
-staff/{user_id}/performance_logs/{log_id}    – Performance notes
-phone_index/{phone_number}  – Unique-phone lookup (for uniqueness check)
+admins/{user_id}                              - Admin profile documents
+staff/{user_id}                               - Staff profile documents
+staff/{user_id}/work_gallery/{image_id}       - Gallery images (metadata + Storage path)
+staff/{user_id}/performance_logs/{log_id}     - Performance notes added by admins
+
+Phone uniqueness is enforced by querying both admins and staff
+collections directly (no separate index collection required).
 """
 from __future__ import annotations
 
@@ -23,23 +25,38 @@ from services.auth_service import hash_pin
 from utils.firebase_client import get_firestore, get_storage_bucket
 from utils.logger import get_logger, audit_log
 from utils.timezone_utils import now_utc, today_ist_str
-from config import get_config
+from services.settings_service import (
+    get_app_config,
+    get_working_config,
+    get_salary_types,
+    get_settlement_cycles,
+    get_staff_statuses,
+)
 
 log = get_logger(__name__)
-cfg = get_config()
 
-# ── Collection constants ──────────────────────────────────────────────────────
+# -- Collection constants ------------------------------------------------------
 _ADMINS = "admins"
-_STAFF = "staff"
-_PHONE_INDEX = "phone_index"
+_STAFF  = "staff"
 
 
-def compute_daily_salary(weekly_salary: float) -> float:
-    """Compute daily salary from weekly salary using config WORKING_DAYS_PER_WEEK."""
-    return round(weekly_salary / cfg.WORKING_DAYS_PER_WEEK, 2)
+def compute_daily_salary(
+    salary: float,
+    salary_type: str = "weekly",
+) -> float:
+    """
+    Compute daily salary based on salary type.
+
+    For weekly staff: weekly_salary / working_days_per_week (default 6)
+    For monthly staff: monthly_salary / monthly_working_days (default 26)
+    """
+    working_config = get_working_config()
+    if salary_type == "monthly":
+        return round(salary / working_config["monthly_working_days"], 2)
+    return round(salary / working_config["working_days_per_week"], 2)
 
 
-# ── Phone uniqueness ──────────────────────────────────────────────────────────
+# -- Phone uniqueness ----------------------------------------------------------
 
 def is_phone_taken(phone: str) -> bool:
     """Return True if the phone number is already registered (in either collection)."""
@@ -56,7 +73,7 @@ def is_phone_taken(phone: str) -> bool:
     return bool(staff)
 
 
-# ── Admin CRUD ────────────────────────────────────────────────────────────────
+# -- Admin CRUD ----------------------------------------------------------------
 
 def create_admin(data: dict, created_by: str | None = None) -> tuple[bool, str, dict]:
     """
@@ -134,7 +151,7 @@ def list_admins(exclude_root: bool = True) -> list[dict]:
     return result
 
 
-# ── Staff CRUD ────────────────────────────────────────────────────────────────
+# -- Staff CRUD ----------------------------------------------------------------
 
 def create_staff(data: dict, created_by: str) -> tuple[bool, str, dict]:
     """
@@ -144,7 +161,14 @@ def create_staff(data: dict, created_by: str) -> tuple[bool, str, dict]:
 
         full_name, phone_number, designation, joining_date,
         standard_login_time, standard_logout_time,
-        emergency_contact (optional), weekly_salary, temp_pin
+        emergency_contact (optional), temp_pin
+
+    Salary fields (one required based on salary_type)::
+
+        salary_type: "weekly" | "monthly" (default "weekly")
+        weekly_salary: required if salary_type == "weekly"
+        monthly_salary: required if salary_type == "monthly"
+        settlement_cycle: "weekly" | "monthly" (admin-configurable)
 
     Returns (success, error_message, created_doc_dict).
     """
@@ -161,18 +185,45 @@ def create_staff(data: dict, created_by: str) -> tuple[bool, str, dict]:
 
     joining_date = str(data.get("joining_date") or today_ist_str()).strip()
 
+    # Get dynamic settings
+    salary_types = get_salary_types()
+    settlement_cycles = get_settlement_cycles()
+    app_config = get_app_config()
+
+    # Salary type and settlement cycle
+    salary_type = str(data.get("salary_type", "weekly")).strip()
+    if salary_type not in salary_types:
+        salary_type = "weekly"
+
+    settlement_cycle = str(data.get("settlement_cycle", salary_type)).strip()
+    if settlement_cycle not in settlement_cycles:
+        settlement_cycle = salary_type
+
+    # Compute salary fields based on salary_type
+    if salary_type == "monthly":
+        monthly_salary = float(data.get("monthly_salary", 0))
+        weekly_salary = None
+        daily_salary = compute_daily_salary(monthly_salary, "monthly")
+    else:
+        weekly_salary = float(data.get("weekly_salary", 0))
+        monthly_salary = None
+        daily_salary = compute_daily_salary(weekly_salary, "weekly")
+
     doc = {
         "user_id": user_id,
         "full_name": str(data["full_name"]).strip(),
         "phone_number": phone,
         "designation": str(data["designation"]).strip(),
         "joining_date": joining_date,
-        "standard_login_time": str(data.get("standard_login_time", cfg.DEFAULT_LOGIN_TIME)).strip(),
-        "standard_logout_time": str(data.get("standard_logout_time", cfg.DEFAULT_LOGOUT_TIME)).strip(),
+        "standard_login_time": str(data.get("standard_login_time", app_config.get("default_login_time", "10:00"))).strip(),
+        "standard_logout_time": str(data.get("standard_logout_time", app_config.get("default_logout_time", "19:00"))).strip(),
         "emergency_contact": str(data.get("emergency_contact", "")).strip(),
-        "weekly_salary": float(data["weekly_salary"]),
-        "daily_salary": compute_daily_salary(float(data["weekly_salary"])),
-        "skills": [],
+        "salary_type": salary_type,
+        "settlement_cycle": settlement_cycle,
+        "weekly_salary": weekly_salary,
+        "monthly_salary": monthly_salary,
+        "daily_salary": daily_salary,
+        "skills": data.get("skills", []) if isinstance(data.get("skills"), list) else [],
         "status": "active",
         "pin_hash": pin_hash,
         "role": "staff",
@@ -184,8 +235,8 @@ def create_staff(data: dict, created_by: str) -> tuple[bool, str, dict]:
 
     db.collection(_STAFF).document(user_id).set(doc)
     log.info(
-        "Staff created | user_id=%s | phone=%s | designation=%s | by=%s",
-        user_id, phone, doc["designation"], created_by,
+        "Staff created | user_id=%s | phone=%s | designation=%s | salary_type=%s | by=%s",
+        user_id, phone, doc["designation"], salary_type, created_by,
     )
     audit_log(created_by, "CREATE_STAFF", f"staff/{user_id}", f"phone={phone}")
     doc.pop("pin_hash", None)
@@ -204,17 +255,38 @@ def get_staff(user_id: str) -> dict | None:
         return None
     data = doc.to_dict()
     data.pop("pin_hash", None)
+
+    # Get dynamic settings
+    salary_types = get_salary_types()
+    settlement_cycles = get_settlement_cycles()
+
+    # Guarantee salary_type and settlement_cycle defaults
+    if "salary_type" not in data or data["salary_type"] not in salary_types:
+        data["salary_type"] = "weekly"
+    if "settlement_cycle" not in data or data["settlement_cycle"] not in settlement_cycles:
+        data["settlement_cycle"] = data["salary_type"]
+
     # Guarantee all required fields for frontend
     if "joining_date" not in data or not data["joining_date"]:
-        data["joining_date"] = "—"
-    if "weekly_salary" not in data or not data["weekly_salary"]:
+        data["joining_date"] = "-"
+    if "weekly_salary" not in data:
         data["weekly_salary"] = None
+    if "monthly_salary" not in data:
+        data["monthly_salary"] = None
     if "daily_salary" not in data or not data["daily_salary"]:
-        # Try to compute from weekly_salary if possible
-        ws = data.get("weekly_salary")
-        try:
-            data["daily_salary"] = compute_daily_salary(float(ws)) if ws else None
-        except Exception:
+        # Compute from appropriate salary field
+        salary_type = data.get("salary_type", "weekly")
+        if salary_type == "monthly" and data.get("monthly_salary"):
+            try:
+                data["daily_salary"] = compute_daily_salary(float(data["monthly_salary"]), "monthly")
+            except Exception:
+                data["daily_salary"] = None
+        elif data.get("weekly_salary"):
+            try:
+                data["daily_salary"] = compute_daily_salary(float(data["weekly_salary"]), "weekly")
+            except Exception:
+                data["daily_salary"] = None
+        else:
             data["daily_salary"] = None
     if "skills" not in data or not isinstance(data["skills"], list):
         data["skills"] = []
@@ -255,6 +327,8 @@ def update_staff(user_id: str, data: dict, updated_by: str) -> tuple[bool, str]:
     if not doc.exists:
         return False, "Staff member not found."
 
+    current_data = doc.to_dict()
+
     # Prevent phone number change
     data.pop("phone_number", None)
     data.pop("pin_hash", None)
@@ -263,14 +337,40 @@ def update_staff(user_id: str, data: dict, updated_by: str) -> tuple[bool, str]:
     data.pop("created_at", None)
     data.pop("is_root", None)
 
-    # Handle skills – ensure list
+    # Handle skills - ensure list
     if "skills" in data and isinstance(data["skills"], str):
         data["skills"] = [s.strip() for s in data["skills"].split(",") if s.strip()]
 
-    # Numeric coercion
-    if "weekly_salary" in data:
-        data["weekly_salary"] = float(data["weekly_salary"])
-        data["daily_salary"] = compute_daily_salary(data["weekly_salary"])
+    # Get dynamic settings
+    salary_types = get_salary_types()
+    settlement_cycles = get_settlement_cycles()
+
+    # Handle salary_type change
+    salary_type = data.get("salary_type", current_data.get("salary_type", "weekly"))
+    if salary_type not in salary_types:
+        salary_type = "weekly"
+    data["salary_type"] = salary_type
+
+    # Handle settlement_cycle
+    if "settlement_cycle" in data:
+        if data["settlement_cycle"] not in settlement_cycles:
+            data["settlement_cycle"] = salary_type
+
+    # Numeric coercion for salary fields and daily_salary recomputation
+    if salary_type == "monthly":
+        if "monthly_salary" in data:
+            data["monthly_salary"] = float(data["monthly_salary"])
+            data["daily_salary"] = compute_daily_salary(data["monthly_salary"], "monthly")
+        elif "weekly_salary" in data:
+            # If switching to monthly but only weekly provided, ignore weekly
+            data.pop("weekly_salary", None)
+    else:
+        if "weekly_salary" in data:
+            data["weekly_salary"] = float(data["weekly_salary"])
+            data["daily_salary"] = compute_daily_salary(data["weekly_salary"], "weekly")
+        elif "monthly_salary" in data:
+            # If switching to weekly but only monthly provided, ignore monthly
+            data.pop("monthly_salary", None)
 
     data["updated_at"] = SERVER_TIMESTAMP
 
@@ -285,7 +385,7 @@ def set_staff_status(user_id: str, new_status: str, changed_by: str) -> tuple[bo
     Set staff status to 'active', 'inactive', or 'deactivated'.
     Returns (success, error_message).
     """
-    allowed = cfg.STAFF_STATUSES
+    allowed = get_staff_statuses()
     if new_status not in allowed:
         return False, f"Status must be one of: {', '.join(allowed)}."
 
@@ -300,7 +400,7 @@ def set_staff_status(user_id: str, new_status: str, changed_by: str) -> tuple[bo
     return True, ""
 
 
-# ── Skills ────────────────────────────────────────────────────────────────────
+# -- Skills --------------------------------------------------------------------
 
 def add_skill(user_id: str, skill: str, added_by: str) -> tuple[bool, str]:
     """Append a skill tag to a staff member's profile."""
@@ -329,7 +429,7 @@ def remove_skill(user_id: str, skill: str, removed_by: str) -> tuple[bool, str]:
     return True, ""
 
 
-# ── Work Gallery ──────────────────────────────────────────────────────────────
+# -- Work Gallery --------------------------------------------------------------
 
 def upload_gallery_image(user_id: str, file_bytes: bytes, filename: str, caption: str, uploaded_by: str) -> tuple[bool, str, dict]:
     """
@@ -411,7 +511,7 @@ def delete_gallery_image(user_id: str, image_id: str, deleted_by: str) -> tuple[
     return True, ""
 
 
-# ── Performance Logs ──────────────────────────────────────────────────────────
+# -- Performance Logs ----------------------------------------------------------
 
 def add_performance_log(user_id: str, note: str, created_by: str) -> tuple[bool, str, dict]:
     """Add a performance note to a staff member's profile."""

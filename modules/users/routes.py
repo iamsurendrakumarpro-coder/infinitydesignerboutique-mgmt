@@ -1,24 +1,24 @@
 """
-modules/users/routes.py – User Management Blueprint (JSON API only).
+modules/users/routes.py - User Management Blueprint (JSON API only).
 
 API Routes
 ----------
-GET    /api/users/staff                    – List all staff
-POST   /api/users/staff                    – Create staff
-GET    /api/users/staff/<uid>              – Get staff profile
-PUT    /api/users/staff/<uid>              – Update staff
-PATCH  /api/users/staff/<uid>/status       – Change status
-POST   /api/users/staff/<uid>/reset-pin    – Admin resets staff PIN
-POST   /api/users/staff/<uid>/skills       – Add skill
-DELETE /api/users/staff/<uid>/skills       – Remove skill
-GET    /api/users/staff/<uid>/gallery      – List gallery
-POST   /api/users/staff/<uid>/gallery      – Upload image
-DELETE /api/users/staff/<uid>/gallery/<gid>– Delete gallery image
-GET    /api/users/staff/<uid>/performance  – List perf logs
-POST   /api/users/staff/<uid>/performance  – Add perf log
-DELETE /api/users/staff/<uid>/performance/<lid> – Delete log
-GET    /api/users/admins                   – List admins
-POST   /api/users/admins                   – Create admin
+GET    /api/users/staff                    - List all staff
+POST   /api/users/staff                    - Create staff
+GET    /api/users/staff/<uid>              - Get staff profile
+PUT    /api/users/staff/<uid>              - Update staff
+PATCH  /api/users/staff/<uid>/status       - Change status
+POST   /api/users/staff/<uid>/reset-pin    - Admin resets staff PIN
+POST   /api/users/staff/<uid>/skills       - Add skill
+DELETE /api/users/staff/<uid>/skills       - Remove skill
+GET    /api/users/staff/<uid>/gallery      - List gallery
+POST   /api/users/staff/<uid>/gallery      - Upload image
+DELETE /api/users/staff/<uid>/gallery/<gid>- Delete gallery image
+GET    /api/users/staff/<uid>/performance  - List perf logs
+POST   /api/users/staff/<uid>/performance  - Add perf log
+DELETE /api/users/staff/<uid>/performance/<lid> - Delete log
+GET    /api/users/admins                   - List admins
+POST   /api/users/admins                   - Create admin
 """
 from __future__ import annotations
 
@@ -44,9 +44,9 @@ log = get_logger(__name__)
 users_bp = Blueprint("users", __name__)
 
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ----------------------------------------------------------------------------
 #  Staff API
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ----------------------------------------------------------------------------
 
 @users_bp.get("/api/users/staff")
 @admin_required
@@ -145,7 +145,7 @@ def api_reset_staff_pin(uid: str):
     return jsonify({"success": True})
 
 
-# ── Skills ────────────────────────────────────────────────────────────────────
+# -- Skills --------------------------------------------------------------------
 
 @users_bp.post("/api/users/staff/<uid>/skills")
 @admin_required
@@ -175,7 +175,7 @@ def api_remove_skill(uid: str):
     return jsonify({"success": True})
 
 
-# ── Gallery ───────────────────────────────────────────────────────────────────
+# -- Gallery -------------------------------------------------------------------
 
 @users_bp.get("/api/users/staff/<uid>/gallery")
 @admin_required
@@ -228,7 +228,7 @@ def api_delete_gallery(uid: str, gid: str):
     return jsonify({"success": True})
 
 
-# ── Performance Logs ──────────────────────────────────────────────────────────
+# -- Performance Logs ----------------------------------------------------------
 
 @users_bp.get("/api/users/staff/<uid>/performance")
 @admin_required
@@ -269,9 +269,9 @@ def api_delete_perf_log(uid: str, lid: str):
     return jsonify({"success": True})
 
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ----------------------------------------------------------------------------
 #  Admin API
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ----------------------------------------------------------------------------
 
 @users_bp.get("/api/users/admins")
 @admin_required

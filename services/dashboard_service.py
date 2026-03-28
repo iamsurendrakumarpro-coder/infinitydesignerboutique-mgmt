@@ -1,5 +1,5 @@
 """
-services/dashboard_service.py – Dashboard aggregation logic.
+services/dashboard_service.py - Dashboard aggregation logic.
 
 Provides summary data for the admin dashboard:
   - Daily summary (attendance count, pending requests, etc.)
@@ -209,3 +209,69 @@ def get_attendance_summary(start_date: date, end_date: date) -> dict:
     log.info("Attendance summary | period=%s to %s | staff=%d | total_days=%d",
              start_date, end_date, len(active_staff), total_days_present)
     return summary
+
+
+def get_dashboard_analytics() -> dict:
+    """
+    Get analytics data for dashboard charts.
+
+    Returns:
+      - 7-day attendance trend (for line chart)
+      - Financial overview (for doughnut chart)
+      - Staff distribution by designation (for bar chart)
+    """
+    from datetime import timedelta
+    from collections import Counter
+    from services.user_service import list_staff
+
+    log.debug("get_dashboard_analytics")
+    db = get_firestore()
+
+    # -- 7-day attendance trend --
+    attendance_trend = []
+    today = today_ist()
+    active_staff = list_staff(status_filter="active")
+    total_active = len(active_staff)
+
+    for i in range(6, -1, -1):  # 6 days ago to today
+        check_date = today - timedelta(days=i)
+        doc_id = date_to_doc_id(check_date)
+        present = 0
+        for staff in active_staff:
+            rec = db.collection("attendance").document(staff["user_id"]).collection("records").document(doc_id).get()
+            if rec.exists:
+                present += 1
+        attendance_trend.append({
+            "date": check_date.strftime("%Y-%m-%d"),
+            "day": check_date.strftime("%a"),
+            "present": present,
+            "absent": total_active - present,
+            "total": total_active,
+        })
+
+    # -- Financial overview (this month) --
+    start, end = period_range("monthly")
+    financial_summary = get_financial_summary(start, end)
+
+    # -- Staff distribution by designation --
+    designation_counts = Counter(s.get("designation", "Other") for s in active_staff)
+    staff_distribution = [
+        {"designation": k, "count": v}
+        for k, v in sorted(designation_counts.items(), key=lambda x: -x[1])
+    ]
+
+    return {
+        "attendance_trend": attendance_trend,
+        "financial_overview": {
+            "total_expenses": financial_summary["total_expenses"],
+            "approved_expenses": financial_summary["approved_expenses"],
+            "total_advances": financial_summary["total_advances"],
+            "approved_advances": financial_summary["approved_advances"],
+            "pending_count": financial_summary["pending_count"],
+            "approved_count": financial_summary["approved_count"],
+            "rejected_count": financial_summary["rejected_count"],
+        },
+        "staff_distribution": staff_distribution,
+        "total_active_staff": total_active,
+    }
+

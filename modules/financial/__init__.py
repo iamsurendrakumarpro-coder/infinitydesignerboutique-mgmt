@@ -1,1 +1,1 @@
-"""modules/financial/__init__.py – Package marker."""
+"""modules/financial/__init__.py - Package marker."""

@@ -1,32 +1,17 @@
-
-from __future__ import annotations
-
-def update_receipt_url(request_id: str, url: str) -> tuple[bool, str]:
-    """Update the receipt_url for a financial request."""
-    db = get_firestore()
-    ref = db.collection(_COLLECTION).document(request_id)
-    doc = ref.get()
-    if not doc.exists:
-        return False, "Request not found."
-    data = doc.to_dict()
-    if data.get("status") != "pending" or data.get("category") != "materials":
-        return False, "Only pending Material requests can be updated."
-    ref.update({
-        "receipt_gcs_path": url,
-        "updated_at": SERVER_TIMESTAMP,
-    })
-    log.info("Receipt updated | request_id=%s", request_id)
-    return True, ""
-
 """
-services/financial_service.py – Financial request business logic.
+services/financial_service.py - Financial request business logic.
 
 Firestore collection: financial_requests/{request_id}
 
 Supports two request types:
-  - shop_expense: Approved expenses reimbursed in settlement.
-  - personal_advance: Salary advance deducted from settlement.
+  - shop_expense: Approved shop expenses that are reimbursed in the weekly settlement.
+  - personal_advance: Salary advance deducted from the weekly settlement.
+
+All monetary amounts are stored in INR (Indian Rupees).
+All timestamps are stored as Firestore SERVER_TIMESTAMP and serialised to IST strings
+before being returned to the API layer via _sanitise().
 """
+from __future__ import annotations
 
 import uuid
 from datetime import date
@@ -74,9 +59,17 @@ def create_request(user_id: str, data: dict) -> tuple[bool, str, dict]:
     if req_type == "personal_advance":
         from services.user_service import get_staff
         staff = get_staff(user_id)
-        weekly_salary = float(staff.get("weekly_salary", 0)) if staff else 0
-        if weekly_salary > 0 and amount > weekly_salary:
-            return False, f"Advance amount (₹{amount:.0f}) exceeds weekly salary (₹{weekly_salary:.0f}).", {}
+        salary_type = staff.get("salary_type", "weekly") if staff else "weekly"
+        if salary_type == "monthly":
+            # For monthly staff, cap at monthly salary
+            monthly_salary = float(staff.get("monthly_salary", 0)) if staff else 0
+            if monthly_salary > 0 and amount > monthly_salary:
+                return False, f"Advance amount (INR {amount:.0f}) exceeds monthly salary (INR {monthly_salary:.0f}).", {}
+        else:
+            # For weekly staff, cap at weekly salary
+            weekly_salary = float(staff.get("weekly_salary", 0)) if staff else 0
+            if weekly_salary > 0 and amount > weekly_salary:
+                return False, f"Advance amount (INR {amount:.0f}) exceeds weekly salary (INR {weekly_salary:.0f}).", {}
 
     request_id = str(uuid.uuid4())
     notes_val = str(data.get("notes", "")).strip()
@@ -239,6 +232,9 @@ def get_week_to_date_earned(user_id: str) -> float | None:
     """
     Calculate how much salary the user has earned this week based on attendance.
     Returns None if unable to calculate (e.g. staff not found).
+
+    For monthly staff, uses monthly_salary / MONTHLY_WORKING_DAYS for daily rate.
+    For weekly staff, uses weekly_salary / WORKING_DAYS_PER_WEEK for daily rate.
     """
     try:
         from services.user_service import get_staff, compute_daily_salary
@@ -248,11 +244,17 @@ def get_week_to_date_earned(user_id: str) -> float | None:
         if not staff:
             return None
 
-        weekly_salary = float(staff.get("weekly_salary", 0))
-        if weekly_salary <= 0:
-            return 0.0
-
-        daily_salary = compute_daily_salary(weekly_salary)
+        salary_type = staff.get("salary_type", "weekly")
+        if salary_type == "monthly":
+            monthly_salary = float(staff.get("monthly_salary", 0))
+            if monthly_salary <= 0:
+                return 0.0
+            daily_salary = compute_daily_salary(monthly_salary, "monthly")
+        else:
+            weekly_salary = float(staff.get("weekly_salary", 0))
+            if weekly_salary <= 0:
+                return 0.0
+            daily_salary = compute_daily_salary(weekly_salary, "weekly")
 
         start, end = period_range("weekly")
         records = get_attendance_history(user_id, start, end)
@@ -297,7 +299,7 @@ def get_approved_requests_for_period(user_id: str, start: date, end: date, req_t
     return results
 
 
-# ── Helper ────────────────────────────────────────────────────────────────────
+# -- Helper --------------------------------------------------------------------
 
 def _sanitise(data: dict) -> dict:
     """Convert Firestore timestamps to ISO strings."""

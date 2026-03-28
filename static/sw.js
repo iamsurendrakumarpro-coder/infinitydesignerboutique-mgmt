@@ -1,4 +1,4 @@
-// ── Infinity Designer Boutique – Service Worker ──────────────────────────────
+// -- Infinity Designer Boutique - Service Worker ------------------------------
 'use strict';
 
 const CACHE_NAME = 'idb-boutique-v1';
@@ -19,7 +19,7 @@ const OFFLINE_HTML = `<!DOCTYPE html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Offline – IDB Boutique</title>
+  <title>Offline - IDB Boutique</title>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
     body{font-family:Inter,system-ui,sans-serif;display:flex;align-items:center;
@@ -45,7 +45,7 @@ const OFFLINE_HTML = `<!DOCTYPE html>
 </body>
 </html>`;
 
-// ── Install: pre-cache core assets ───────────────────────────────────────────
+// -- Install: pre-cache core assets -------------------------------------------
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
@@ -54,7 +54,7 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// ── Activate: clean up old caches ────────────────────────────────────────────
+// -- Activate: clean up old caches --------------------------------------------
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
@@ -69,7 +69,7 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// ── Fetch strategies ─────────────────────────────────────────────────────────
+// -- Fetch strategies ---------------------------------------------------------
 
 function networkFirst(request) {
   return fetch(request)
@@ -114,7 +114,7 @@ function staleWhileRevalidate(request) {
         })
         .catch(() => {
           if (cached) return cached;
-          // Navigation request – return offline page
+          // Navigation request - return offline page
           if (request.mode === 'navigate') {
             return new Response(OFFLINE_HTML, {
               status: 503,
@@ -138,23 +138,23 @@ self.addEventListener('fetch', (event) => {
   // Skip non-GET and cross-origin requests; let the browser handle them natively
   if (request.method !== 'GET' || url.origin !== self.location.origin) return;
 
-  // API calls → network-first
+  // API calls -> network-first
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(networkFirst(request));
     return;
   }
 
-  // Static assets → cache-first
+  // Static assets -> cache-first
   if (url.pathname.startsWith('/static/')) {
     event.respondWith(cacheFirst(request));
     return;
   }
 
-  // HTML pages → stale-while-revalidate
+  // HTML pages -> stale-while-revalidate
   event.respondWith(staleWhileRevalidate(request));
 });
 
-// ── Background Sync placeholder for offline punch-ins ────────────────────────
+// -- Background Sync placeholder for offline punch-ins ------------------------
 self.addEventListener('sync', (event) => {
   if (event.tag === 'sync-punch') {
     event.waitUntil(syncPendingPunches());
@@ -163,7 +163,7 @@ self.addEventListener('sync', (event) => {
 
 async function syncPendingPunches() {
   // TODO: Implement once the IndexedDB helper module is ready.
-  // Flow: open 'pending-punches' store → POST each to /api/staff/punch →
+  // Flow: open 'pending-punches' store -> POST each to /api/staff/punch ->
   //       delete on success, keep on failure for next sync.
   return Promise.resolve();
 }

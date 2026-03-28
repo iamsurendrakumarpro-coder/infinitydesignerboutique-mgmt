@@ -1,12 +1,12 @@
 """
-modules/auth/routes.py – Authentication Blueprint (JSON API only).
+modules/auth/routes.py - Authentication Blueprint (JSON API only).
 
 API Routes
 ----------
-POST /api/auth/login      – Phone + PIN login
-POST /api/auth/logout     – Logout
-POST /api/auth/change-pin – Change PIN
-GET  /api/auth/me         – Current session info
+POST /api/auth/login      - Phone + PIN login
+POST /api/auth/logout     - Logout
+POST /api/auth/change-pin - Change PIN
+GET  /api/auth/me         - Current session info
 """
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ log = get_logger(__name__)
 auth_bp = Blueprint("auth", __name__)
 
 
-# ── API routes ────────────────────────────────────────────────────────────────
+# -- API routes ----------------------------------------------------------------
 
 @auth_bp.post("/api/auth/login")
 def api_login():

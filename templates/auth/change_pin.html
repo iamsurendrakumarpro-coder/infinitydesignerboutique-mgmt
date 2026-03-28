@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Change PIN – Infinity Designer Boutique{% endblock %}
+{% block title %}Change PIN - Infinity Designer Boutique{% endblock %}
 
 {% block content %}
 <div class="flex min-h-full items-center justify-center px-4 py-8"
@@ -126,7 +126,7 @@
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
-          <span x-text="submitting ? 'Updating…' : 'Update PIN'"></span>
+          <span x-text="submitting ? 'Updating...' : 'Update PIN'"></span>
         </button>
 
         <!-- Cancel (only when not first login) -->
@@ -251,64 +251,26 @@
             if (navigator.vibrate) navigator.vibrate([20, 50, 20]);
             dispatchToast('success', 'PIN Updated', 'Your PIN has been changed successfully.');
             setTimeout(() => { window.location.href = '/'; }, 800);
-          async doChangePin() {
-            const newIdx = this.totalSteps === 2 ? 0 : 1;
-            const confirmIdx = this.totalSteps - 1;
+          } else {
+            throw new Error(data.error || 'Failed to change PIN.');
+          }
+        } catch (err) {
+          this.error = err.message || 'Something went wrong.';
+          if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
+          dispatchToast('error', 'Error', this.error);
 
-            // All required PINs must be 4 digits
-            for (let i = 0; i < this.totalSteps; i++) {
-              if (this.pins[i].length !== 4) {
-                this.error = 'Please fill all PINs with 4 digits.';
-                this.currentStep = i;
-                if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
-                return;
-              }
-            }
-
-            if (this.pins[newIdx] !== this.pins[confirmIdx]) {
-              this.error = 'PINs do not match.';
-              this.pins[confirmIdx] = '';
-              this.currentStep = confirmIdx;
-              if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
-              return;
-            }
-
-            this.submitting = true;
-            this.error = '';
-
-            const body = { new_pin: this.pins[newIdx] };
-            if (!isFirstLogin) {
-              body.old_pin = this.pins[0];
-            }
-
-            try {
-              const res = await fetch('/api/auth/change-pin', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body),
-              });
-              const data = await res.json();
-
-              if (res.ok) {
-                if (navigator.vibrate) navigator.vibrate([20, 50, 20]);
-                dispatchToast('success', 'PIN Updated', 'Your PIN has been changed successfully.');
-                setTimeout(() => { window.location.href = '/'; }, 800);
-              } else {
-                throw new Error(data.error || 'Failed to change PIN.');
-              }
-            } catch (err) {
-              this.error = err.message || 'Something went wrong.';
-              if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
-              dispatchToast('error', 'Error', this.error);
-
-              // If old PIN was wrong, go back to step 0
-              if (this.error.toLowerCase().includes('current') ||
-                  this.error.toLowerCase().includes('old') ||
-                  this.error.toLowerCase().includes('incorrect')) {
-                this.pins = Array(this.totalSteps).fill('');
-                this.currentStep = 0;
-              }
-            } finally {
-              this.submitting = false;
-            }
-          },
+          // If old PIN was wrong, go back to step 0
+          if (this.error.toLowerCase().includes('current') ||
+              this.error.toLowerCase().includes('old') ||
+              this.error.toLowerCase().includes('incorrect')) {
+            this.pins = Array(this.totalSteps).fill('');
+            this.currentStep = 0;
+          }
+        } finally {
+          this.submitting = false;
+        }
+      }
+    }
+  }
+</script>
+{% endblock %}

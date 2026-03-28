@@ -25,7 +25,7 @@
       <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
       <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
     </svg>
-    <p class="mt-3 text-sm text-gray-400">Loading staff details…</p>
+    <p class="mt-3 text-sm text-gray-400">Loading staff details...</p>
   </div>
 
   <!-- Form -->
@@ -135,9 +135,9 @@
             <label class="mb-1.5 block text-sm font-medium text-gray-700">Designation <span class="text-red-400">*</span></label>
             <select x-model="form.designation" required
                     class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
-              <option value="">Select designation…</option>
-              <template x-for="d in designations" :key="d">
-                <option :value="d" x-text="d"></option>
+              <option value="">Select designation...</option>
+              <template x-for="key in designationKeys" :key="key">
+                <option :value="key" x-text="designationLabels[key] || key"></option>
               </template>
             </select>
             <p x-show="errors.designation" class="mt-1 text-xs text-red-500" x-text="errors.designation"></p>
@@ -175,16 +175,60 @@
             <span>💰</span> Salary
           </h2>
 
-          <!-- Weekly Salary -->
+          <!-- Salary Type Toggle -->
           <div class="mb-4">
+            <label class="mb-1.5 block text-sm font-medium text-gray-700">Salary Type <span class="text-red-400">*</span></label>
+            <div class="flex rounded-xl bg-gray-100 p-1">
+              <button type="button" @click="form.salary_type = 'weekly'; form.settlement_cycle = 'weekly'"
+                      class="flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition-all"
+                      :class="form.salary_type === 'weekly'
+                        ? 'bg-white text-gray-800 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700'">
+                Weekly
+              </button>
+              <button type="button" @click="form.salary_type = 'monthly'; form.settlement_cycle = 'monthly'"
+                      class="flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition-all"
+                      :class="form.salary_type === 'monthly'
+                        ? 'bg-white text-gray-800 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700'">
+                Monthly
+              </button>
+            </div>
+          </div>
+
+          <!-- Weekly Salary (shown when salary_type is weekly) -->
+          <div x-show="form.salary_type === 'weekly'" class="mb-4">
             <label class="mb-1.5 block text-sm font-medium text-gray-700">Weekly Salary <span class="text-red-400">*</span></label>
             <div class="relative">
               <span class="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400">₹</span>
-              <input type="number" x-model.number="form.weekly_salary" required min="0" step="1"
+              <input type="number" x-model.number="form.weekly_salary" min="0" step="1"
                      placeholder="e.g. 6000"
                      class="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-10 pr-4 text-sm text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
             </div>
             <p x-show="errors.weekly_salary" class="mt-1 text-xs text-red-500" x-text="errors.weekly_salary"></p>
+          </div>
+
+          <!-- Monthly Salary (shown when salary_type is monthly) -->
+          <div x-show="form.salary_type === 'monthly'" class="mb-4">
+            <label class="mb-1.5 block text-sm font-medium text-gray-700">Monthly Salary <span class="text-red-400">*</span></label>
+            <div class="relative">
+              <span class="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400">₹</span>
+              <input type="number" x-model.number="form.monthly_salary" min="0" step="1"
+                     placeholder="e.g. 25000"
+                     class="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-10 pr-4 text-sm text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+            </div>
+            <p x-show="errors.monthly_salary" class="mt-1 text-xs text-red-500" x-text="errors.monthly_salary"></p>
+          </div>
+
+          <!-- Settlement Cycle -->
+          <div class="mb-4">
+            <label class="mb-1.5 block text-sm font-medium text-gray-700">Settlement Cycle</label>
+            <select x-model="form.settlement_cycle"
+                    class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+            </select>
+            <p class="mt-1 text-xs text-gray-400">When settlements are generated for this staff</p>
           </div>
 
           <!-- Daily Salary (Auto-calculated) -->
@@ -192,10 +236,12 @@
             <div class="flex items-center justify-between">
               <div>
                 <p class="text-xs font-medium text-brand-600">Daily Salary (auto-calculated)</p>
-                <p class="text-sm text-brand-500">Weekly ÷ 6 working days</p>
+                <p class="text-sm text-brand-500" x-text="form.salary_type === 'monthly' ? 'Monthly / 26 working days' : 'Weekly / 6 working days'"></p>
               </div>
               <p class="text-2xl font-bold text-brand-700">
-                ₹<span x-text="form.weekly_salary ? Math.round(form.weekly_salary / 6).toLocaleString('en-IN') : '–'"></span>
+                ₹<span x-text="form.salary_type === 'monthly'
+                  ? (form.monthly_salary ? Math.round(form.monthly_salary / 26).toLocaleString('en-IN') : '-')
+                  : (form.weekly_salary ? Math.round(form.weekly_salary / 6).toLocaleString('en-IN') : '-')"></span>
               </p>
             </div>
           </div>
@@ -215,7 +261,7 @@
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
         </svg>
-        <span x-text="submitting ? 'Saving…' : (mode === 'edit' ? 'Update Staff' : 'Create Staff')"></span>
+        <span x-text="submitting ? 'Saving...' : (mode === 'edit' ? 'Update Staff' : 'Create Staff')"></span>
       </button>
     </div>
 
@@ -238,7 +284,12 @@
         'Cutting Master',
         'Tailor',
         'Embroidery Artist',
+        'Handwork Expert',
+        'Designer',
+        'Helper',
       ],
+      designationKeys: [],
+      designationLabels: {},
 
       form: {
         full_name: '',
@@ -250,14 +301,34 @@
         standard_login_time: '09:30',
         standard_logout_time: '18:30',
         emergency_contact: '',
+        salary_type: 'weekly',
+        settlement_cycle: 'weekly',
         weekly_salary: '',
+        monthly_salary: '',
         skills: [],
         status: 'active',
       },
 
       async init() {
+        await this.fetchDesignations();
         if (this.mode === 'edit' && this.staffId) {
           await this.fetchStaff();
+        }
+      },
+
+      async fetchDesignations() {
+        try {
+          const res = await fetch('/api/settings/designations', { credentials: 'include' });
+          if (res.ok) {
+            const data = await res.json();
+            const settings = data.settings || {};
+            this.designationKeys = settings.list || [];
+            this.designationLabels = settings.labels || {};
+            // Also populate the legacy designations array with labels for backward compatibility
+            this.designations = this.designationKeys.map(k => this.designationLabels[k] || k);
+          }
+        } catch (e) {
+          console.error('Failed to fetch designations:', e);
         }
       },
 
@@ -276,7 +347,10 @@
             this.form.standard_login_time = s.standard_login_time || '09:30';
             this.form.standard_logout_time = s.standard_logout_time || '18:30';
             this.form.emergency_contact = s.emergency_contact || '';
+            this.form.salary_type = s.salary_type || 'weekly';
+            this.form.settlement_cycle = s.settlement_cycle || this.form.salary_type;
             this.form.weekly_salary = s.weekly_salary || '';
+            this.form.monthly_salary = s.monthly_salary || '';
             this.form.skills = Array.isArray(s.skills) ? [...s.skills] : [];
             this.form.status = s.status || 'active';
           } else {
@@ -305,7 +379,12 @@
         if (!this.form.designation) this.errors.designation = 'Designation is required';
         if (!this.form.joining_date) this.errors.joining_date = 'Joining date is required';
         if (this.form.emergency_contact.length !== 10) this.errors.emergency_contact = 'Emergency contact must be 10 digits';
-        if (!this.form.weekly_salary || this.form.weekly_salary <= 0) this.errors.weekly_salary = 'Weekly salary is required';
+        // Salary validation based on salary_type
+        if (this.form.salary_type === 'monthly') {
+          if (!this.form.monthly_salary || this.form.monthly_salary <= 0) this.errors.monthly_salary = 'Monthly salary is required';
+        } else {
+          if (!this.form.weekly_salary || this.form.weekly_salary <= 0) this.errors.weekly_salary = 'Weekly salary is required';
+        }
         return Object.keys(this.errors).length === 0;
       },
 
@@ -318,14 +397,8 @@
         this.submitting = true;
         const isEdit = this.mode === 'edit';
 
-        // Map designation label to backend key
-        const designationMap = {
-          'Cutting Master': 'cutting_master',
-          'Tailor': 'tailor',
-          'Embroidery Artist': 'embroidery_artist',
-        };
         const payload = { ...this.form };
-        payload.designation = designationMap[this.form.designation] || '';
+        // Designation is already a key (fetched from API), no mapping needed
         // Send pin as temp_pin for create
         if (!isEdit) {
           payload.temp_pin = this.form.pin;

@@ -1,12 +1,12 @@
 """
-modules/overtime/routes.py – Overtime Management Blueprint.
+modules/overtime/routes.py - Overtime Management Blueprint.
 
 API Routes
 ----------
-GET   /api/overtime/pending          – List overtime pending approval
-GET   /api/overtime/user/<user_id>   – Get overtime for a user
-PATCH /api/overtime/<id>/approve     – Admin approve overtime
-PATCH /api/overtime/<id>/reject      – Admin reject overtime
+GET   /api/overtime/pending          - List overtime pending approval
+GET   /api/overtime/user/<user_id>   - Get overtime for a user
+PATCH /api/overtime/<id>/approve     - Admin approve overtime
+PATCH /api/overtime/<id>/reject      - Admin reject overtime
 """
 from __future__ import annotations
 

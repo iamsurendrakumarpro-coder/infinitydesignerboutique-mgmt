@@ -1,15 +1,16 @@
 {% extends "base.html" %}
 
-{% block title %}{% block page_title %}Staff{% endblock %} – Infinity Designer Boutique{% endblock %}
+{% block title %}{% block page_title %}Staff{% endblock %} - Infinity Designer Boutique{% endblock %}
 
 {% block content %}
 <div class="flex min-h-screen flex-col bg-gray-50" x-data="staffLayout()" x-cloak>
 
-  <!-- ── Top Header ───────────────────────────────────────────────────── -->
+  <!-- -- Top Header ----------------------------------------------------- -->
   <header class="sticky top-0 z-30 border-b border-gray-200 bg-white/90 backdrop-blur-md">
     <div class="mx-auto flex max-w-lg items-center justify-between px-4 py-3">
       <div class="flex items-center gap-2.5">
-        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 text-base text-white">✂️</div>
+        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 text-white"
+             x-html="renderIcon('scissors', 'h-4 w-4')"></div>
         <div class="min-w-0">
           <p class="text-sm font-bold text-gray-900 truncate">Infinity Designer</p>
           <p class="text-[11px] text-gray-400 truncate">Hi, <span class="text-brand-600 font-medium">{{ user.full_name|default("Staff") }}</span></p>
@@ -27,12 +28,12 @@
     </div>
   </header>
 
-  <!-- ── Page Content ─────────────────────────────────────────────────── -->
+  <!-- -- Page Content --------------------------------------------------- -->
   <main class="mx-auto w-full max-w-lg flex-1 px-4 pb-24 pt-4">
     {% block page_content %}{% endblock %}
   </main>
 
-  <!-- ── Bottom Navigation ────────────────────────────────────────────── -->
+  <!-- -- Bottom Navigation ---------------------------------------------- -->
   <nav class="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 backdrop-blur-md safe-area-bottom">
     <div class="mx-auto grid max-w-lg grid-cols-3">
       <template x-for="item in navItems" :key="item.href">
@@ -44,7 +45,7 @@
           <!-- Active indicator -->
           <span x-show="isActive(item.href)"
                 class="absolute top-0 left-1/2 -translate-x-1/2 h-0.5 w-10 rounded-full bg-brand-600"></span>
-          <span class="text-xl" x-text="item.icon"></span>
+          <span x-html="renderIcon(item.icon, 'h-5 w-5')"></span>
           <span class="text-[10px] font-semibold" x-text="item.label"></span>
         </a>
       </template>
@@ -61,9 +62,9 @@
       online: navigator.onLine,
 
       navItems: [
-        { href: '/staff/duty',    icon: '🕐', label: 'Duty Station' },
-        { href: '/staff/money',   icon: '💰', label: 'My Money' },
-        { href: '/staff/profile', icon: '👤', label: 'Profile' },
+        { href: '/staff/duty',    icon: 'clock',     label: 'Duty Station' },
+        { href: '/staff/money',   icon: 'banknotes', label: 'My Money' },
+        { href: '/staff/profile', icon: 'user',      label: 'Profile' },
       ],
 
       init() {

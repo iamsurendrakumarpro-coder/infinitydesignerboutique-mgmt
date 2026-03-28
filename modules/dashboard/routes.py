@@ -1,11 +1,12 @@
 """
-modules/dashboard/routes.py – Dashboard Blueprint.
+modules/dashboard/routes.py - Dashboard Blueprint.
 
 API Routes
 ----------
-GET /api/dashboard/summary             – Overall daily dashboard metrics
-GET /api/dashboard/financial-summary   – Financial breakdown by period
-GET /api/dashboard/attendance-summary  – Attendance analytics by period
+GET /api/dashboard/summary             - Overall daily dashboard metrics
+GET /api/dashboard/analytics           - Chart-ready analytics data
+GET /api/dashboard/financial-summary   - Financial breakdown by period
+GET /api/dashboard/attendance-summary  - Attendance analytics by period
 """
 from __future__ import annotations
 
@@ -41,6 +42,15 @@ def api_daily_summary():
     log.info("Dashboard summary | admin_id=%s | date=%s", session["user_id"], date_str or "today")
     summary = dashboard_service.get_daily_summary(target_date)
     return jsonify({"success": True, "summary": summary})
+
+
+@dashboard_bp.get("/api/dashboard/analytics")
+@admin_required
+def api_dashboard_analytics():
+    """Get chart-ready analytics data for the dashboard."""
+    log.info("Dashboard analytics | admin_id=%s", session["user_id"])
+    analytics = dashboard_service.get_dashboard_analytics()
+    return jsonify({"success": True, "analytics": analytics})
 
 
 @dashboard_bp.get("/api/dashboard/financial-summary")

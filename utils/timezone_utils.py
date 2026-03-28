@@ -1,5 +1,5 @@
 """
-utils/timezone_utils.py – IST (Asia/Kolkata) timezone helpers.
+utils/timezone_utils.py - IST (Asia/Kolkata) timezone helpers.
 
 All timestamps stored in Firestore are UTC-aware datetimes.
 This module centralises the conversions so no other module
@@ -15,7 +15,7 @@ IST = pytz.timezone("Asia/Kolkata")
 UTC = pytz.utc
 
 
-# ── Basic converters ──────────────────────────────────────────────────────────
+# -- Basic converters ----------------------------------------------------------
 
 def now_ist() -> datetime:
     """Return the current IST-aware datetime."""
@@ -41,7 +41,7 @@ def to_utc(dt: datetime) -> datetime:
     return dt.astimezone(UTC)
 
 
-# ── Date helpers ──────────────────────────────────────────────────────────────
+# -- Date helpers --------------------------------------------------------------
 
 def today_ist() -> date:
     """Return today's date in IST."""
@@ -65,7 +65,7 @@ def doc_id_to_date(doc_id: str) -> date:
     return datetime.strptime(doc_id, "%Y%m%d").date()
 
 
-# ── Timestamp formatting ───────────────────────────────────────────────────────
+# -- Timestamp formatting -------------------------------------------------------
 
 def format_ist(dt: datetime | None, fmt: str = "%d %b %Y, %I:%M %p") -> str:
     """
@@ -93,7 +93,7 @@ def format_time_hhmm(t: str) -> str:
         return t or ""
 
 
-# ── Duration helpers ──────────────────────────────────────────────────────────
+# -- Duration helpers ----------------------------------------------------------
 
 def duration_minutes(start: datetime, end: datetime) -> int:
     """Return elapsed whole minutes between two aware datetimes."""
@@ -102,12 +102,12 @@ def duration_minutes(start: datetime, end: datetime) -> int:
 
 
 def minutes_to_hhmm(minutes: int) -> str:
-    """Convert minutes to 'Xh Ym' string  (e.g.  125 → '2h 5m')."""
+    """Convert minutes to 'Xh Ym' string  (e.g.  125 -> '2h 5m')."""
     h, m = divmod(minutes, 60)
     return f"{h}h {m}m"
 
 
-# ── Period boundaries (for analytics) ────────────────────────────────────────
+# -- Period boundaries (for analytics) ----------------------------------------
 
 def period_range(period: str) -> tuple[date, date]:
     """

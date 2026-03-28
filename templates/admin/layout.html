@@ -1,17 +1,18 @@
 {% extends "base.html" %}
 
-{% block title %}{% block page_title %}Admin{% endblock %} – Infinity Designer Boutique{% endblock %}
+{% block title %}{% block page_title %}Admin{% endblock %} - Infinity Designer Boutique{% endblock %}
 
 {% block content %}
 <div class="flex h-full min-h-screen" x-data="adminLayout()" x-cloak>
 
-  <!-- ── Desktop Sidebar ───────────────────────────────────────────────── -->
+  <!-- -- Desktop Sidebar ------------------------------------------------- -->
   <aside class="hidden lg:flex flex-col border-r border-gray-200 bg-white transition-all duration-300"
          :class="sidebarOpen ? 'w-64' : 'w-20'">
 
     <!-- Brand Header -->
     <div class="flex items-center gap-3 border-b border-gray-100 px-4 py-5">
-      <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-lg text-white">✂️</div>
+      <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white"
+           x-html="renderIcon('scissors', 'h-5 w-5')"></div>
       <div x-show="sidebarOpen" x-transition.opacity class="min-w-0">
         <p class="truncate text-sm font-bold text-gray-900">Infinity Designer</p>
         <p class="truncate text-xs text-gray-400">Boutique Manager</p>
@@ -26,9 +27,9 @@
            :class="isActive(item.href)
              ? 'bg-brand-50 text-brand-700 shadow-sm ring-1 ring-brand-100'
              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'">
-          <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-base"
-                :class="isActive(item.href) ? 'bg-brand-100' : 'bg-gray-100'"
-                x-text="item.icon"></span>
+          <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
+                :class="isActive(item.href) ? 'bg-brand-100 text-brand-600' : 'bg-gray-100 text-gray-500'"
+                x-html="renderIcon(item.icon, 'h-5 w-5')"></span>
           <span x-show="sidebarOpen" x-transition.opacity class="truncate" x-text="item.label"></span>
           <span x-show="sidebarOpen && item.badge > 0" x-transition
                 class="ml-auto inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white"
@@ -65,7 +66,7 @@
     </div>
   </aside>
 
-  <!-- ── Main Content Area ─────────────────────────────────────────────── -->
+  <!-- -- Main Content Area ----------------------------------------------- -->
   <div class="flex flex-1 flex-col min-w-0">
 
     <!-- Top Header (Mobile + Desktop) -->
@@ -91,16 +92,16 @@
     </main>
   </div>
 
-  <!-- ── Mobile Bottom Navigation ──────────────────────────────────────── -->
+  <!-- -- Mobile Bottom Navigation ---------------------------------------- -->
   <nav class="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 backdrop-blur-md lg:hidden safe-area-bottom">
-    <div class="grid grid-cols-4 gap-0">
+    <div class="grid grid-cols-5 gap-0">
       <template x-for="item in navItems" :key="item.href">
         <a :href="item.href"
            class="relative flex flex-col items-center gap-0.5 py-2 text-[10px] font-medium transition-colors"
            :class="isActive(item.href)
              ? 'text-brand-600'
              : 'text-gray-400 hover:text-gray-600'">
-          <span class="relative text-lg" x-text="item.icon">
+          <span class="relative" x-html="renderIcon(item.icon, 'h-5 w-5')">
           </span>
           <span x-show="item.badge > 0"
                 class="absolute top-1 left-1/2 ml-1.5 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white"
@@ -113,7 +114,7 @@
     </div>
   </nav>
 
-  <!-- ── Mobile Sidebar Overlay ────────────────────────────────────────── -->
+  <!-- -- Mobile Sidebar Overlay ------------------------------------------ -->
   <div x-show="mobileMenuOpen" x-transition.opacity
        class="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm lg:hidden"
        @click="mobileMenuOpen = false">
@@ -127,7 +128,8 @@
 
     <div class="flex items-center justify-between border-b border-gray-100 px-4 py-4">
       <div class="flex items-center gap-3">
-        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 text-lg text-white">✂️</div>
+        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 text-white"
+             x-html="renderIcon('scissors', 'h-5 w-5')"></div>
         <p class="text-sm font-bold text-gray-900">Infinity Designer</p>
       </div>
       <button @click="mobileMenuOpen = false" class="rounded-lg p-2 text-gray-400 hover:bg-gray-100">
@@ -144,7 +146,8 @@
            :class="isActive(item.href)
              ? 'bg-brand-50 text-brand-700'
              : 'text-gray-600 hover:bg-gray-50'">
-          <span class="text-lg" x-text="item.icon"></span>
+          <span :class="isActive(item.href) ? 'text-brand-600' : 'text-gray-500'"
+                x-html="renderIcon(item.icon, 'h-5 w-5')"></span>
           <span x-text="item.label"></span>
           <span x-show="item.badge > 0"
                 class="ml-auto inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white"
@@ -183,10 +186,11 @@
       userInitials: 'A',
 
       navItems: [
-        { href: '/admin/dashboard',   icon: '📊', label: 'Dashboard',   badge: 0 },
-        { href: '/admin/staff',       icon: '👥', label: 'Staff',       badge: 0 },
-        { href: '/admin/approvals',   icon: '✅', label: 'Approvals',   badge: 0 },
-        { href: '/admin/settlements', icon: '💰', label: 'Settlements', badge: 0 },
+        { href: '/admin/dashboard',   icon: 'chart-bar',   label: 'Dashboard',   badge: 0 },
+        { href: '/admin/staff',       icon: 'users',       label: 'Staff',       badge: 0 },
+        { href: '/admin/approvals',   icon: 'check-badge', label: 'Approvals',   badge: 0 },
+        { href: '/admin/settlements', icon: 'banknotes',   label: 'Settlements', badge: 0 },
+        { href: '/admin/settings',    icon: 'cog',         label: 'Settings',    badge: 0 },
       ],
 
       init() {

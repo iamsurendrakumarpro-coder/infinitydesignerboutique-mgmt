@@ -1,1 +1,1 @@
-"""modules/settlements/__init__.py – Package marker."""
+"""modules/settlements/__init__.py - Package marker."""

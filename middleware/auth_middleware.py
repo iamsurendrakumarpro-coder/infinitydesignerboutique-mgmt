@@ -1,12 +1,12 @@
 """
-middleware/auth_middleware.py – Authentication & RBAC decorators (JSON-only).
+middleware/auth_middleware.py - Authentication & RBAC decorators (JSON-only).
 
 Decorators
 ----------
-login_required(f)       – Any logged-in user.
-admin_required(f)       – Admin role only.
-staff_required(f)       – Staff role only.
-first_login_check(f)    – Forces PIN change when is_first_login is True.
+login_required(f)       - Any logged-in user.
+admin_required(f)       - Admin role only.
+staff_required(f)       - Staff role only.
+first_login_check(f)    - Forces PIN change when is_first_login is True.
 
 Session shape (stored server-side)
 ------------------------------------

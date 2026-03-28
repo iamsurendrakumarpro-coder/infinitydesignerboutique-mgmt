@@ -3,66 +3,48 @@
 {% block page_title %}Settlements{% endblock %}
 
 {% block page_content %}
-<div x-data="settlementsPage()" x-init="loadSettlements()" x-cloak>
+<div x-data="settlementsPage()" x-init="init()" x-cloak>
 
-  <!-- Header -->
+  <!-- -- Header with Export Buttons -------------------------------------- -->
   <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-    <div>
-      <h1 class="text-2xl font-bold text-gray-900">💰 Settlements</h1>
-      <p class="mt-0.5 text-sm text-gray-400">Generate and manage weekly salary settlements</p>
+    <h1 class="text-xl font-bold text-gray-900 flex items-center gap-2">
+      <span class="text-brand-600" x-html="renderIcon('banknotes', 'h-6 w-6')"></span>
+      Settlements
+    </h1>
+    <div class="flex items-center gap-2">
+      <!-- Export Dropdown -->
+      <div class="relative" x-data="{ exportOpen: false }">
+        <button @click="exportOpen = !exportOpen"
+                class="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-600 shadow-sm transition-all hover:bg-gray-50">
+          <span x-html="renderIcon('arrow-down-tray', 'h-4 w-4')"></span>
+          Export
+          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </button>
+        <div x-show="exportOpen" @click.outside="exportOpen = false" x-transition
+             class="absolute right-0 mt-2 w-48 rounded-xl bg-white py-2 shadow-lg ring-1 ring-gray-100 z-50">
+          <a :href="getExportUrl('csv')"
+             class="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+            <span x-html="renderIcon('document-text', 'h-4 w-4 text-green-600')"></span>
+            Export as CSV
+          </a>
+          <a :href="getExportUrl('pdf')"
+             class="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+            <span x-html="renderIcon('document', 'h-4 w-4 text-red-600')"></span>
+            Export as PDF
+          </a>
+        </div>
+      </div>
     </div>
-    <button @click="showGenerator = !showGenerator"
-            class="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand-600/20 transition-all hover:bg-brand-700 active:scale-95">
-      <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
-      </svg>
-      Generate Settlement
-    </button>
   </div>
 
-  <!-- ── Settlement Generator Card ───────────────────────────────────── -->
-  <div x-show="showGenerator" x-transition:enter="transition ease-out duration-200"
-       x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0"
-       class="mb-6 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-brand-100 sm:p-6">
-    <h2 class="mb-4 flex items-center gap-2 text-base font-semibold text-gray-900">
-      📋 Generate Weekly Settlement
-    </h2>
-
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-end">
-      <div class="flex-1">
-        <label class="mb-1.5 block text-sm font-medium text-gray-700">Week Start</label>
-        <input type="date" x-model="generator.weekStart"
-               class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
-      </div>
-      <div class="flex-1">
-        <label class="mb-1.5 block text-sm font-medium text-gray-700">Week End</label>
-        <input type="date" x-model="generator.weekEnd"
-               class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
-      </div>
-      <button @click="generateSettlement()"
-              :disabled="generating || !generator.weekStart || !generator.weekEnd"
-              class="inline-flex items-center justify-center gap-2 rounded-xl bg-green-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-green-700 active:scale-95 disabled:opacity-50 sm:w-auto">
-        <svg x-show="generating" class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-        </svg>
-        <span x-text="generating ? 'Generating…' : '⚡ Generate'"></span>
-      </button>
-    </div>
-
-    <p class="mt-3 text-xs text-gray-400">
-      💡 Select the week period (typically Monday to Saturday) to calculate settlements for all active staff.
-    </p>
-  </div>
-
-  <!-- ── Filter Bar ──────────────────────────────────────────────────── -->
+  <!-- -- Filter Bar ---------------------------------------------------- -->
   <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center">
     <div class="flex items-center gap-3 flex-1">
       <div class="flex-1">
         <input type="date" x-model="filterStart" placeholder="From"
                class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-700 shadow-sm focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
       </div>
-      <span class="text-gray-300">→</span>
+      <span class="text-gray-300" x-html="renderIcon('arrow-right', 'h-4 w-4')"></span>
       <div class="flex-1">
         <input type="date" x-model="filterEnd" placeholder="To"
                class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-700 shadow-sm focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
@@ -71,29 +53,16 @@
     <div class="flex items-center gap-2">
       <button @click="loadSettlements()"
               class="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-600 shadow-sm transition-all hover:bg-gray-50">
-        🔍 Filter
+        <span x-html="renderIcon('magnifying-glass', 'h-4 w-4')"></span> Filter
       </button>
       <button @click="filterStart = ''; filterEnd = ''; loadSettlements()"
               class="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-400 shadow-sm transition-all hover:bg-gray-50 hover:text-gray-600">
         Clear
       </button>
-      <!-- View toggle -->
-      <div class="hidden sm:flex rounded-xl bg-gray-100 p-1">
-        <button @click="viewMode = 'cards'"
-                class="rounded-lg px-3 py-1.5 text-xs font-semibold transition-all"
-                :class="viewMode === 'cards' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500'">
-          Cards
-        </button>
-        <button @click="viewMode = 'table'"
-                class="rounded-lg px-3 py-1.5 text-xs font-semibold transition-all"
-                :class="viewMode === 'table' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500'">
-          Table
-        </button>
-      </div>
     </div>
   </div>
 
-  <!-- ── Loading ─────────────────────────────────────────────────────── -->
+  <!-- -- Loading ------------------------------------------------------- -->
   <div x-show="loading" class="py-16 text-center">
     <svg class="mx-auto h-10 w-10 animate-spin text-brand-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
       <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -101,14 +70,14 @@
     </svg>
   </div>
 
-  <!-- ── Empty ───────────────────────────────────────────────────────── -->
+  <!-- -- Empty --------------------------------------------------------- -->
   <div x-show="!loading && settlements.length === 0" class="py-16 text-center">
-    <p class="text-4xl mb-3">📭</p>
+    <div class="mb-3 text-gray-300" x-html="renderIcon('inbox', 'h-12 w-12 mx-auto')"></div>
     <p class="text-base font-medium text-gray-500">No settlements found</p>
     <p class="mt-1 text-sm text-gray-400">Generate your first settlement using the button above</p>
   </div>
 
-  <!-- ── Cards View ──────────────────────────────────────────────────── -->
+  <!-- -- Cards View ---------------------------------------------------- -->
   <div x-show="!loading && settlements.length > 0 && viewMode === 'cards'" class="space-y-4">
     <template x-for="s in settlements" :key="s.id || s.settlement_id">
       <div class="rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 overflow-hidden">
@@ -146,29 +115,24 @@
               </div>
               <div class="flex justify-between">
                 <span class="text-gray-500">Expenses</span>
-                <span class="font-medium text-amber-600">−₹<span x-text="Number(s.expenses ?? s.shop_expenses ?? 0).toLocaleString('en-IN')"></span></span>
+                <span class="font-medium text-amber-600">₹<span x-text="Number(s.expenses ?? s.shop_expenses ?? 0).toLocaleString('en-IN')"></span></span>
               </div>
               <div class="flex justify-between">
                 <span class="text-gray-500">Advances</span>
-                <span class="font-medium text-red-600">−₹<span x-text="Number(s.advances ?? s.personal_advances ?? 0).toLocaleString('en-IN')"></span></span>
+                <span class="font-medium text-red-600">-₹<span x-text="Number(s.advances ?? s.personal_advances ?? 0).toLocaleString('en-IN')"></span></span>
               </div>
             </div>
 
             <div class="mt-3 border-t border-gray-200 pt-3">
-              <div class="flex items-center justify-between">
-                <span class="text-sm font-semibold text-gray-700">Formula</span>
-                <span class="text-xs text-gray-400">Base + OT − Expenses − Advances</span>
-              </div>
-              <div class="mt-1 flex items-center gap-1 text-xs text-gray-500">
-                <span x-text="'₹' + Number(s.base_salary ?? s.weekly_salary ?? 0).toLocaleString('en-IN')"></span>
-                <span>+</span>
-                <span x-text="'₹' + Number(s.overtime_pay ?? s.overtime ?? 0).toLocaleString('en-IN')"></span>
-                <span>−</span>
-                <span x-text="'₹' + Number(s.expenses ?? s.shop_expenses ?? 0).toLocaleString('en-IN')"></span>
-                <span>−</span>
-                <span x-text="'₹' + Number(s.advances ?? s.personal_advances ?? 0).toLocaleString('en-IN')"></span>
-                <span>=</span>
-                <span class="font-bold text-green-600" x-text="'₹' + Number(s.net_payable ?? s.net_pay ?? 0).toLocaleString('en-IN')"></span>
+              <div class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                <div class="flex justify-between">
+                  <span class="text-gray-500">Hours Worked</span>
+                  <span class="font-medium text-blue-600" x-text="typeof s.hours_worked === 'number' && !isNaN(s.hours_worked) ? s.hours_worked : '-'" title="Total hours worked"></span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-500">OT Hours</span>
+                  <span class="font-medium text-purple-600" x-text="typeof s.ot_hours === 'number' && !isNaN(s.ot_hours) ? s.ot_hours : '-'" title="OT hours"></span>
+                </div>
               </div>
             </div>
           </div>
@@ -177,7 +141,7 @@
     </template>
   </div>
 
-  <!-- ── Table View ──────────────────────────────────────────────────── -->
+  <!-- -- Table View ---------------------------------------------------- -->
   <div x-show="!loading && settlements.length > 0 && viewMode === 'table'"
        class="rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 overflow-x-auto">
     <table class="w-full text-sm">
@@ -185,11 +149,13 @@
         <tr class="border-b border-gray-100 text-left text-xs font-medium uppercase tracking-wider text-gray-400">
           <th class="px-5 py-3">Staff</th>
           <th class="px-3 py-3">Period</th>
-          <th class="px-3 py-3 text-right">Base</th>
           <th class="px-3 py-3 text-right">OT</th>
           <th class="px-3 py-3 text-right">Expenses</th>
           <th class="px-3 py-3 text-right">Advances</th>
           <th class="px-3 py-3 text-right">Net Payable</th>
+          <th class="px-3 py-3 text-right">Hours Worked</th>
+          <th class="px-3 py-3 text-right">OT Hours</th>
+          <!-- Status column removed -->
         </tr>
       </thead>
       <tbody class="divide-y divide-gray-50">
@@ -199,22 +165,30 @@
               <div class="flex items-center gap-2.5">
                 <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700"
                      x-text="getInitials(s.staff_name || s.full_name)"></div>
-                <span class="font-medium text-gray-800" x-text="s.staff_name || s.full_name || '–'"></span>
+                <span class="font-medium text-gray-800" x-text="s.staff_name || s.full_name || '-'"></span>
               </div>
             </td>
             <td class="px-3 py-3 text-gray-500 whitespace-nowrap">
-              <span x-text="formatDateShort(s.week_start || s.period_start)"></span> –
-              <span x-text="formatDateShort(s.week_end || s.period_end)"></span>
+              <span x-text="formatDateShort(s.week_start)"></span> -
+              <span x-text="formatDateShort(s.week_end)"></span>
             </td>
-            <td class="px-3 py-3 text-right font-medium text-gray-800">₹<span x-text="Number(s.base_salary ?? s.weekly_salary ?? 0).toLocaleString('en-IN')"></span></td>
-            <td class="px-3 py-3 text-right font-medium text-green-600">+₹<span x-text="Number(s.overtime_pay ?? s.overtime ?? 0).toLocaleString('en-IN')"></span></td>
-            <td class="px-3 py-3 text-right font-medium text-amber-600">−₹<span x-text="Number(s.expenses ?? s.shop_expenses ?? 0).toLocaleString('en-IN')"></span></td>
-            <td class="px-3 py-3 text-right font-medium text-red-600">−₹<span x-text="Number(s.advances ?? s.personal_advances ?? 0).toLocaleString('en-IN')"></span></td>
+            <td class="px-3 py-3 text-right font-medium text-green-600">+₹<span x-text="Number(s.overtime_pay ?? 0).toLocaleString('en-IN')"></span></td>
+            <td class="px-3 py-3 text-right font-medium text-amber-600">
+              <button @click="showExpenseModal(s)" class="underline text-green-600">+₹<span x-text="Number(s.expenses ?? 0).toLocaleString('en-IN')"></span></button>
+            </td>
+            <td class="px-3 py-3 text-right font-medium text-red-600">-₹<span x-text="Number(s.advances ?? 0).toLocaleString('en-IN')"></span></td>
             <td class="px-3 py-3 text-right">
               <span class="inline-flex rounded-full bg-green-100 px-3 py-1 text-sm font-bold text-green-700">
-                ₹<span x-text="Number(s.net_payable ?? s.net_pay ?? 0).toLocaleString('en-IN')"></span>
+                ₹<span x-text="Number(s.net_payable ?? 0).toLocaleString('en-IN')"></span>
               </span>
             </td>
+            <td class="px-3 py-3 text-right font-medium text-blue-600">
+              <span x-text="formatHours(s.hours_worked)" title="Total hours worked"></span>
+            </td>
+            <td class="px-3 py-3 text-right font-medium text-purple-600">
+              <span x-text="formatHours(s.ot_hours)" title="OT hours"></span>
+            </td>
+            <!-- Status cell and Settle button removed -->
           </tr>
         </template>
       </tbody>
@@ -222,14 +196,45 @@
       <tfoot>
         <tr class="border-t-2 border-gray-200 bg-gray-50">
           <td class="px-5 py-3 text-sm font-bold text-gray-700" colspan="2">Total (<span x-text="settlements.length"></span> records)</td>
-          <td class="px-3 py-3 text-right text-sm font-bold text-gray-800">₹<span x-text="sumField('base_salary', 'weekly_salary').toLocaleString('en-IN')"></span></td>
+          <!-- Base Salary total removed -->
           <td class="px-3 py-3 text-right text-sm font-bold text-green-600">+₹<span x-text="sumField('overtime_pay', 'overtime').toLocaleString('en-IN')"></span></td>
-          <td class="px-3 py-3 text-right text-sm font-bold text-amber-600">−₹<span x-text="sumField('expenses', 'shop_expenses').toLocaleString('en-IN')"></span></td>
-          <td class="px-3 py-3 text-right text-sm font-bold text-red-600">−₹<span x-text="sumField('advances', 'personal_advances').toLocaleString('en-IN')"></span></td>
+          <td class="px-3 py-3 text-right text-sm font-bold text-green-600">+₹<span x-text="sumField('expenses', 'shop_expenses').toLocaleString('en-IN')"></span></td>
+          <td class="px-3 py-3 text-right text-sm font-bold text-red-600">-₹<span x-text="sumField('advances', 'personal_advances').toLocaleString('en-IN')"></span></td>
           <td class="px-3 py-3 text-right text-sm font-bold text-green-700">₹<span x-text="sumField('net_payable', 'net_pay').toLocaleString('en-IN')"></span></td>
         </tr>
       </tfoot>
     </table>
+        <!-- Modern Expense Modal -->
+        <div x-show="expenseModalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-xl w-full sm:w-[90vw] sm:max-w-[600px] relative animate-fadeIn overflow-y-auto max-h-[90vh]">
+            <button @click="expenseModalOpen = false" class="absolute top-4 right-4 bg-gray-100 hover:bg-gray-200 rounded-full p-2 text-gray-500 transition-all">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+            <h3 class="text-xl font-bold mb-6 text-center">Expense Details for <span class="text-brand-600" x-text="expenseModalStaff"></span><br><span class="text-xs text-gray-400">(<span x-text="expenseModalPeriod"></span>)</span></h3>
+            <div>
+              <template x-if="expenseModalRecords.length === 0">
+                <div class="py-8 text-center text-gray-400 text-base">No expense records found for this period.</div>
+              </template>
+              <ul class="divide-y divide-gray-100">
+                <template x-for="e in expenseModalRecords" :key="e.request_id">
+                  <li class="py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <div class="flex flex-col">
+                      <span class="font-semibold text-gray-700">Category: <span class="text-brand-600" x-text="e.category"></span></span>
+                      <span class="text-xs text-gray-400 mt-1" x-text="e.description || e.notes || '-'" ></span>
+                      <span class="text-xs text-gray-400 mt-1">Date: <span x-text="formatDate(e.created_at)"></span></span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <span class="font-bold text-green-600 text-lg">₹<span x-text="Number(e.amount).toLocaleString('en-IN')"></span></span>
+                      <template x-if="e.receipt_url">
+                        <a :href="e.receipt_url" target="_blank" class="ml-2 text-xs text-blue-600 underline hover:text-blue-800">View Receipt</a>
+                      </template>
+                    </div>
+                  </li>
+                </template>
+              </ul>
+            </div>
+          </div>
+        </div>
   </div>
 
 </div>
@@ -237,19 +242,43 @@
 
 {% block page_scripts %}
 <script>
+  function formatHours(hours) {
+    if (typeof hours !== 'number' || isNaN(hours) || hours <= 0) return '-';
+    const totalMinutes = Math.round(hours * 60);
+    const hr = Math.floor(totalMinutes / 60);
+    const min = totalMinutes % 60;
+    let out = '';
+    if (hr > 0) out += hr + ' hr';
+    if (min > 0) out += (out ? ' ' : '') + min + ' min';
+    return out || '0 min';
+  }
+
   function settlementsPage() {
     return {
       loading: true,
       generating: false,
       showGenerator: false,
-      viewMode: 'cards',
+      viewMode: 'table',
       settlements: [],
       filterStart: '',
       filterEnd: '',
-
-      generator: {
-        weekStart: '',
-        weekEnd: '',
+      expenseModalOpen: false,
+      expenseModalStaff: '',
+      expenseModalPeriod: '',
+      expenseModalRecords: [],
+      statusFilter: '',
+      // Set default filter to current week (Monday-Sunday)
+      init() {
+        const today = new Date();
+        const day = today.getDay();
+        // Monday = 1, Sunday = 0
+        const monday = new Date(today);
+        monday.setDate(today.getDate() - ((day === 0 ? 7 : day) - 1));
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        this.filterStart = monday.toISOString().slice(0, 10);
+        this.filterEnd = sunday.toISOString().slice(0, 10);
+        this.loadSettlements();
       },
 
       async loadSettlements() {
@@ -265,6 +294,10 @@
           if (res.ok) {
             const data = await res.json();
             this.settlements = data.settlements || data.data || [];
+            // If no settlements exist for the current week, auto-generate
+            if (this.settlements.length === 0 && this.filterStart && this.filterEnd) {
+              await this.autoGenerateCurrentWeek();
+            }
           } else {
             dispatchToast('error', 'Error', 'Failed to load settlements');
           }
@@ -275,44 +308,27 @@
         }
       },
 
-      async generateSettlement() {
-        if (!this.generator.weekStart || !this.generator.weekEnd) {
-          dispatchToast('error', 'Validation', 'Please select both start and end dates');
-          return;
-        }
-        if (this.generator.weekStart > this.generator.weekEnd) {
-          dispatchToast('error', 'Validation', 'Start date must be before end date');
-          return;
-        }
-
-        this.generating = true;
+      async autoGenerateCurrentWeek() {
         try {
           const res = await fetch('/api/settlements/generate', {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              week_start: this.generator.weekStart,
-              week_end: this.generator.weekEnd,
+              week_start: this.filterStart,
+              week_end: this.filterEnd,
             }),
           });
-
           if (res.ok) {
             const data = await res.json();
-            const count = data.count || data.settlements_count || (data.settlements || []).length || 0;
-            dispatchToast('success', 'Settlements Generated', `${count} settlement(s) created successfully`);
-            this.showGenerator = false;
-            this.generator.weekStart = '';
-            this.generator.weekEnd = '';
-            await this.loadSettlements();
+            this.settlements = data.settlements || [];
+            dispatchToast('success', 'Auto-Generated', `${this.settlements.length} settlements created for current week.`);
           } else {
             const err = await res.json().catch(() => ({}));
-            dispatchToast('error', 'Error', err.error || 'Failed to generate settlements');
+            dispatchToast('error', 'Error', err.error || 'Failed to auto-generate settlements');
           }
         } catch (e) {
           dispatchToast('error', 'Network Error', 'Could not reach the server');
-        } finally {
-          this.generating = false;
         }
       },
 
@@ -324,14 +340,14 @@
       },
 
       formatDate(dateStr) {
-        if (!dateStr) return '–';
+        if (!dateStr) return '-';
         try {
           return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
         } catch (e) { return dateStr; }
       },
 
       formatDateShort(dateStr) {
-        if (!dateStr) return '–';
+        if (!dateStr) return '-';
         try {
           return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
         } catch (e) { return dateStr; }
@@ -339,6 +355,32 @@
 
       sumField(primary, fallback) {
         return this.settlements.reduce((sum, s) => sum + Number(s[primary] ?? s[fallback] ?? 0), 0);
+      },
+
+      async showExpenseModal(settlement) {
+        this.expenseModalOpen = true;
+        this.expenseModalStaff = settlement.staff_name || settlement.full_name || '-';
+        this.expenseModalPeriod = `${this.formatDateShort(settlement.week_start)} - ${this.formatDateShort(settlement.week_end)}`;
+        // Fetch expense records for this settlement
+        try {
+          const res = await fetch(`/api/settlements/${settlement.settlement_id}`);
+          if (res.ok) {
+            const data = await res.json();
+            this.expenseModalRecords = (data.settlement && data.settlement.expense_records) ? data.settlement.expense_records : [];
+          } else {
+            this.expenseModalRecords = [];
+          }
+        } catch (e) {
+          this.expenseModalRecords = [];
+        }
+      },
+
+      getExportUrl(format) {
+        const params = new URLSearchParams();
+        if (this.filterStart) params.set('week_start', this.filterStart);
+        if (this.filterEnd) params.set('week_end', this.filterEnd);
+        const queryString = params.toString();
+        return `/api/settlements/export/${format}${queryString ? '?' + queryString : ''}`;
       },
     };
   }

@@ -1,1 +1,1 @@
-"""modules/dashboard/__init__.py – Package marker."""
+"""modules/dashboard/__init__.py - Package marker."""

@@ -1,5 +1,5 @@
 """
-utils/validators.py – Input validation helpers for the boutique app.
+utils/validators.py - Input validation helpers for the boutique app.
 
 All public functions return (is_valid: bool, error_message: str).
 On success the error_message is an empty string.
@@ -7,17 +7,21 @@ On success the error_message is an empty string.
 from __future__ import annotations
 
 import re
-from config import get_config
 
-_cfg = get_config()
+from services.settings_service import (
+    get_designations,
+    get_staff_statuses,
+    get_salary_types,
+    get_settlement_cycles,
+)
 
-# ── Regex patterns ─────────────────────────────────────────────────────────────
+# -- Regex patterns -------------------------------------------------------------
 _PHONE_RE = re.compile(r"^\d{10}$")
 _PIN_RE = re.compile(r"^\d{4}$")
 _TIME_24_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
 
 
-# ── Phone ─────────────────────────────────────────────────────────────────────
+# -- Phone ---------------------------------------------------------------------
 
 def validate_phone(phone: str | None) -> tuple[bool, str]:
     """Validate a 10-digit Indian phone number."""
@@ -29,7 +33,7 @@ def validate_phone(phone: str | None) -> tuple[bool, str]:
     return True, ""
 
 
-# ── PIN ───────────────────────────────────────────────────────────────────────
+# -- PIN -----------------------------------------------------------------------
 
 def validate_pin(pin: str | None) -> tuple[bool, str]:
     """Validate a 4-digit numeric PIN."""
@@ -41,10 +45,10 @@ def validate_pin(pin: str | None) -> tuple[bool, str]:
     return True, ""
 
 
-# ── Name ──────────────────────────────────────────────────────────────────────
+# -- Name ----------------------------------------------------------------------
 
 def validate_full_name(name: str | None) -> tuple[bool, str]:
-    """Validate a non-empty full name (2–100 characters)."""
+    """Validate a non-empty full name (2-100 characters)."""
     if not name:
         return False, "Full name is required."
     name = str(name).strip()
@@ -55,19 +59,20 @@ def validate_full_name(name: str | None) -> tuple[bool, str]:
     return True, ""
 
 
-# ── Designation ───────────────────────────────────────────────────────────────
+# -- Designation ---------------------------------------------------------------
 
 def validate_designation(designation: str | None) -> tuple[bool, str]:
     """Validate staff designation against the allowed list."""
     if not designation:
         return False, "Designation is required."
-    if designation not in _cfg.DESIGNATIONS:
-        allowed = ", ".join(_cfg.DESIGNATIONS)
+    designation_list, _ = get_designations()
+    if designation not in designation_list:
+        allowed = ", ".join(designation_list)
         return False, f"Designation must be one of: {allowed}."
     return True, ""
 
 
-# ── Salary ────────────────────────────────────────────────────────────────────
+# -- Salary --------------------------------------------------------------------
 
 def validate_salary(salary: str | int | float | None) -> tuple[bool, str]:
     """Validate weekly salary is a positive number."""
@@ -82,7 +87,36 @@ def validate_salary(salary: str | int | float | None) -> tuple[bool, str]:
     return True, ""
 
 
-# ── Shift Time ────────────────────────────────────────────────────────────────
+def validate_monthly_salary(salary: str | int | float | None) -> tuple[bool, str]:
+    """Validate monthly salary is a positive number."""
+    if salary is None or str(salary).strip() == "":
+        return False, "Monthly salary is required."
+    try:
+        val = float(salary)
+    except (ValueError, TypeError):
+        return False, "Monthly salary must be a valid number."
+    if val <= 0:
+        return False, "Monthly salary must be greater than zero."
+    return True, ""
+
+
+def validate_salary_type(salary_type: str | None) -> tuple[bool, str]:
+    """Validate salary_type is 'weekly' or 'monthly'."""
+    allowed = get_salary_types()
+    if not salary_type or salary_type not in allowed:
+        return False, f"Salary type must be one of: {', '.join(allowed)}."
+    return True, ""
+
+
+def validate_settlement_cycle(cycle: str | None) -> tuple[bool, str]:
+    """Validate settlement_cycle is 'weekly' or 'monthly'."""
+    allowed = get_settlement_cycles()
+    if not cycle or cycle not in allowed:
+        return False, f"Settlement cycle must be one of: {', '.join(allowed)}."
+    return True, ""
+
+
+# -- Shift Time ----------------------------------------------------------------
 
 def validate_time_24h(t: str | None, field: str = "Time") -> tuple[bool, str]:
     """Validate a 24-hr time string HH:MM."""
@@ -93,7 +127,7 @@ def validate_time_24h(t: str | None, field: str = "Time") -> tuple[bool, str]:
     return True, ""
 
 
-# ── Date ──────────────────────────────────────────────────────────────────────
+# -- Date ----------------------------------------------------------------------
 
 def validate_date_str(d: str | None, field: str = "Date") -> tuple[bool, str]:
     """Validate a YYYY-MM-DD date string."""
@@ -107,17 +141,17 @@ def validate_date_str(d: str | None, field: str = "Date") -> tuple[bool, str]:
         return False, f"{field} must be in YYYY-MM-DD format."
 
 
-# ── Status ────────────────────────────────────────────────────────────────────
+# -- Status --------------------------------------------------------------------
 
 def validate_status(status: str | None) -> tuple[bool, str]:
     """Validate staff status value."""
-    allowed = _cfg.STAFF_STATUSES
+    allowed = get_staff_statuses()
     if not status or status not in allowed:
         return False, f"Status must be one of: {', '.join(allowed)}."
     return True, ""
 
 
-# ── Composite helpers ─────────────────────────────────────────────────────────
+# -- Composite helpers ---------------------------------------------------------
 
 def validate_admin_create(data: dict) -> dict[str, str]:
     """
@@ -167,9 +201,27 @@ def validate_staff_create(data: dict) -> dict[str, str]:
         if not ok:
             errors["emergency_contact"] = "Emergency contact: " + msg
 
-    ok, msg = validate_salary(data.get("weekly_salary"))
-    if not ok:
-        errors["weekly_salary"] = msg
+    # salary_type is optional; default to "weekly" for backward compatibility
+    salary_type = data.get("salary_type", "weekly")
+    if salary_type and salary_type != "weekly":
+        ok, msg = validate_salary_type(salary_type)
+        if not ok:
+            errors["salary_type"] = msg
+
+    if salary_type == "monthly":
+        ok, msg = validate_monthly_salary(data.get("monthly_salary"))
+        if not ok:
+            errors["monthly_salary"] = msg
+    else:
+        ok, msg = validate_salary(data.get("weekly_salary"))
+        if not ok:
+            errors["weekly_salary"] = msg
+
+    # settlement_cycle is optional; must be valid when provided
+    if data.get("settlement_cycle"):
+        ok, msg = validate_settlement_cycle(data.get("settlement_cycle"))
+        if not ok:
+            errors["settlement_cycle"] = msg
 
     ok, msg = validate_pin(data.get("temp_pin"))
     if not ok:
@@ -179,7 +231,7 @@ def validate_staff_create(data: dict) -> dict[str, str]:
 
 
 def validate_staff_update(data: dict) -> dict[str, str]:
-    """Validate data dict for staff update (phone is immutable – not checked)."""
+    """Validate data dict for staff update (phone is immutable - not checked)."""
     errors: dict[str, str] = {}
 
     if "full_name" in data:
@@ -212,9 +264,24 @@ def validate_staff_update(data: dict) -> dict[str, str]:
         if not ok:
             errors["emergency_contact"] = "Emergency contact: " + msg
 
+    if "salary_type" in data:
+        ok, msg = validate_salary_type(data.get("salary_type"))
+        if not ok:
+            errors["salary_type"] = msg
+
     if "weekly_salary" in data:
         ok, msg = validate_salary(data.get("weekly_salary"))
         if not ok:
             errors["weekly_salary"] = msg
+
+    if "monthly_salary" in data:
+        ok, msg = validate_monthly_salary(data.get("monthly_salary"))
+        if not ok:
+            errors["monthly_salary"] = msg
+
+    if "settlement_cycle" in data:
+        ok, msg = validate_settlement_cycle(data.get("settlement_cycle"))
+        if not ok:
+            errors["settlement_cycle"] = msg
 
     return errors

@@ -1,12 +1,12 @@
 """
-modules/attendance/routes.py – Attendance Blueprint (JSON API only).
+modules/attendance/routes.py - Attendance Blueprint (JSON API only).
 
 API Routes
 ----------
-GET  /api/attendance/status    – Get today's punch status for current user
-POST /api/attendance/punch     – Punch in or out (staff only)
-GET  /api/attendance/history   – History with date range
-GET  /api/attendance/analytics – Analytics (staff: own; admin: all or by uid)
+GET  /api/attendance/status    - Get today's punch status for current user
+POST /api/attendance/punch     - Punch in or out (staff only)
+GET  /api/attendance/history   - History with date range
+GET  /api/attendance/analytics - Analytics (staff: own; admin: all or by uid)
 """
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ attendance_bp = Blueprint("attendance", __name__)
 _VALID_PERIODS = ("daily", "weekly", "monthly", "quarterly", "yearly")
 
 
-# ── API routes ────────────────────────────────────────────────────────────────
+# -- API routes ----------------------------------------------------------------
 
 @attendance_bp.get("/api/attendance/status")
 @login_required
@@ -115,7 +115,7 @@ def api_analytics():
 
     Query params:
         period  : daily | weekly | monthly | quarterly | yearly  (default: monthly)
-        user_id : Admin only – specific staff member.  Omit for all-staff summary.
+        user_id : Admin only - specific staff member.  Omit for all-staff summary.
     """
     period = request.args.get("period", "monthly")
     if period not in _VALID_PERIODS:

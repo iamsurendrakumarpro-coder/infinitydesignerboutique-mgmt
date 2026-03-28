@@ -1,5 +1,5 @@
 """
-modules/pages/routes.py – Page-serving Blueprint.
+modules/pages/routes.py - Page-serving Blueprint.
 
 Serves Jinja2 HTML templates for the PWA frontend.
 All data fetching is done client-side via the /api/* JSON endpoints.
@@ -21,7 +21,7 @@ pages_bp = Blueprint(
 )
 
 
-# ── Public pages ──────────────────────────────────────────────────────────────
+# -- Public pages --------------------------------------------------------------
 
 
 @pages_bp.get("/")
@@ -61,7 +61,7 @@ def change_pin():
     )
 
 
-# ── Admin pages ───────────────────────────────────────────────────────────────
+# -- Admin pages ---------------------------------------------------------------
 
 
 @pages_bp.get("/admin/dashboard")
@@ -119,12 +119,20 @@ def admin_settlements():
     return render_template("admin/settlements.html", user=_session_user())
 
 
-# ── Staff pages ───────────────────────────────────────────────────────────────
+@pages_bp.get("/admin/settings")
+def admin_settings():
+    """Application settings page."""
+    if not _is_admin():
+        return redirect(url_for("pages.login"))
+    return render_template("admin/settings.html", user=_session_user())
+
+
+# -- Staff pages ---------------------------------------------------------------
 
 
 @pages_bp.get("/staff/duty")
 def duty_station():
-    """Duty station – daily task view."""
+    """Duty station - daily task view."""
     if not _is_staff():
         if _is_admin():
             return redirect(url_for("pages.admin_dashboard"))
@@ -158,7 +166,7 @@ def staff_profile():
     return render_template("staff/profile.html", user=_session_user())
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+# -- Helpers -------------------------------------------------------------------
 
 
 def _session_user() -> dict[str, str | bool | None]:

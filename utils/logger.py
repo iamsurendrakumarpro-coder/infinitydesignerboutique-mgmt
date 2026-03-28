@@ -1,9 +1,9 @@
 """
-utils/logger.py – Centralised, structured logging for the boutique app.
+utils/logger.py - Centralised, structured logging for the boutique app.
 
 Features
 --------
-* Rotating file handler  (logs/app.log – up to 10 MB × 5 backups)
+* Rotating file handler  (logs/app.log - up to 10 MB x 5 backups)
 * Console handler for development
 * ISO-8601 timestamps locked to IST
 * Caller information injected automatically (module, line)
@@ -19,7 +19,7 @@ from datetime import datetime
 
 import pytz
 
-# ── Constants ─────────────────────────────────────────────────────────────────
+# -- Constants -----------------------------------------------------------------
 IST = pytz.timezone("Asia/Kolkata")
 LOG_FORMAT = (
     "%(asctime)s [%(levelname)-8s] [%(name)s:%(lineno)d] %(message)s"
@@ -64,14 +64,14 @@ def init_logging(log_dir: str, log_level: str = "DEBUG", max_bytes: int = 10_485
 
     numeric_level = getattr(logging, log_level.upper(), logging.DEBUG)
 
-    # ── Root logger ──────────────────────────────────────────────────────────
+    # -- Root logger ----------------------------------------------------------
     root = logging.getLogger("boutique")
     root.setLevel(numeric_level)
     root.propagate = False
 
     formatter = ISTFormatter(fmt=LOG_FORMAT, datefmt=DATE_FORMAT)
 
-    # ── File handler (rotating) ──────────────────────────────────────────────
+    # -- File handler (rotating) ----------------------------------------------
     log_path = os.path.join(log_dir, "app.log")
     file_handler = logging.handlers.RotatingFileHandler(
         log_path,
@@ -83,7 +83,7 @@ def init_logging(log_dir: str, log_level: str = "DEBUG", max_bytes: int = 10_485
     file_handler.setFormatter(formatter)
     root.addHandler(file_handler)
 
-    # ── Audit-specific file handler ──────────────────────────────────────────
+    # -- Audit-specific file handler ------------------------------------------
     audit_path = os.path.join(log_dir, "audit.log")
     audit_handler = logging.handlers.RotatingFileHandler(
         audit_path,
@@ -97,7 +97,7 @@ def init_logging(log_dir: str, log_level: str = "DEBUG", max_bytes: int = 10_485
     audit_logger.addHandler(audit_handler)
     audit_logger.propagate = True
 
-    # ── Console handler ───────────────────────────────────────────────────────
+    # -- Console handler -------------------------------------------------------
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(numeric_level)
     console_handler.setFormatter(formatter)
@@ -151,7 +151,7 @@ def audit_log(actor_id: str, action: str, target: str, detail: str = "") -> None
     )
 
 
-# ── Structured logging helpers ────────────────────────────────────────────────
+# -- Structured logging helpers ------------------------------------------------
 
 def log_request(logger: logging.Logger, method: str, path: str, user_id: str | None = None, **extra: object) -> None:
     """Log an incoming API request with structured context."""

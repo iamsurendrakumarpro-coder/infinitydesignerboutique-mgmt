@@ -1,15 +1,14 @@
-from __future__ import annotations
-
 """
-modules/financial/routes.py – Financial Requests Blueprint.
+modules/financial/routes.py - Financial Requests Blueprint.
 
 API Routes
 ----------
-POST  /api/financial/requests       – Create financial request
-GET   /api/financial/requests       – List requests (filterable)
-GET   /api/financial/requests/<id>  – Get request detail
-PATCH /api/financial/requests/<id>  – Admin approve/reject
+POST  /api/financial/requests       - Create a financial request (any logged-in user)
+GET   /api/financial/requests       - List requests (staff sees own; admin can filter)
+GET   /api/financial/requests/<id>  - Get a single request (own or admin)
+PATCH /api/financial/requests/<id>  - Admin approve/reject a pending request
 """
+from __future__ import annotations
 
 from flask import Blueprint, request, session, jsonify
 
@@ -19,10 +18,8 @@ from utils.logger import get_logger
 
 log = get_logger(__name__)
 
+# Single authoritative Blueprint instance for financial request routes.
 financial_bp = Blueprint("financial", __name__)
-
-
-    # Receipt upload endpoint removed
 
 
 @financial_bp.post("/api/financial/requests")
@@ -70,11 +67,8 @@ def api_list_requests():
     else:
         filters["user_id"] = session["user_id"]
 
-    log.info("List financial requests | role=%s | filters=%s", role, filters)
     requests_list = financial_service.get_requests(filters)
-    log.info("Returned requests count: %d", len(requests_list))
-    for req in requests_list:
-        log.info("Returned request: %s", req)
+    log.info("List financial requests | role=%s | filters=%s | count=%d", role, filters, len(requests_list))
     return jsonify({"success": True, "requests": requests_list})
 
 

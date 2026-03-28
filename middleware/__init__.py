@@ -1,1 +1,1 @@
-"""middleware/__init__.py – Package marker."""
+"""middleware/__init__.py - Package marker."""

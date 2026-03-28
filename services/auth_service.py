@@ -1,5 +1,5 @@
 """
-services/auth_service.py – Authentication business logic.
+services/auth_service.py - Authentication business logic.
 
 Responsibilities
 ----------------
@@ -18,12 +18,12 @@ from utils.logger import get_logger, audit_log
 
 log = get_logger(__name__)
 
-# ── Firestore collection names ────────────────────────────────────────────────
+# -- Firestore collection names ------------------------------------------------
 _ADMINS = "admins"
 _STAFF = "staff"
 
 
-# ── PIN helpers ───────────────────────────────────────────────────────────────
+# -- PIN helpers ---------------------------------------------------------------
 
 def hash_pin(plain_pin: str) -> str:
     """Return bcrypt hash of a plain-text 4-digit PIN."""
@@ -40,13 +40,13 @@ def verify_pin(plain_pin: str, hashed_pin: str) -> bool:
         return False
 
 
-# ── Login ─────────────────────────────────────────────────────────────────────
+# -- Login ---------------------------------------------------------------------
 
 def authenticate_user(phone_number: str, plain_pin: str) -> dict | None:
     """
     Attempt login for a given phone + PIN.
 
-    Search order: admins → staff.
+    Search order: admins -> staff.
     Returns a session-ready dict on success; None on failure.
 
     Session dict shape::
@@ -66,7 +66,7 @@ def authenticate_user(phone_number: str, plain_pin: str) -> dict | None:
 
     log.info("Login attempt | phone=%s", phone_number)
 
-    # ── 1. Check admins collection ────────────────────────────────────────────
+    # -- 1. Check admins collection --------------------------------------------
     admin_docs = (
         db.collection(_ADMINS)
         .where("phone_number", "==", phone_number)
@@ -96,7 +96,7 @@ def authenticate_user(phone_number: str, plain_pin: str) -> dict | None:
             "is_root": data.get("is_root", False),
         }
 
-    # ── 2. Check staff collection ─────────────────────────────────────────────
+    # -- 2. Check staff collection ---------------------------------------------
     staff_docs = (
         db.collection(_STAFF)
         .where("phone_number", "==", phone_number)
@@ -143,7 +143,7 @@ def authenticate_user(phone_number: str, plain_pin: str) -> dict | None:
     return None
 
 
-# ── PIN change ────────────────────────────────────────────────────────────────
+# -- PIN change ----------------------------------------------------------------
 
 def change_pin(user_id: str, role: str, old_pin: str | None, new_pin: str, is_first_login: bool = False) -> tuple[bool, str]:
     """
@@ -190,7 +190,7 @@ def change_pin(user_id: str, role: str, old_pin: str | None, new_pin: str, is_fi
     return True, ""
 
 
-# ── Admin PIN reset for staff ─────────────────────────────────────────────────
+# -- Admin PIN reset for staff -------------------------------------------------
 
 def admin_reset_staff_pin(admin_id: str, staff_id: str, temp_pin: str) -> tuple[bool, str]:
     """

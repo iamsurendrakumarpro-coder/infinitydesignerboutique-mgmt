@@ -1,5 +1,5 @@
 """
-services/attendance_service.py – Attendance business logic.
+services/attendance_service.py - Attendance business logic.
 
 Firestore structure
 -------------------
@@ -50,7 +50,7 @@ _ATTENDANCE = "attendance"
 _RECORDS = "records"
 
 
-# ── Punch operations ──────────────────────────────────────────────────────────
+# -- Punch operations ----------------------------------------------------------
 
 def punch(user_id: str) -> tuple[bool, str, dict]:
     """
@@ -67,7 +67,7 @@ def punch(user_id: str) -> tuple[bool, str, dict]:
     now = now_utc()
 
     if not doc.exists:
-        # ── First punch of the day → Punch IN ────────────────────────────────
+        # -- First punch of the day -> Punch IN --------------------------------
         record = {
             "user_id": user_id,
             "date": today_ist_str(),
@@ -88,7 +88,7 @@ def punch(user_id: str) -> tuple[bool, str, dict]:
     status = data.get("status", "out")
 
     if status == "in":
-        # ── Punch OUT ─────────────────────────────────────────────────────────
+        # -- Punch OUT ---------------------------------------------------------
         punch_in_ts = data.get("punch_in")
         mins = duration_minutes(punch_in_ts, now) if punch_in_ts else 0
 
@@ -120,7 +120,7 @@ def punch(user_id: str) -> tuple[bool, str, dict]:
 
         return True, "Punched OUT", _sanitise_record(data)
 
-    # status == "out"  →  already punched out today
+    # status == "out"  ->  already punched out today
     log.warning("Double punch-out attempt blocked | user_id=%s | date=%s", user_id, today)
     return (
         False,
@@ -141,7 +141,7 @@ def get_today_status(user_id: str) -> dict:
     return _sanitise_record(doc.to_dict())
 
 
-# ── History & Analytics ───────────────────────────────────────────────────────
+# -- History & Analytics -------------------------------------------------------
 
 def get_attendance_history(user_id: str, start: date, end: date) -> list[dict]:
     """Return attendance records for a user between start and end dates (inclusive)."""
@@ -220,7 +220,7 @@ def get_all_staff_analytics(period: str) -> list[dict]:
     return result
 
 
-# ── Helper ────────────────────────────────────────────────────────────────────
+# -- Helper --------------------------------------------------------------------
 
 def _sanitise_record(data: dict) -> dict:
     """
