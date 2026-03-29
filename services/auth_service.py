@@ -11,16 +11,20 @@ Responsibilities
 from __future__ import annotations
 
 import bcrypt
-from google.cloud.firestore_v1 import SERVER_TIMESTAMP
 
-from utils.firebase_client import get_firestore
+from services.repositories.auth_repository import get_auth_repository
 from utils.logger import get_logger, audit_log
+from utils.timezone_utils import now_utc
 
 log = get_logger(__name__)
 
-# -- Firestore collection names ------------------------------------------------
-_ADMINS = "admins"
-_STAFF = "staff"
+
+def _repo():
+    return get_auth_repository()
+
+
+def _db_timestamp():
+    return now_utc()
 
 
 # -- PIN helpers ---------------------------------------------------------------
@@ -61,34 +65,28 @@ def authenticate_user(phone_number: str, plain_pin: str) -> dict | None:
             "is_root":       bool,         # admin only
         }
     """
-    db = get_firestore()
+    repo = _repo()
     phone_number = str(phone_number).strip()
 
     log.info("Login attempt | phone=%s", phone_number)
 
     # -- 1. Check admins collection --------------------------------------------
-    admin_docs = (
-        db.collection(_ADMINS)
-        .where("phone_number", "==", phone_number)
-        .limit(1)
-        .stream()
-    )
-    for doc in admin_docs:
-        data = doc.to_dict()
+    data = repo.get_admin_by_phone(phone_number)
+    if data:
         stored_hash = data.get("pin_hash", "")
         if not stored_hash:
-            log.warning("Admin has no PIN hash stored | user_id=%s", doc.id)
+            log.warning("Admin has no PIN hash stored | user_id=%s", data["user_id"])
             return None
 
         if not verify_pin(plain_pin, stored_hash):
-            log.warning("Invalid PIN for admin | user_id=%s", doc.id)
-            audit_log(doc.id, "LOGIN_FAILED", f"admins/{doc.id}", "Wrong PIN")
+            log.warning("Invalid PIN for admin | user_id=%s", data["user_id"])
+            audit_log(data["user_id"], "LOGIN_FAILED", f"admins/{data['user_id']}", "Wrong PIN")
             return None
 
-        log.info("Admin login success | user_id=%s | name=%s", doc.id, data.get("full_name"))
-        audit_log(doc.id, "LOGIN_SUCCESS", f"admins/{doc.id}")
+        log.info("Admin login success | user_id=%s | name=%s", data["user_id"], data.get("full_name"))
+        audit_log(data["user_id"], "LOGIN_SUCCESS", f"admins/{data['user_id']}")
         return {
-            "user_id": doc.id,
+            "user_id": data["user_id"],
             "role": "admin",
             "full_name": data.get("full_name", ""),
             "phone_number": data.get("phone_number", ""),
@@ -97,40 +95,34 @@ def authenticate_user(phone_number: str, plain_pin: str) -> dict | None:
         }
 
     # -- 2. Check staff collection ---------------------------------------------
-    staff_docs = (
-        db.collection(_STAFF)
-        .where("phone_number", "==", phone_number)
-        .limit(1)
-        .stream()
-    )
-    for doc in staff_docs:
-        data = doc.to_dict()
+    data = repo.get_staff_by_phone(phone_number)
+    if data:
         status = data.get("status", "active")
 
         if status == "deactivated":
-            log.warning("Login attempt by deactivated staff | user_id=%s", doc.id)
-            audit_log(doc.id, "LOGIN_BLOCKED", f"staff/{doc.id}", "Account deactivated")
+            log.warning("Login attempt by deactivated staff | user_id=%s", data["user_id"])
+            audit_log(data["user_id"], "LOGIN_BLOCKED", f"staff/{data['user_id']}", "Account deactivated")
             return {"blocked": True, "reason": "Your account has been deactivated. Please contact the admin."}
 
         if status == "inactive":
-            log.warning("Login attempt by inactive staff | user_id=%s", doc.id)
-            audit_log(doc.id, "LOGIN_BLOCKED", f"staff/{doc.id}", "Account inactive")
+            log.warning("Login attempt by inactive staff | user_id=%s", data["user_id"])
+            audit_log(data["user_id"], "LOGIN_BLOCKED", f"staff/{data['user_id']}", "Account inactive")
             return {"blocked": True, "reason": "Your account is currently inactive. Please contact the admin."}
 
         stored_hash = data.get("pin_hash", "")
         if not stored_hash:
-            log.warning("Staff has no PIN hash stored | user_id=%s", doc.id)
+            log.warning("Staff has no PIN hash stored | user_id=%s", data["user_id"])
             return None
 
         if not verify_pin(plain_pin, stored_hash):
-            log.warning("Invalid PIN for staff | user_id=%s", doc.id)
-            audit_log(doc.id, "LOGIN_FAILED", f"staff/{doc.id}", "Wrong PIN")
+            log.warning("Invalid PIN for staff | user_id=%s", data["user_id"])
+            audit_log(data["user_id"], "LOGIN_FAILED", f"staff/{data['user_id']}", "Wrong PIN")
             return None
 
-        log.info("Staff login success | user_id=%s | name=%s", doc.id, data.get("full_name"))
-        audit_log(doc.id, "LOGIN_SUCCESS", f"staff/{doc.id}")
+        log.info("Staff login success | user_id=%s | name=%s", data["user_id"], data.get("full_name"))
+        audit_log(data["user_id"], "LOGIN_SUCCESS", f"staff/{data['user_id']}")
         return {
-            "user_id": doc.id,
+            "user_id": data["user_id"],
             "role": "staff",
             "full_name": data.get("full_name", ""),
             "phone_number": data.get("phone_number", ""),
@@ -159,16 +151,13 @@ def change_pin(user_id: str, role: str, old_pin: str | None, new_pin: str, is_fi
 
     Returns (success, error_message).
     """
-    db = get_firestore()
-    collection = _ADMINS if role == "admin" else _STAFF
-    ref = db.collection(collection).document(user_id)
-    doc = ref.get()
+    repo = _repo()
+    collection = "admins" if role == "admin" else "staff"
+    data = repo.get_user_with_hash(role, user_id)
 
-    if not doc.exists:
+    if data is None:
         log.error("change_pin: user not found | user_id=%s | role=%s", user_id, role)
         return False, "User not found."
-
-    data = doc.to_dict()
 
     if not is_first_login:
         if not old_pin:
@@ -179,11 +168,7 @@ def change_pin(user_id: str, role: str, old_pin: str | None, new_pin: str, is_fi
             return False, "Current PIN is incorrect."
 
     new_hash = hash_pin(new_pin)
-    ref.update({
-        "pin_hash": new_hash,
-        "is_first_login": False,
-        "updated_at": SERVER_TIMESTAMP,
-    })
+    repo.update_pin(role, user_id, new_hash, False, _db_timestamp())
 
     log.info("PIN changed successfully | user_id=%s | role=%s", user_id, role)
     audit_log(user_id, "PIN_CHANGED", f"{collection}/{user_id}")
@@ -199,20 +184,15 @@ def admin_reset_staff_pin(admin_id: str, staff_id: str, temp_pin: str) -> tuple[
 
     Returns (success, error_message).
     """
-    db = get_firestore()
-    ref = db.collection(_STAFF).document(staff_id)
-    doc = ref.get()
+    repo = _repo()
+    data = repo.get_user_with_hash("staff", staff_id)
 
-    if not doc.exists:
+    if data is None:
         log.error("admin_reset_staff_pin: staff not found | staff_id=%s", staff_id)
         return False, "Staff member not found."
 
     new_hash = hash_pin(temp_pin)
-    ref.update({
-        "pin_hash": new_hash,
-        "is_first_login": True,
-        "updated_at": SERVER_TIMESTAMP,
-    })
+    repo.update_pin("staff", staff_id, new_hash, True, _db_timestamp())
 
     log.info("Admin reset staff PIN | admin_id=%s | staff_id=%s", admin_id, staff_id)
     audit_log(admin_id, "ADMIN_RESET_PIN", f"staff/{staff_id}")

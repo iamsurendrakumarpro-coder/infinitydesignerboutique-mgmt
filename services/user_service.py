@@ -16,13 +16,12 @@ collections directly (no separate index collection required).
 """
 from __future__ import annotations
 
+import os
 import uuid
 from datetime import datetime
 
-from google.cloud.firestore_v1 import SERVER_TIMESTAMP
-
 from services.auth_service import hash_pin
-from utils.firebase_client import get_firestore
+from services.repositories.staff_repository import get_staff_repository
 from utils.storage_provider import upload_bytes, delete_object, generate_download_url
 from utils.logger import get_logger, audit_log
 from utils.timezone_utils import now_utc, today_ist_str
@@ -36,9 +35,13 @@ from services.settings_service import (
 
 log = get_logger(__name__)
 
-# -- Collection constants ------------------------------------------------------
-_ADMINS = "admins"
-_STAFF  = "staff"
+
+def _repo():
+    return get_staff_repository()
+
+
+def _db_timestamp():
+    return now_utc()
 
 
 def compute_daily_salary(
@@ -61,17 +64,10 @@ def compute_daily_salary(
 
 def is_phone_taken(phone: str) -> bool:
     """Return True if the phone number is already registered (in either collection)."""
-    db = get_firestore()
     phone = str(phone).strip()
-
-    # Check admins
-    admins = list(db.collection(_ADMINS).where("phone_number", "==", phone).limit(1).stream())
-    if admins:
+    if _repo().is_phone_taken_admins(phone):
         return True
-
-    # Check staff
-    staff = list(db.collection(_STAFF).where("phone_number", "==", phone).limit(1).stream())
-    return bool(staff)
+    return _repo().is_phone_taken_staff(phone)
 
 
 # -- Admin CRUD ----------------------------------------------------------------
@@ -87,7 +83,6 @@ def create_admin(data: dict, created_by: str | None = None) -> tuple[bool, str, 
 
     Returns (success, error_message, created_doc_dict).
     """
-    db = get_firestore()
     phone = str(data["phone_number"]).strip()
 
     if is_phone_taken(phone):
@@ -106,12 +101,12 @@ def create_admin(data: dict, created_by: str | None = None) -> tuple[bool, str, 
         "role": "admin",
         "is_root": bool(data.get("is_root", False)),
         "is_first_login": True,
-        "created_at": SERVER_TIMESTAMP,
-        "updated_at": SERVER_TIMESTAMP,
+        "created_at": _db_timestamp(),
+        "updated_at": _db_timestamp(),
         "created_by": created_by or "system",
     }
 
-    db.collection(_ADMINS).document(user_id).set(doc)
+    _repo().save_admin(user_id, doc)
     log.info(
         "Admin created | user_id=%s | phone=%s | is_root=%s | by=%s",
         user_id, phone, doc["is_root"], created_by,
@@ -124,13 +119,7 @@ def create_admin(data: dict, created_by: str | None = None) -> tuple[bool, str, 
 
 def get_admin(user_id: str) -> dict | None:
     """Return admin data (without pin_hash) or None if not found."""
-    db = get_firestore()
-    doc = db.collection(_ADMINS).document(user_id).get()
-    if not doc.exists:
-        return None
-    data = doc.to_dict()
-    data.pop("pin_hash", None)
-    return data
+    return _repo().get_admin(user_id)
 
 
 def list_admins(exclude_root: bool = True) -> list[dict]:
@@ -138,16 +127,7 @@ def list_admins(exclude_root: bool = True) -> list[dict]:
     Return all admin profiles (excluding pin_hash).
     If exclude_root=True, root admin(s) are omitted.
     """
-    db = get_firestore()
-    query = db.collection(_ADMINS)
-    if exclude_root:
-        query = query.where("is_root", "==", False)
-    docs = query.stream()
-    result = []
-    for doc in docs:
-        data = doc.to_dict()
-        data.pop("pin_hash", None)
-        result.append(data)
+    result = _repo().list_admins(exclude_root)
     log.debug("list_admins | count=%d | exclude_root=%s", len(result), exclude_root)
     return result
 
@@ -173,7 +153,6 @@ def create_staff(data: dict, created_by: str) -> tuple[bool, str, dict]:
 
     Returns (success, error_message, created_doc_dict).
     """
-    db = get_firestore()
     phone = str(data["phone_number"]).strip()
 
     if is_phone_taken(phone):
@@ -229,12 +208,12 @@ def create_staff(data: dict, created_by: str) -> tuple[bool, str, dict]:
         "pin_hash": pin_hash,
         "role": "staff",
         "is_first_login": True,
-        "created_at": SERVER_TIMESTAMP,
-        "updated_at": SERVER_TIMESTAMP,
+        "created_at": _db_timestamp(),
+        "updated_at": _db_timestamp(),
         "created_by": created_by,
     }
 
-    db.collection(_STAFF).document(user_id).set(doc)
+    _repo().save_staff(user_id, doc)
     log.info(
         "Staff created | user_id=%s | phone=%s | designation=%s | salary_type=%s | by=%s",
         user_id, phone, doc["designation"], salary_type, created_by,
@@ -249,13 +228,10 @@ def create_staff(data: dict, created_by: str) -> tuple[bool, str, dict]:
 
 def get_staff(user_id: str) -> dict | None:
     """Return staff data (without pin_hash) or None if not found."""
-    db = get_firestore()
-    doc = db.collection(_STAFF).document(user_id).get()
-    if not doc.exists:
+    data = _repo().get_staff(user_id)
+    if data is None:
         log.warning("get_staff: not found | user_id=%s", user_id)
         return None
-    data = doc.to_dict()
-    data.pop("pin_hash", None)
 
     # Get dynamic settings
     salary_types = get_salary_types()
@@ -302,16 +278,7 @@ def list_staff(status_filter: str | None = None) -> list[dict]:
     ----------
     status_filter : If provided, only return staff with this status.
     """
-    db = get_firestore()
-    query = db.collection(_STAFF)
-    if status_filter:
-        query = query.where("status", "==", status_filter)
-    docs = query.stream()
-    result = []
-    for doc in docs:
-        data = doc.to_dict()
-        data.pop("pin_hash", None)
-        result.append(data)
+    result = _repo().list_staff(status_filter)
     log.debug("list_staff | count=%d | filter=%s", len(result), status_filter)
     return result
 
@@ -322,13 +289,9 @@ def update_staff(user_id: str, data: dict, updated_by: str) -> tuple[bool, str]:
 
     Returns (success, error_message).
     """
-    db = get_firestore()
-    ref = db.collection(_STAFF).document(user_id)
-    doc = ref.get()
-    if not doc.exists:
+    current_data = _repo().get_staff(user_id)
+    if current_data is None:
         return False, "Staff member not found."
-
-    current_data = doc.to_dict()
 
     # Prevent phone number change
     data.pop("phone_number", None)
@@ -373,9 +336,9 @@ def update_staff(user_id: str, data: dict, updated_by: str) -> tuple[bool, str]:
             # If switching to weekly but only monthly provided, ignore monthly
             data.pop("monthly_salary", None)
 
-    data["updated_at"] = SERVER_TIMESTAMP
+    data["updated_at"] = _db_timestamp()
 
-    ref.update(data)
+    _repo().update_staff(user_id, data)
     log.info("Staff updated | user_id=%s | by=%s | fields=%s", user_id, updated_by, list(data.keys()))
     audit_log(updated_by, "UPDATE_STAFF", f"staff/{user_id}")
     return True, ""
@@ -390,12 +353,10 @@ def set_staff_status(user_id: str, new_status: str, changed_by: str) -> tuple[bo
     if new_status not in allowed:
         return False, f"Status must be one of: {', '.join(allowed)}."
 
-    db = get_firestore()
-    ref = db.collection(_STAFF).document(user_id)
-    if not ref.get().exists:
+    if not _repo().staff_exists(user_id):
         return False, "Staff member not found."
 
-    ref.update({"status": new_status, "updated_at": SERVER_TIMESTAMP})
+    _repo().update_staff(user_id, {"status": new_status, "updated_at": _db_timestamp()})
     log.info("Staff status changed | user_id=%s | status=%s | by=%s", user_id, new_status, changed_by)
     audit_log(changed_by, "STATUS_CHANGE", f"staff/{user_id}", f"new_status={new_status}")
     return True, ""
@@ -405,27 +366,21 @@ def set_staff_status(user_id: str, new_status: str, changed_by: str) -> tuple[bo
 
 def add_skill(user_id: str, skill: str, added_by: str) -> tuple[bool, str]:
     """Append a skill tag to a staff member's profile."""
-    from google.cloud.firestore_v1 import ArrayUnion
-    db = get_firestore()
-    ref = db.collection(_STAFF).document(user_id)
-    if not ref.get().exists:
+    if not _repo().staff_exists(user_id):
         return False, "Staff member not found."
     skill = str(skill).strip()
     if not skill:
         return False, "Skill cannot be empty."
-    ref.update({"skills": ArrayUnion([skill]), "updated_at": SERVER_TIMESTAMP})
+    _repo().add_skill(user_id, skill, _db_timestamp())
     log.info("Skill added | user_id=%s | skill=%s | by=%s", user_id, skill, added_by)
     return True, ""
 
 
 def remove_skill(user_id: str, skill: str, removed_by: str) -> tuple[bool, str]:
     """Remove a skill tag from a staff member's profile."""
-    from google.cloud.firestore_v1 import ArrayRemove
-    db = get_firestore()
-    ref = db.collection(_STAFF).document(user_id)
-    if not ref.get().exists:
+    if not _repo().staff_exists(user_id):
         return False, "Staff member not found."
-    ref.update({"skills": ArrayRemove([skill]), "updated_at": SERVER_TIMESTAMP})
+    _repo().remove_skill(user_id, skill, _db_timestamp())
     log.info("Skill removed | user_id=%s | skill=%s | by=%s", user_id, skill, removed_by)
     return True, ""
 
@@ -442,9 +397,7 @@ def upload_staff_govt_proof(
 
     Returns (success, error_message, proof_metadata).
     """
-    db = get_firestore()
-    ref = db.collection(_STAFF).document(user_id)
-    if not ref.get().exists:
+    if not _repo().staff_exists(user_id):
         return False, "Staff member not found.", {}
 
     proof_id = str(uuid.uuid4())
@@ -471,9 +424,9 @@ def upload_staff_govt_proof(
         "content_type": resolved_content_type,
         "size_bytes": len(file_bytes),
         "uploaded_by": uploaded_by,
-        "uploaded_at": SERVER_TIMESTAMP,
+        "uploaded_at": _db_timestamp(),
     }
-    ref.update({"govt_proof": proof_doc, "updated_at": SERVER_TIMESTAMP})
+    _repo().update_staff(user_id, {"govt_proof": proof_doc, "updated_at": _db_timestamp()})
     audit_log(uploaded_by, "UPLOAD_GOVT_PROOF", f"staff/{user_id}", detail=f"proof_id={proof_id}")
 
     # Return JSON-safe metadata.
@@ -490,7 +443,6 @@ def upload_gallery_image(user_id: str, file_bytes: bytes, filename: str, caption
 
     Returns (success, error_message, gallery_item_dict).
     """
-    db = get_firestore()
     image_id = str(uuid.uuid4())
     ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "jpg"
     storage_path = f"gallery/{user_id}/{image_id}.{ext}"
@@ -517,27 +469,19 @@ def upload_gallery_image(user_id: str, file_bytes: bytes, filename: str, caption
         "image_url": image_url,
         "storage_path": storage_path,
         "caption": str(caption).strip(),
-        "uploaded_at": SERVER_TIMESTAMP,
+        "uploaded_at": _db_timestamp(),
         "uploaded_by": uploaded_by,
     }
 
-    db.collection(_STAFF).document(user_id).collection("work_gallery").document(image_id).set(gallery_doc)
+    _repo().save_gallery_item(user_id, image_id, gallery_doc)
     audit_log(uploaded_by, "GALLERY_UPLOAD", f"staff/{user_id}/work_gallery/{image_id}")
     return True, "", gallery_doc
 
 
 def list_gallery(user_id: str) -> list[dict]:
     """Return all gallery images for a staff member."""
-    db = get_firestore()
-    docs = (
-        db.collection(_STAFF).document(user_id)
-        .collection("work_gallery")
-        .order_by("uploaded_at", direction="DESCENDING")
-        .stream()
-    )
     result: list[dict] = []
-    for d in docs:
-        item = d.to_dict()
+    for item in _repo().list_gallery(user_id):
         path = item.get("storage_path")
         if path:
             try:
@@ -551,17 +495,11 @@ def list_gallery(user_id: str) -> list[dict]:
 
 def delete_gallery_image(user_id: str, image_id: str, deleted_by: str) -> tuple[bool, str]:
     """Delete a gallery image from both Storage and Firestore."""
-    db = get_firestore()
-    ref = (
-        db.collection(_STAFF).document(user_id)
-        .collection("work_gallery").document(image_id)
-    )
-    doc = ref.get()
-    if not doc.exists:
+    item = _repo().get_gallery_item(user_id, image_id)
+    if item is None:
         return False, "Gallery item not found."
 
-    data = doc.to_dict()
-    storage_path = data.get("storage_path", "")
+    storage_path = item.get("storage_path", "")
 
     # Delete from configured storage provider.
     if storage_path:
@@ -571,7 +509,7 @@ def delete_gallery_image(user_id: str, image_id: str, deleted_by: str) -> tuple[
         else:
             log.warning("Could not delete storage blob | path=%s | error=%s", storage_path, err)
 
-    ref.delete()
+    _repo().delete_gallery_item(user_id, image_id)
     audit_log(deleted_by, "GALLERY_DELETE", f"staff/{user_id}/work_gallery/{image_id}")
     return True, ""
 
@@ -580,9 +518,7 @@ def delete_gallery_image(user_id: str, image_id: str, deleted_by: str) -> tuple[
 
 def add_performance_log(user_id: str, note: str, created_by: str) -> tuple[bool, str, dict]:
     """Add a performance note to a staff member's profile."""
-    db = get_firestore()
-    ref = db.collection(_STAFF).document(user_id)
-    if not ref.get().exists:
+    if not _repo().staff_exists(user_id):
         return False, "Staff member not found.", {}
 
     if not note or not str(note).strip():
@@ -592,10 +528,10 @@ def add_performance_log(user_id: str, note: str, created_by: str) -> tuple[bool,
     log_doc = {
         "log_id": log_id,
         "note": str(note).strip(),
-        "created_at": SERVER_TIMESTAMP,
+        "created_at": _db_timestamp(),
         "created_by": created_by,
     }
-    ref.collection("performance_logs").document(log_id).set(log_doc)
+    _repo().save_performance_log(user_id, log_id, log_doc)
     log.info("Performance log added | user_id=%s | log_id=%s | by=%s", user_id, log_id, created_by)
     audit_log(created_by, "ADD_PERF_LOG", f"staff/{user_id}/performance_logs/{log_id}")
     return True, "", log_doc
@@ -603,25 +539,13 @@ def add_performance_log(user_id: str, note: str, created_by: str) -> tuple[bool,
 
 def list_performance_logs(user_id: str) -> list[dict]:
     """Return all performance logs for a staff member, newest first."""
-    db = get_firestore()
-    docs = (
-        db.collection(_STAFF).document(user_id)
-        .collection("performance_logs")
-        .order_by("created_at", direction="DESCENDING")
-        .stream()
-    )
-    return [d.to_dict() for d in docs]
+    return _repo().list_performance_logs(user_id)
 
 
 def delete_performance_log(user_id: str, log_id: str, deleted_by: str) -> tuple[bool, str]:
     """Delete a performance log entry."""
-    db = get_firestore()
-    ref = (
-        db.collection(_STAFF).document(user_id)
-        .collection("performance_logs").document(log_id)
-    )
-    if not ref.get().exists:
+    if _repo().get_performance_log(user_id, log_id) is None:
         return False, "Log entry not found."
-    ref.delete()
+    _repo().delete_performance_log(user_id, log_id)
     audit_log(deleted_by, "DELETE_PERF_LOG", f"staff/{user_id}/performance_logs/{log_id}")
     return True, ""

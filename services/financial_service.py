@@ -13,21 +13,27 @@ before being returned to the API layer via _sanitise().
 """
 from __future__ import annotations
 
+import os
 import uuid
 from datetime import date
 
-from google.cloud.firestore_v1 import SERVER_TIMESTAMP
-
-from utils.firebase_client import get_firestore
+from services.repositories.financial_repository import get_financial_repository
 from utils.storage_provider import generate_download_url
 from utils.logger import get_logger, audit_log
-from utils.timezone_utils import now_ist, today_ist_str, period_range
+from utils.timezone_utils import now_ist, today_ist_str, period_range, now_utc
 
 log = get_logger(__name__)
 
-_COLLECTION = "financial_requests"
 _VALID_TYPES = ("shop_expense", "personal_advance")
 _VALID_STATUSES = ("pending", "approved", "rejected")
+
+
+def _repo():
+    return get_financial_repository()
+
+
+def _db_timestamp():
+    return now_utc()
 
 
 def create_request(user_id: str, data: dict) -> tuple[bool, str, dict]:
@@ -75,6 +81,7 @@ def create_request(user_id: str, data: dict) -> tuple[bool, str, dict]:
     request_id = str(uuid.uuid4())
     notes_val = str(data.get("notes", "")).strip()
     log.info("create_request | notes=%s | data=%s", notes_val, data)
+    ts = _db_timestamp()
     doc = {
         "request_id": request_id,
         "user_id": user_id,
@@ -88,16 +95,16 @@ def create_request(user_id: str, data: dict) -> tuple[bool, str, dict]:
         "admin_notes": "",
         "reviewed_by": None,
         "reviewed_at": None,
-        "created_at": SERVER_TIMESTAMP,
-        "updated_at": SERVER_TIMESTAMP,
+        "created_at": ts,
+        "updated_at": ts,
     }
 
-    db.collection(_COLLECTION).document(request_id).set(doc)
+    _repo().save(request_id, doc)
     log.info("Financial request created | request_id=%s | user_id=%s | type=%s | amount=%s",
              request_id, user_id, req_type, amount)
-    audit_log(user_id, "CREATE_FINANCIAL_REQUEST", f"{_COLLECTION}/{request_id}",
+    audit_log(user_id, "CREATE_FINANCIAL_REQUEST", f"financial_requests/{request_id}",
               f"type={req_type}, amount={amount}")
-    # Remove Firestore SERVER_TIMESTAMP fields before returning
+    # Omit timestamps before returning
     doc.pop("created_at", None)
     doc.pop("updated_at", None)
     return True, "", doc
@@ -109,44 +116,35 @@ def get_requests(filters: dict | None = None) -> list[dict]:
 
     Supported filters: status, user_id.
     """
-    db = get_firestore()
-    query = db.collection(_COLLECTION)
-
+    from services.user_service import get_staff  # noqa: PLC0415
+    safe_filters: dict = {}
     if filters:
         if filters.get("status") and filters["status"] in _VALID_STATUSES:
-            query = query.where("status", "==", filters["status"])
+            safe_filters["status"] = filters["status"]
         if filters.get("user_id"):
-            query = query.where("user_id", "==", filters["user_id"])
+            safe_filters["user_id"] = filters["user_id"]
         if filters.get("category"):
-            query = query.where("category", "==", filters["category"])
-        # Date range filtering
+            safe_filters["category"] = filters["category"]
         if filters.get("start_date"):
-            query = query.where("created_at", ">=", filters["start_date"])
+            safe_filters["start_date"] = filters["start_date"]
         if filters.get("end_date"):
-            query = query.where("created_at", "<=", filters["end_date"])
+            safe_filters["end_date"] = filters["end_date"]
 
-    query = query.order_by("created_at", direction="DESCENDING")
-    docs = query.stream()
-    from services.user_service import get_staff
+    docs = _repo().list_requests(safe_filters or None)
     result = []
-    for d in docs:
-        data = d.to_dict()
+    for data in docs:
         gcs_path = data.get("receipt_gcs_path")
         if gcs_path:
             try:
                 data["receipt_url"] = generate_download_url(gcs_path, expiration_minutes=60)
             except Exception as e:
-                log.error(f"Failed to generate signed URL for {gcs_path}: {e}")
+                log.error("Failed to generate signed URL for %s: %s", gcs_path, e)
                 data["receipt_url"] = None
         else:
             data["receipt_url"] = None
-        # Add employee name from staff collection
-        user_id = data.get("user_id")
-        staff_profile = get_staff(user_id) if user_id else None
-        if staff_profile:
-            data["employee_name"] = staff_profile.get("full_name", "Unknown Staff")
-        else:
-            data["employee_name"] = "Unknown Staff"
+        uid = data.get("user_id")
+        staff_profile = get_staff(uid) if uid else None
+        data["employee_name"] = staff_profile.get("full_name", "Unknown Staff") if staff_profile else "Unknown Staff"
         result.append(_sanitise(data))
     log.info("get_requests | filters=%s | count=%d", filters, len(result))
     return result
@@ -154,76 +152,54 @@ def get_requests(filters: dict | None = None) -> list[dict]:
 
 def get_request(request_id: str) -> dict | None:
     """Return a single financial request or None."""
-    db = get_firestore()
-    doc = db.collection(_COLLECTION).document(request_id).get()
-    if not doc.exists:
+    from services.user_service import get_staff  # noqa: PLC0415
+    data = _repo().get_by_id(request_id)
+    if data is None:
         log.debug("get_request | request_id=%s | found=false", request_id)
         return None
     log.debug("get_request | request_id=%s | found=true", request_id)
-    data = doc.to_dict()
-    from services.user_service import get_staff
     gcs_path = data.get("receipt_gcs_path")
     if gcs_path:
         try:
             data["receipt_url"] = generate_download_url(gcs_path, expiration_minutes=60)
         except Exception as e:
-            log.error(f"Failed to generate signed URL for {gcs_path}: {e}")
+            log.error("Failed to generate signed URL for %s: %s", gcs_path, e)
             data["receipt_url"] = None
     else:
         data["receipt_url"] = None
-    # Add employee name from staff collection
-    user_id = data.get("user_id")
-    staff_profile = get_staff(user_id) if user_id else None
-    if staff_profile:
-        data["employee_name"] = staff_profile.get("full_name", "Unknown Staff")
-    else:
-        data["employee_name"] = "Unknown Staff"
+    uid = data.get("user_id")
+    staff_profile = get_staff(uid) if uid else None
+    data["employee_name"] = staff_profile.get("full_name", "Unknown Staff") if staff_profile else "Unknown Staff"
     return _sanitise(data)
 
 
 def approve_request(request_id: str, admin_id: str, notes: str = "") -> tuple[bool, str]:
     """Approve a pending financial request."""
-    db = get_firestore()
-    ref = db.collection(_COLLECTION).document(request_id)
-    doc = ref.get()
-    if not doc.exists:
+    data = _repo().request_exists(request_id)
+    if data is None:
         return False, "Request not found."
-    data = doc.to_dict()
     if data.get("status") != "pending":
         return False, f"Request is already {data.get('status')}."
 
-    ref.update({
-        "status": "approved",
-        "admin_notes": str(notes).strip(),
-        "reviewed_by": admin_id,
-        "reviewed_at": SERVER_TIMESTAMP,
-        "updated_at": SERVER_TIMESTAMP,
-    })
+    ts = _db_timestamp()
+    _repo().update_review(request_id, "approved", admin_id, str(notes).strip(), ts, ts)
     log.info("Financial request approved | request_id=%s | admin_id=%s", request_id, admin_id)
-    audit_log(admin_id, "APPROVE_FINANCIAL_REQUEST", f"{_COLLECTION}/{request_id}")
+    audit_log(admin_id, "APPROVE_FINANCIAL_REQUEST", f"financial_requests/{request_id}")
     return True, ""
 
 
 def reject_request(request_id: str, admin_id: str, notes: str = "") -> tuple[bool, str]:
     """Reject a pending financial request."""
-    db = get_firestore()
-    ref = db.collection(_COLLECTION).document(request_id)
-    doc = ref.get()
-    if not doc.exists:
+    data = _repo().request_exists(request_id)
+    if data is None:
         return False, "Request not found."
-    data = doc.to_dict()
     if data.get("status") != "pending":
         return False, f"Request is already {data.get('status')}."
 
-    ref.update({
-        "status": "rejected",
-        "admin_notes": str(notes).strip(),
-        "reviewed_by": admin_id,
-        "reviewed_at": SERVER_TIMESTAMP,
-        "updated_at": SERVER_TIMESTAMP,
-    })
+    ts = _db_timestamp()
+    _repo().update_review(request_id, "rejected", admin_id, str(notes).strip(), ts, ts)
     log.info("Financial request rejected | request_id=%s | admin_id=%s", request_id, admin_id)
-    audit_log(admin_id, "REJECT_FINANCIAL_REQUEST", f"{_COLLECTION}/{request_id}")
+    audit_log(admin_id, "REJECT_FINANCIAL_REQUEST", f"financial_requests/{request_id}")
     return True, ""
 
 
@@ -267,32 +243,7 @@ def get_week_to_date_earned(user_id: str) -> float | None:
 
 def get_approved_requests_for_period(user_id: str, start: date, end: date, req_type: str | None = None) -> list[dict]:
     """Return approved financial requests for a user in a date range."""
-    db = get_firestore()
-    from datetime import datetime
-    import pytz
-    IST = pytz.timezone("Asia/Kolkata")
-
-    start_dt = datetime.combine(start, datetime.min.time())
-    start_dt = IST.localize(start_dt)
-    end_dt = datetime.combine(end, datetime.max.time())
-    end_dt = IST.localize(end_dt)
-
-    query = (
-        db.collection(_COLLECTION)
-        .where("user_id", "==", user_id)
-        .where("status", "==", "approved")
-    )
-
-    docs = query.stream()
-    results = []
-    for d in docs:
-        data = d.to_dict()
-        created = data.get("created_at")
-        if created and hasattr(created, "date"):
-            doc_date = created.date() if not hasattr(created, "astimezone") else created.astimezone(IST).date()
-            if start <= doc_date <= end:
-                if req_type is None or data.get("type") == req_type:
-                    results.append(data)
+    results = _repo().get_approved_for_period(user_id, start, end, req_type)
     log.debug("get_approved_requests_for_period | user_id=%s | start=%s | end=%s | type=%s | count=%d",
               user_id, start, end, req_type, len(results))
     return results

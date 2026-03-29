@@ -8,19 +8,24 @@ exceeds shift hours + overtime_grace_minutes (from settings).
 """
 from __future__ import annotations
 
+import os
 import uuid
 from datetime import datetime
 
-from google.cloud.firestore_v1 import SERVER_TIMESTAMP
-
+from services.repositories.overtime_repository import get_overtime_repository
 from services.settings_service import get_working_config
-from utils.firebase_client import get_firestore
 from utils.logger import get_logger, audit_log
-from utils.timezone_utils import format_ist
+from utils.timezone_utils import format_ist, now_utc
 
 log = get_logger(__name__)
 
-_COLLECTION = "overtime_records"
+
+def _repo():
+    return get_overtime_repository()
+
+
+def _db_timestamp():
+    return now_utc()
 
 
 def calculate_hourly_rate(salary: float, salary_type: str = "weekly") -> float:
@@ -91,6 +96,7 @@ def detect_overtime(user_id: str, attendance_record: dict) -> dict | None:
 
     record_id = str(uuid.uuid4())
     staff_name = staff.get("full_name", "") if staff else ""
+    ts = _db_timestamp()
     doc = {
         "record_id": record_id,
         "user_id": user_id,
@@ -104,35 +110,25 @@ def detect_overtime(user_id: str, attendance_record: dict) -> dict | None:
         "status": "pending",
         "reviewed_by": None,
         "reviewed_at": None,
-        "created_at": SERVER_TIMESTAMP,
-        "updated_at": SERVER_TIMESTAMP,
+        "created_at": ts,
+        "updated_at": ts,
     }
 
-    db = get_firestore()
-    db.collection(_COLLECTION).document(record_id).set(doc)
+    _repo().save(record_id, doc)
 
     log.info("Overtime detected | user_id=%s | date=%s | overtime_minutes=%d | payout=%.2f",
              user_id, record_date, overtime_minutes, overtime_payout)
-    audit_log(user_id, "OVERTIME_DETECTED", f"{_COLLECTION}/{record_id}",
+    audit_log(user_id, "OVERTIME_DETECTED", f"overtime_records/{record_id}",
               f"minutes={overtime_minutes}, payout={overtime_payout}")
     return doc
 
 
 def get_pending_overtime() -> list[dict]:
     """List all overtime records awaiting admin approval."""
-    from services.user_service import get_staff
-
-    db = get_firestore()
-    docs = (
-        db.collection(_COLLECTION)
-        .where("status", "==", "pending")
-        .order_by("created_at", direction="DESCENDING")
-        .stream()
-    )
+    from services.user_service import get_staff  # noqa: PLC0415
     result = []
-    for d in docs:
-        data = _sanitise(d.to_dict())
-        # Enrich with staff name if missing (for older records)
+    for data in _repo().list_pending():
+        data = _sanitise(data)
         if not data.get("staff_name") and not data.get("full_name"):
             staff = get_staff(data.get("user_id"))
             if staff:
@@ -145,23 +141,12 @@ def get_pending_overtime() -> list[dict]:
 
 def get_overtime_for_user(user_id: str) -> list[dict]:
     """Get all overtime records for a specific user."""
-    from services.user_service import get_staff
-
-    db = get_firestore()
-    docs = (
-        db.collection(_COLLECTION)
-        .where("user_id", "==", user_id)
-        .order_by("created_at", direction="DESCENDING")
-        .stream()
-    )
-    # Get staff name once for enrichment
+    from services.user_service import get_staff  # noqa: PLC0415
     staff = get_staff(user_id)
     staff_name = staff.get("full_name", "") if staff else ""
-
     results = []
-    for d in docs:
-        data = _sanitise(d.to_dict())
-        # Enrich with staff name if missing
+    for data in _repo().list_for_user(user_id):
+        data = _sanitise(data)
         if not data.get("staff_name") and not data.get("full_name"):
             data["staff_name"] = staff_name
             data["full_name"] = staff_name
@@ -172,71 +157,35 @@ def get_overtime_for_user(user_id: str) -> list[dict]:
 
 def approve_overtime(overtime_id: str, admin_id: str) -> tuple[bool, str]:
     """Approve an overtime record."""
-    db = get_firestore()
-    ref = db.collection(_COLLECTION).document(overtime_id)
-    doc = ref.get()
-    if not doc.exists:
+    data = _repo().record_exists(overtime_id)
+    if data is None:
         return False, "Overtime record not found."
-
-    data = doc.to_dict()
     if data.get("status") != "pending":
         return False, f"Overtime record is already {data.get('status')}."
-
-    ref.update({
-        "status": "approved",
-        "reviewed_by": admin_id,
-        "reviewed_at": SERVER_TIMESTAMP,
-        "updated_at": SERVER_TIMESTAMP,
-    })
+    ts = _db_timestamp()
+    _repo().update_review(overtime_id, "approved", admin_id, ts, ts)
     log.info("Overtime approved | record_id=%s | admin_id=%s", overtime_id, admin_id)
-    audit_log(admin_id, "APPROVE_OVERTIME", f"{_COLLECTION}/{overtime_id}")
+    audit_log(admin_id, "APPROVE_OVERTIME", f"overtime_records/{overtime_id}")
     return True, ""
 
 
 def reject_overtime(overtime_id: str, admin_id: str) -> tuple[bool, str]:
     """Reject an overtime record."""
-    db = get_firestore()
-    ref = db.collection(_COLLECTION).document(overtime_id)
-    doc = ref.get()
-    if not doc.exists:
+    data = _repo().record_exists(overtime_id)
+    if data is None:
         return False, "Overtime record not found."
-
-    data = doc.to_dict()
     if data.get("status") != "pending":
         return False, f"Overtime record is already {data.get('status')}."
-
-    ref.update({
-        "status": "rejected",
-        "reviewed_by": admin_id,
-        "reviewed_at": SERVER_TIMESTAMP,
-        "updated_at": SERVER_TIMESTAMP,
-    })
+    ts = _db_timestamp()
+    _repo().update_review(overtime_id, "rejected", admin_id, ts, ts)
     log.info("Overtime rejected | record_id=%s | admin_id=%s", overtime_id, admin_id)
-    audit_log(admin_id, "REJECT_OVERTIME", f"{_COLLECTION}/{overtime_id}")
+    audit_log(admin_id, "REJECT_OVERTIME", f"overtime_records/{overtime_id}")
     return True, ""
 
 
 def get_approved_overtime_for_period(user_id: str, start, end) -> list[dict]:
     """Return approved overtime records for a user within a date range."""
-    db = get_firestore()
-    docs = (
-        db.collection(_COLLECTION)
-        .where("user_id", "==", user_id)
-        .where("status", "==", "approved")
-        .stream()
-    )
-    results = []
-    for d in docs:
-        data = d.to_dict()
-        record_date_str = data.get("date", "")
-        if record_date_str:
-            try:
-                record_date = datetime.strptime(record_date_str, "%Y-%m-%d").date()
-                if start <= record_date <= end:
-                    results.append(data)
-            except (ValueError, TypeError) as exc:
-                log.error("get_approved_overtime_for_period date parse failed | user_id=%s | date_str=%s | error=%s",
-                          user_id, record_date_str, str(exc))
+    results = _repo().get_approved_for_period(user_id, start, end)
     log.debug("get_approved_overtime_for_period | user_id=%s | start=%s | end=%s | count=%d",
               user_id, start, end, len(results))
     return results

@@ -26,11 +26,12 @@ Rules
 """
 from __future__ import annotations
 
-from datetime import date, timedelta
+import os
+from datetime import date
 
 from google.cloud.firestore_v1 import SERVER_TIMESTAMP
 
-from utils.firebase_client import get_firestore
+from services.repositories.attendance_repository import get_attendance_repository
 from utils.logger import get_logger, audit_log
 from utils.timezone_utils import (
     now_utc,
@@ -39,15 +40,22 @@ from utils.timezone_utils import (
     date_to_doc_id,
     period_range,
     duration_minutes,
-    to_ist,
     format_ist,
     minutes_to_hhmm,
 )
 
 log = get_logger(__name__)
 
-_ATTENDANCE = "attendance"
-_RECORDS = "records"
+
+def _repo():
+    return get_attendance_repository()
+
+
+def _db_timestamp():
+    provider = os.getenv("APP_DB_PROVIDER", "firebase").strip().lower()
+    if provider == "postgres":
+        return now_utc()
+    return SERVER_TIMESTAMP
 
 
 # -- Punch operations ----------------------------------------------------------
@@ -59,32 +67,33 @@ def punch(user_id: str) -> tuple[bool, str, dict]:
     Returns (success, message, record_dict).
     The message describes what happened (e.g. "Punched IN", "Punched OUT").
     """
-    db = get_firestore()
+    repo = _repo()
     today = today_ist()
+    today_str = today_ist_str()
     doc_id = date_to_doc_id(today)
-    ref = db.collection(_ATTENDANCE).document(user_id).collection(_RECORDS).document(doc_id)
-    doc = ref.get()
     now = now_utc()
 
-    if not doc.exists:
+    data = repo.get_by_user_and_date(user_id, today)
+
+    if not data:
         # -- First punch of the day -> Punch IN --------------------------------
+        ts = _db_timestamp()
         record = {
+            "record_id": doc_id,
             "user_id": user_id,
-            "date": today_ist_str(),
+            "date": today_str,
             "punch_in": now,
             "punch_out": None,
             "status": "in",
             "duration_minutes": 0,
-            "created_at": SERVER_TIMESTAMP,
-            "updated_at": SERVER_TIMESTAMP,
+            "created_at": ts,
+            "updated_at": ts,
         }
-        ref.set(record)
+        repo.save(record)
         log.info("PUNCH IN | user_id=%s | time_utc=%s", user_id, now.isoformat())
         audit_log(user_id, "PUNCH_IN", f"attendance/{user_id}/records/{doc_id}")
-        record["punch_in"] = now  # replace SERVER_TIMESTAMP placeholder for response
         return True, "Punched IN", _sanitise_record(record)
 
-    data = doc.to_dict()
     status = data.get("status", "out")
 
     if status == "in":
@@ -92,26 +101,27 @@ def punch(user_id: str) -> tuple[bool, str, dict]:
         punch_in_ts = data.get("punch_in")
         mins = duration_minutes(punch_in_ts, now) if punch_in_ts else 0
 
-        ref.update({
+        data.update({
+            "record_id": data.get("record_id") or doc_id,
             "punch_out": now,
             "status": "out",
             "duration_minutes": mins,
-            "updated_at": SERVER_TIMESTAMP,
+            "updated_at": _db_timestamp(),
         })
+        repo.save(data)
         log.info(
             "PUNCH OUT | user_id=%s | duration_minutes=%d | time_utc=%s",
             user_id, mins, now.isoformat(),
         )
         audit_log(user_id, "PUNCH_OUT", f"attendance/{user_id}/records/{doc_id}",
                   f"duration={mins}min")
-        data.update({"punch_out": now, "status": "out", "duration_minutes": mins})
 
         # Auto-detect overtime after punch-out
         try:
             from services.overtime_service import detect_overtime
             attendance_record = {
                 "user_id": user_id,
-                "date": data.get("date", today_ist_str()),
+                "date": data.get("date", today_str),
                 "duration_minutes": mins,
             }
             detect_overtime(user_id, attendance_record)
@@ -131,34 +141,22 @@ def punch(user_id: str) -> tuple[bool, str, dict]:
 
 def get_today_status(user_id: str) -> dict:
     """Return today's attendance record for a user.  Empty dict if no record."""
-    db = get_firestore()
-    doc_id = date_to_doc_id(today_ist())
-    doc = db.collection(_ATTENDANCE).document(user_id).collection(_RECORDS).document(doc_id).get()
-    if not doc.exists:
+    today = today_ist()
+    doc_id = date_to_doc_id(today)
+    record = _repo().get_by_user_and_date(user_id, today)
+    if not record:
         log.debug("get_today_status | user_id=%s | status=not_started", user_id)
         return {"status": "not_started", "date": today_ist_str()}
     log.debug("get_today_status | user_id=%s | doc_id=%s | found=true", user_id, doc_id)
-    return _sanitise_record(doc.to_dict())
+    return _sanitise_record(record)
 
 
 # -- History & Analytics -------------------------------------------------------
 
 def get_attendance_history(user_id: str, start: date, end: date) -> list[dict]:
     """Return attendance records for a user between start and end dates (inclusive)."""
-    db = get_firestore()
-    records_ref = db.collection(_ATTENDANCE).document(user_id).collection(_RECORDS)
-
-    start_id = date_to_doc_id(start)
-    end_id = date_to_doc_id(end)
-
-    docs = (
-        records_ref
-        .where("__name__", ">=", records_ref.document(start_id))
-        .where("__name__", "<=", records_ref.document(end_id))
-        .order_by("__name__")
-        .stream()
-    )
-    results = [_sanitise_record(d.to_dict()) for d in docs]
+    rows = _repo().list_by_user_between(user_id, start, end)
+    results = [_sanitise_record(r) for r in rows]
     log.debug("get_attendance_history | user_id=%s | start=%s | end=%s | count=%d",
               user_id, start, end, len(results))
     return results
