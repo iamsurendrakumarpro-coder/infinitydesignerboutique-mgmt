@@ -2,20 +2,42 @@
 
 **Total Time: 15-20 minutes** (plus 5-10 min RDS initialization wait)
 
-## Prerequisites (5 minutes)
+## Prerequisites (10 minutes)
+
+### A. Set Up IAM Service Account (IMPORTANT - Security Best Practice)
+
+**DO NOT use root AWS credentials!** Create a service account first:
+
+```bash
+# 1. Sign in to AWS Console with ROOT credentials (one-time only)
+# Go to: https://console.aws.amazon.com/
+
+# 2. Run IAM setup script (creates service user with specific permissions)
+cd infinitydesignerboutique-mgmt
+python scripts/setup_iam_user.py --username infinity-app-user --region ap-south-1
+
+# 3. Save the credentials displayed (you'll see Access Key ID and Secret)
+# ⚠️ You can only see them once! Save to secure location.
+```
+
+**See [IAM_SETUP.md](./IAM_SETUP.md) for detailed instructions & troubleshooting**
+
+### B. Configure AWS CLI
 
 ```bash
 # 1. Verify AWS CLI is installed
 aws --version
 # output: aws-cli/2.x.x ...
 
-# 2. Configure AWS credentials
-aws configure
-# Enter: Access Key ID, Secret Access Key, Region (ap-south-1), Output (json)
+# 2. Configure AWS CLI with service account credentials
+aws configure --profile infinity-app
+# When prompted, paste the Access Key ID and Secret Access Key from step 2 above
+# Region: ap-south-1
+# Output: json
 
 # 3. Verify configuration
-aws sts get-caller-identity
-# output: {"UserId": "...", "Account": "123456789012", "Arn": "arn:aws:iam::..."}
+aws sts get-caller-identity --profile infinity-app
+# output: {"UserId": "...", "Account": "123456789012", "Arn": "arn:aws:iam::123456789012:user/infinity-app-user"}
 
 # 4. Install Python packages
 pip install boto3 psycopg2-binary
@@ -32,6 +54,8 @@ python scripts/aws_setup.py \
   --project-name infinity-boutique \
   --region ap-south-1 \
   --output-env .env.aws
+  
+# This uses credentials from: aws configure --profile infinity-app
 ```
 
 **Output:**
@@ -54,6 +78,8 @@ python scripts/aws_setup.py \
 python scripts/aws_check.py \
   --project-name infinity-boutique \
   --region ap-south-1
+  
+# This uses credentials from: aws configure --profile infinity-app
 ```
 
 **Expected output (after ~10 minutes):**
