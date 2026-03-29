@@ -19,6 +19,7 @@ from datetime import date
 from google.cloud.firestore_v1 import SERVER_TIMESTAMP
 
 from utils.firebase_client import get_firestore
+from utils.storage_provider import generate_download_url
 from utils.logger import get_logger, audit_log
 from utils.timezone_utils import now_ist, today_ist_str, period_range
 
@@ -126,7 +127,6 @@ def get_requests(filters: dict | None = None) -> list[dict]:
 
     query = query.order_by("created_at", direction="DESCENDING")
     docs = query.stream()
-    from utils.firebase_client import generate_signed_url
     from services.user_service import get_staff
     result = []
     for d in docs:
@@ -134,7 +134,7 @@ def get_requests(filters: dict | None = None) -> list[dict]:
         gcs_path = data.get("receipt_gcs_path")
         if gcs_path:
             try:
-                data["receipt_url"] = generate_signed_url(gcs_path, expiration_minutes=60)
+                data["receipt_url"] = generate_download_url(gcs_path, expiration_minutes=60)
             except Exception as e:
                 log.error(f"Failed to generate signed URL for {gcs_path}: {e}")
                 data["receipt_url"] = None
@@ -161,12 +161,11 @@ def get_request(request_id: str) -> dict | None:
         return None
     log.debug("get_request | request_id=%s | found=true", request_id)
     data = doc.to_dict()
-    from utils.firebase_client import generate_signed_url
     from services.user_service import get_staff
     gcs_path = data.get("receipt_gcs_path")
     if gcs_path:
         try:
-            data["receipt_url"] = generate_signed_url(gcs_path, expiration_minutes=60)
+            data["receipt_url"] = generate_download_url(gcs_path, expiration_minutes=60)
         except Exception as e:
             log.error(f"Failed to generate signed URL for {gcs_path}: {e}")
             data["receipt_url"] = None

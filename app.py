@@ -28,6 +28,7 @@ from modules.overtime.routes import overtime_bp
 from modules.settlements.routes import settlements_bp
 from modules.dashboard.routes import dashboard_bp
 from modules.settings.routes import settings_bp
+from modules.leave.routes import leave_bp
 from modules.pages.routes import pages_bp
 
 
@@ -85,14 +86,18 @@ def create_app(config: Config | None = None) -> Flask:
     )
     log.info("CORS origins: %s", cfg.CORS_ORIGINS)
 
-    # -- Initialise Firebase (eagerly so errors surface at startup) ------------
-    try:
-        from utils.firebase_client import get_firestore
-        get_firestore()
-        log.info("Firebase / Firestore connected successfully.")
-    except Exception as exc:  # noqa: BLE001
-        log.error("Firebase initialisation failed: %s", exc)
-        log.warning("App will start, but DB operations will fail until Firebase is configured.")
+    # -- Initialise DB provider (firebase by default) --------------------------
+    db_provider = os.getenv("APP_DB_PROVIDER", "firebase").strip().lower()
+    if db_provider == "firebase":
+        try:
+            from utils.firebase_client import get_firestore
+            get_firestore()
+            log.info("Firebase / Firestore connected successfully.")
+        except Exception as exc:  # noqa: BLE001
+            log.error("Firebase initialisation failed: %s", exc)
+            log.warning("App will start, but DB operations will fail until Firebase is configured.")
+    else:
+        log.info("DB provider selected: %s (firebase eager init skipped)", db_provider)
 
     # -- Register API blueprints -----------------------------------------------
     app.register_blueprint(auth_bp)
@@ -103,6 +108,7 @@ def create_app(config: Config | None = None) -> Flask:
     app.register_blueprint(settlements_bp)
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(settings_bp)
+    app.register_blueprint(leave_bp)
     # Receipt upload blueprint removed
 
     # -- Register page-serving blueprint ---------------------------------------
@@ -110,7 +116,7 @@ def create_app(config: Config | None = None) -> Flask:
 
     log.info(
         "Blueprints registered: auth, users, attendance, financial, "
-        "overtime, settlements, dashboard, settings, pages"
+        "overtime, settlements, dashboard, settings, leave, pages"
     )
 
     # -- Request / response logging --------------------------------------------

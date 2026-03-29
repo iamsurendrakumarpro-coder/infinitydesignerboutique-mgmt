@@ -22,7 +22,8 @@ from datetime import datetime
 from google.cloud.firestore_v1 import SERVER_TIMESTAMP
 
 from services.auth_service import hash_pin
-from utils.firebase_client import get_firestore, get_storage_bucket
+from utils.firebase_client import get_firestore
+from utils.storage_provider import upload_bytes, delete_object, generate_download_url
 from utils.logger import get_logger, audit_log
 from utils.timezone_utils import now_utc, today_ist_str
 from services.settings_service import (
@@ -429,11 +430,63 @@ def remove_skill(user_id: str, skill: str, removed_by: str) -> tuple[bool, str]:
     return True, ""
 
 
+def upload_staff_govt_proof(
+    user_id: str,
+    file_bytes: bytes,
+    filename: str,
+    uploaded_by: str,
+    content_type: str | None = None,
+) -> tuple[bool, str, dict]:
+    """
+    Upload a staff government-proof attachment and store metadata in profile.
+
+    Returns (success, error_message, proof_metadata).
+    """
+    db = get_firestore()
+    ref = db.collection(_STAFF).document(user_id)
+    if not ref.get().exists:
+        return False, "Staff member not found.", {}
+
+    proof_id = str(uuid.uuid4())
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "bin"
+    storage_path = f"govt_proofs/{user_id}/{proof_id}.{ext}"
+
+    resolved_content_type = (content_type or "").strip() or "application/octet-stream"
+    up_ok, up_err, _up_meta = upload_bytes(
+        storage_path=storage_path,
+        file_bytes=file_bytes,
+        content_type=resolved_content_type,
+        make_public=False,
+    )
+    if not up_ok:
+        log.error("Govt proof upload failed | user_id=%s | error=%s", user_id, up_err)
+        return False, f"Proof upload failed: {up_err}", {}
+
+    log.info("Govt proof uploaded | user_id=%s | proof_id=%s | path=%s", user_id, proof_id, storage_path)
+
+    proof_doc = {
+        "proof_id": proof_id,
+        "filename": str(filename or "document").strip(),
+        "storage_path": storage_path,
+        "content_type": resolved_content_type,
+        "size_bytes": len(file_bytes),
+        "uploaded_by": uploaded_by,
+        "uploaded_at": SERVER_TIMESTAMP,
+    }
+    ref.update({"govt_proof": proof_doc, "updated_at": SERVER_TIMESTAMP})
+    audit_log(uploaded_by, "UPLOAD_GOVT_PROOF", f"staff/{user_id}", detail=f"proof_id={proof_id}")
+
+    # Return JSON-safe metadata.
+    proof_meta = dict(proof_doc)
+    proof_meta.pop("uploaded_at", None)
+    return True, "", proof_meta
+
+
 # -- Work Gallery --------------------------------------------------------------
 
 def upload_gallery_image(user_id: str, file_bytes: bytes, filename: str, caption: str, uploaded_by: str) -> tuple[bool, str, dict]:
     """
-    Upload an image to Firebase Storage and record metadata in Firestore.
+    Upload an image to configured storage and record metadata in Firestore.
 
     Returns (success, error_message, gallery_item_dict).
     """
@@ -442,19 +495,22 @@ def upload_gallery_image(user_id: str, file_bytes: bytes, filename: str, caption
     ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "jpg"
     storage_path = f"gallery/{user_id}/{image_id}.{ext}"
 
-    try:
-        bucket = get_storage_bucket()
-        blob = bucket.blob(storage_path)
-        content_type = f"image/{ext}" if ext in ("jpg", "jpeg", "png", "webp") else "application/octet-stream"
-        if ext == "jpg":
-            content_type = "image/jpeg"
-        blob.upload_from_string(file_bytes, content_type=content_type)
-        blob.make_public()
-        image_url = blob.public_url
-        log.info("Gallery image uploaded | user_id=%s | image_id=%s | url=%s", user_id, image_id, image_url)
-    except Exception as exc:  # noqa: BLE001
-        log.error("Gallery upload failed | user_id=%s | error=%s", user_id, exc)
-        return False, f"Image upload failed: {exc}", {}
+    content_type = f"image/{ext}" if ext in ("jpg", "jpeg", "png", "webp") else "application/octet-stream"
+    if ext == "jpg":
+        content_type = "image/jpeg"
+
+    up_ok, up_err, up_meta = upload_bytes(
+        storage_path=storage_path,
+        file_bytes=file_bytes,
+        content_type=content_type,
+        make_public=False,
+    )
+    if not up_ok:
+        log.error("Gallery upload failed | user_id=%s | error=%s", user_id, up_err)
+        return False, f"Image upload failed: {up_err}", {}
+
+    image_url = up_meta.get("public_url") or ""
+    log.info("Gallery image uploaded | user_id=%s | image_id=%s | path=%s", user_id, image_id, storage_path)
 
     gallery_doc = {
         "image_id": image_id,
@@ -479,7 +535,18 @@ def list_gallery(user_id: str) -> list[dict]:
         .order_by("uploaded_at", direction="DESCENDING")
         .stream()
     )
-    return [d.to_dict() for d in docs]
+    result: list[dict] = []
+    for d in docs:
+        item = d.to_dict()
+        path = item.get("storage_path")
+        if path:
+            try:
+                item["image_url"] = generate_download_url(path, expiration_minutes=60)
+            except Exception as exc:  # noqa: BLE001
+                log.warning("Could not generate gallery signed URL | path=%s | error=%s", path, exc)
+                item["image_url"] = item.get("image_url") or ""
+        result.append(item)
+    return result
 
 
 def delete_gallery_image(user_id: str, image_id: str, deleted_by: str) -> tuple[bool, str]:
@@ -496,15 +563,13 @@ def delete_gallery_image(user_id: str, image_id: str, deleted_by: str) -> tuple[
     data = doc.to_dict()
     storage_path = data.get("storage_path", "")
 
-    # Delete from Storage
+    # Delete from configured storage provider.
     if storage_path:
-        try:
-            bucket = get_storage_bucket()
-            blob = bucket.blob(storage_path)
-            blob.delete()
+        deleted, err = delete_object(storage_path)
+        if deleted:
             log.info("Gallery image deleted from storage | path=%s", storage_path)
-        except Exception as exc:  # noqa: BLE001
-            log.warning("Could not delete storage blob | path=%s | error=%s", storage_path, exc)
+        else:
+            log.warning("Could not delete storage blob | path=%s | error=%s", storage_path, err)
 
     ref.delete()
     audit_log(deleted_by, "GALLERY_DELETE", f"staff/{user_id}/work_gallery/{image_id}")
