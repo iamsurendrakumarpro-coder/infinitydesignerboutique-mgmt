@@ -1,240 +1,238 @@
-{% extends "admin/layout.html" %}
+﻿{% extends "admin/layout.html" %}
 
 {% block page_title %}Settlements{% endblock %}
 
 {% block page_content %}
 <div x-data="settlementsPage()" x-init="init()" x-cloak>
 
-  <!-- -- Header with Export Buttons -------------------------------------- -->
-  <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-    <h1 class="text-xl font-bold text-gray-900 flex items-center gap-2">
-      <span class="text-brand-600" x-html="renderIcon('banknotes', 'h-6 w-6')"></span>
-      Settlements
-    </h1>
-    <div class="flex items-center gap-2">
-      <!-- Export Dropdown -->
-      <div class="relative" x-data="{ exportOpen: false }">
-        <button @click="exportOpen = !exportOpen"
-                class="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-600 shadow-sm transition-all hover:bg-gray-50">
-          <span x-html="renderIcon('arrow-down-tray', 'h-4 w-4')"></span>
-          Export
-          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-        </button>
-        <div x-show="exportOpen" @click.outside="exportOpen = false" x-transition
-             class="absolute right-0 mt-2 w-48 rounded-xl bg-white py-2 shadow-lg ring-1 ring-gray-100 z-50">
-          <a :href="getExportUrl('csv')"
-             class="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-            <span x-html="renderIcon('document-text', 'h-4 w-4 text-green-600')"></span>
-            Export as CSV
-          </a>
-          <a :href="getExportUrl('pdf')"
-             class="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-            <span x-html="renderIcon('document', 'h-4 w-4 text-red-600')"></span>
-            Export as PDF
-          </a>
-        </div>
+  <!-- -- Header with Export ------------------------------------------------ -->
+  <div class="mb-3 flex items-center justify-between">
+    <h1 class="text-sm font-semibold text-gray-800">Settlements</h1>
+    <div class="relative" x-data="{ exportOpen: false }">
+      <button @click="exportOpen = !exportOpen"
+              class="inline-flex items-center gap-1 rounded-lg bg-white px-2.5 py-1.5 text-[11px] font-medium text-gray-600 shadow-sm hover:shadow-md">
+        <span x-html="renderIcon('arrow-down-tray', 'h-3.5 w-3.5')"></span>
+        Export
+      </button>
+      <div x-show="exportOpen" @click.outside="exportOpen = false" x-transition
+           class="absolute right-0 mt-1 w-40 rounded-lg bg-white py-1 shadow-lg ring-1 ring-gray-100 z-50">
+        <a :href="getExportUrl('csv')"
+           class="flex items-center gap-2 px-3 py-1.5 text-[11px] text-gray-700 hover:bg-gray-50">
+          <span x-html="renderIcon('document-text', 'h-3.5 w-3.5 text-green-600')"></span>
+          Export as CSV
+        </a>
+        <a :href="getExportUrl('pdf')"
+           class="flex items-center gap-2 px-3 py-1.5 text-[11px] text-gray-700 hover:bg-gray-50">
+          <span x-html="renderIcon('document', 'h-3.5 w-3.5 text-red-600')"></span>
+          Export as PDF
+        </a>
       </div>
     </div>
   </div>
 
-  <!-- -- Filter Bar ---------------------------------------------------- -->
-  <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center">
-    <div class="flex items-center gap-3 flex-1">
-      <div class="flex-1">
-        <input type="date" x-model="filterStart" placeholder="From"
-               class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-700 shadow-sm focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
-      </div>
-      <span class="text-gray-300" x-html="renderIcon('arrow-right', 'h-4 w-4')"></span>
-      <div class="flex-1">
-        <input type="date" x-model="filterEnd" placeholder="To"
-               class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-700 shadow-sm focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
-      </div>
+  <!-- -- Weekly / Monthly Tabs ------------------------------------------- -->
+  <div class="mb-3 flex rounded-xl bg-white p-0.5 shadow-sm">
+    <button @click="switchTab('weekly')"
+            :class="activeTab === 'weekly' ? 'bg-brand-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+            class="flex-1 rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-all">
+      Weekly
+    </button>
+    <button @click="switchTab('monthly')"
+            :class="activeTab === 'monthly' ? 'bg-brand-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+            class="flex-1 rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-all">
+      Monthly
+    </button>
+  </div>
+
+  <!-- -- Filter Bar ------------------------------------------------------ -->
+  <div class="mb-3 flex items-center gap-2 rounded-xl bg-white px-2.5 py-1.5 shadow-sm">
+    <input type="date" x-model="filterStart"
+           class="flex-1 rounded-lg border-0 bg-gray-50 px-2 py-1.5 text-xs text-gray-700 focus:bg-white focus:ring-2 focus:ring-brand-200 focus:outline-none">
+    <span class="text-xs text-gray-300">→</span>
+    <input type="date" x-model="filterEnd"
+           class="flex-1 rounded-lg border-0 bg-gray-50 px-2 py-1.5 text-xs text-gray-700 focus:bg-white focus:ring-2 focus:ring-brand-200 focus:outline-none">
+    <select x-model="statusFilter"
+            class="rounded-lg border-0 bg-gray-50 px-2 py-1.5 text-xs text-gray-500 focus:outline-none">
+      <option value="">All</option>
+      <option value="pending">Pending</option>
+      <option value="partial">Partial</option>
+      <option value="settled">Settled</option>
+    </select>
+    <button @click="loadSettlements()"
+            class="rounded-lg bg-brand-600 p-2 text-white hover:bg-brand-700">
+      <span x-html="renderIcon('magnifying-glass', 'h-4 w-4')"></span>
+    </button>
+  </div>
+
+  <!-- -- Summary Totals Bar ---------------------------------------------- -->
+  <div x-show="!loading && filteredSettlements.length > 0" class="mb-3 flex items-center gap-2">
+    <div class="flex-1 rounded-xl bg-white p-2.5 text-center shadow-sm">
+      <p class="text-[10px] font-medium text-gray-400">Payable</p>
+      <p class="text-xs font-bold text-gray-900">&#8377;<span x-text="sumField('net_payable').toLocaleString('en-IN')"></span></p>
     </div>
-    <div class="flex items-center gap-2">
-      <button @click="loadSettlements()"
-              class="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-600 shadow-sm transition-all hover:bg-gray-50">
-        <span x-html="renderIcon('magnifying-glass', 'h-4 w-4')"></span> Filter
-      </button>
-      <button @click="filterStart = ''; filterEnd = ''; loadSettlements()"
-              class="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-400 shadow-sm transition-all hover:bg-gray-50 hover:text-gray-600">
-        Clear
-      </button>
+    <div class="flex-1 rounded-xl bg-white p-2.5 text-center shadow-sm">
+      <p class="text-[10px] font-medium text-gray-400">Settled</p>
+      <p class="text-xs font-bold text-green-600">&#8377;<span x-text="sumField('amount_settled').toLocaleString('en-IN')"></span></p>
+    </div>
+    <div class="flex-1 rounded-xl bg-white p-2.5 text-center shadow-sm">
+      <p class="text-[10px] font-medium text-gray-400">Pending</p>
+      <p class="text-xs font-bold text-amber-600">&#8377;<span x-text="sumField('carry_forward').toLocaleString('en-IN')"></span></p>
     </div>
   </div>
 
-  <!-- -- Loading ------------------------------------------------------- -->
-  <div x-show="loading" class="py-16 text-center">
-    <svg class="mx-auto h-10 w-10 animate-spin text-brand-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+  <!-- -- Loading --------------------------------------------------------- -->
+  <div x-show="loading" class="py-12 text-center">
+    <svg class="mx-auto h-8 w-8 animate-spin text-brand-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
       <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
       <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
     </svg>
   </div>
 
-  <!-- -- Empty --------------------------------------------------------- -->
-  <div x-show="!loading && settlements.length === 0" class="py-16 text-center">
-    <div class="mb-3 text-gray-300" x-html="renderIcon('inbox', 'h-12 w-12 mx-auto')"></div>
-    <p class="text-base font-medium text-gray-500">No settlements found</p>
-    <p class="mt-1 text-sm text-gray-400">Generate your first settlement using the button above</p>
+  <!-- -- Empty ----------------------------------------------------------- -->
+  <div x-show="!loading && filteredSettlements.length === 0" class="py-10 text-center">
+    <div class="mb-1.5 text-gray-300" x-html="renderIcon('inbox', 'h-8 w-8 mx-auto')"></div>
+    <p class="text-xs font-medium text-gray-500">No settlements found</p>
+    <p class="mt-1 text-[10px] text-gray-400" x-text="activeTab === 'weekly' ? 'Settlements will be auto-generated for the current week' : 'Generate monthly settlements using the period filter'"></p>
   </div>
 
-  <!-- -- Cards View ---------------------------------------------------- -->
-  <div x-show="!loading && settlements.length > 0 && viewMode === 'cards'" class="space-y-4">
-    <template x-for="s in settlements" :key="s.id || s.settlement_id">
-      <div class="rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 overflow-hidden">
-        <div class="px-5 py-4">
-          <!-- Header -->
-          <div class="flex items-start justify-between gap-3 mb-3">
-            <div class="flex items-center gap-3">
-              <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-lg font-bold text-brand-700"
-                   x-text="getInitials(s.staff_name || s.full_name)"></div>
-              <div>
-                <h3 class="text-sm font-semibold text-gray-900" x-text="s.staff_name || s.full_name || 'Staff'"></h3>
-                <p class="text-xs text-gray-400">
-                  <span x-text="formatDate(s.week_start || s.period_start)"></span>
-                  <span class="mx-0.5">→</span>
-                  <span x-text="formatDate(s.week_end || s.period_end)"></span>
-                </p>
-              </div>
-            </div>
-            <div class="text-right">
-              <p class="text-xs font-medium uppercase text-gray-400">Net Payable</p>
-              <p class="text-xl font-bold text-green-600">₹<span x-text="Number(s.net_payable ?? s.net_pay ?? 0).toLocaleString('en-IN')"></span></p>
-            </div>
-          </div>
+  <!-- -- Settlement Cards ------------------------------------------------ -->
+  <div x-show="!loading && filteredSettlements.length > 0" class="space-y-2">
+    <template x-for="s in filteredSettlements" :key="s.id || s.settlement_id">
+      <div class="rounded-xl bg-white px-3 py-2.5 shadow-sm">
 
-          <!-- Settlement Breakdown -->
-          <div class="rounded-xl bg-gray-50 p-4">
-            <div class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-              <div class="flex justify-between">
-                <span class="text-gray-500">Base Salary</span>
-                <span class="font-medium text-gray-800">₹<span x-text="Number(s.base_salary ?? s.weekly_salary ?? 0).toLocaleString('en-IN')"></span></span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-gray-500">Overtime</span>
-                <span class="font-medium text-green-600">+₹<span x-text="Number(s.overtime_pay ?? s.overtime ?? 0).toLocaleString('en-IN')"></span></span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-gray-500">Expenses</span>
-                <span class="font-medium text-amber-600">₹<span x-text="Number(s.expenses ?? s.shop_expenses ?? 0).toLocaleString('en-IN')"></span></span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-gray-500">Advances</span>
-                <span class="font-medium text-red-600">-₹<span x-text="Number(s.advances ?? s.personal_advances ?? 0).toLocaleString('en-IN')"></span></span>
-              </div>
-            </div>
-
-            <div class="mt-3 border-t border-gray-200 pt-3">
-              <div class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-                <div class="flex justify-between">
-                  <span class="text-gray-500">Hours Worked</span>
-                  <span class="font-medium text-blue-600" x-text="typeof s.hours_worked === 'number' && !isNaN(s.hours_worked) ? s.hours_worked : '-'" title="Total hours worked"></span>
-                </div>
-                <div class="flex justify-between">
-                  <span class="text-gray-500">OT Hours</span>
-                  <span class="font-medium text-purple-600" x-text="typeof s.ot_hours === 'number' && !isNaN(s.ot_hours) ? s.ot_hours : '-'" title="OT hours"></span>
-                </div>
-              </div>
-            </div>
+        <!-- Row 1: Icon + Name + Amount -->
+        <div class="flex items-center gap-2.5">
+          <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+               :class="{
+                 'bg-green-50 text-green-600': s.settlement_status === 'settled',
+                 'bg-amber-50 text-amber-600': s.settlement_status === 'partial',
+                 'bg-brand-50 text-brand-600': !s.settlement_status || s.settlement_status === 'pending'
+               }"
+               x-html="s.settlement_status === 'settled' ? renderIcon('check-circle', 'h-3.5 w-3.5') : renderIcon('banknotes', 'h-3.5 w-3.5')"></div>
+          <div class="flex-1 min-w-0">
+            <h3 class="text-xs font-semibold text-gray-800 truncate" x-text="s.staff_name || s.full_name || 'Staff'"></h3>
+            <p class="text-[11px] text-gray-400" x-text="formatDateShort(s.week_start) + ' – ' + formatDateShort(s.week_end)"></p>
           </div>
+          <div class="text-right shrink-0">
+            <p class="text-sm font-bold text-gray-900">&#8377;<span x-text="Number(s.net_payable ?? 0).toLocaleString('en-IN')"></span></p>
+          </div>
+        </div>
+
+        <!-- Row 2: Breakdown chips -->
+        <div class="mt-2 flex flex-wrap gap-1.5">
+          <span class="rounded-lg bg-gray-50 px-2 py-1 text-[10px] text-gray-500">Base &#8377;<span class="font-semibold text-gray-700" x-text="Number(s.base_pay ?? 0).toLocaleString('en-IN')"></span></span>
+          <template x-if="Number(s.overtime_pay ?? 0) > 0">
+            <span class="rounded-lg bg-green-50 px-2 py-1 text-[10px] text-green-600">OT +&#8377;<span class="font-semibold" x-text="Number(s.overtime_pay).toLocaleString('en-IN')"></span></span>
+          </template>
+          <template x-if="Number(s.expenses ?? 0) > 0">
+            <button @click="showExpenseModal(s)" class="rounded-lg bg-amber-50 px-2 py-1 text-[10px] text-amber-600">Exp &#8377;<span class="font-semibold" x-text="Number(s.expenses).toLocaleString('en-IN')"></span></button>
+          </template>
+          <template x-if="Number(s.advances ?? 0) > 0">
+            <span class="rounded-lg bg-red-50 px-2 py-1 text-[10px] text-red-500">Adv -&#8377;<span class="font-semibold" x-text="Number(s.advances).toLocaleString('en-IN')"></span></span>
+          </template>
+          <span class="rounded-lg bg-blue-50 px-2 py-1 text-[10px] text-blue-600"><span class="font-semibold" x-text="fmtH(s.hours_worked)"></span></span>
+          <template x-if="s.carry_forward_in > 0">
+            <span class="rounded-lg bg-orange-50 px-2 py-1 text-[10px] text-orange-600">CF +&#8377;<span class="font-semibold" x-text="Number(s.carry_forward_in).toLocaleString('en-IN')"></span></span>
+          </template>
+        </div>
+
+        <!-- Row 3: Status + Settle button -->
+        <div class="mt-2.5 flex items-center justify-between">
+          <template x-if="s.settlement_status === 'settled'">
+            <span class="inline-flex items-center gap-1 text-xs font-medium text-green-600">
+              <span x-html="renderIcon('check-circle', 'h-4 w-4')"></span> Paid &#8377;<span x-text="Number(s.amount_settled ?? 0).toLocaleString('en-IN')"></span>
+            </span>
+          </template>
+          <template x-if="s.settlement_status === 'partial'">
+            <span class="text-xs font-medium text-amber-600">&#8377;<span x-text="Number(s.carry_forward ?? 0).toLocaleString('en-IN')"></span> remaining</span>
+          </template>
+          <template x-if="!s.settlement_status || s.settlement_status === 'pending'">
+            <span class="text-xs text-gray-300">Not settled</span>
+          </template>
+          <button @click="openSettleModal(s)"
+                  class="rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-all"
+                  :class="s.settlement_status === 'settled' ? 'bg-gray-50 text-gray-400 hover:bg-gray-100' : 'bg-brand-600 text-white hover:bg-brand-700 shadow-sm'">
+            <span x-text="s.settlement_status === 'settled' ? 'Update' : 'Settle'"></span>
+          </button>
         </div>
       </div>
     </template>
   </div>
 
-  <!-- -- Table View ---------------------------------------------------- -->
-  <div x-show="!loading && settlements.length > 0 && viewMode === 'table'"
-       class="rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 overflow-x-auto">
-    <table class="w-full text-sm">
-      <thead>
-        <tr class="border-b border-gray-100 text-left text-xs font-medium uppercase tracking-wider text-gray-400">
-          <th class="px-5 py-3">Staff</th>
-          <th class="px-3 py-3">Period</th>
-          <th class="px-3 py-3 text-right">OT</th>
-          <th class="px-3 py-3 text-right">Expenses</th>
-          <th class="px-3 py-3 text-right">Advances</th>
-          <th class="px-3 py-3 text-right">Net Payable</th>
-          <th class="px-3 py-3 text-right">Hours Worked</th>
-          <th class="px-3 py-3 text-right">OT Hours</th>
-          <!-- Status column removed -->
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-gray-50">
-        <template x-for="s in settlements" :key="s.id || s.settlement_id">
-          <tr class="hover:bg-gray-50/50">
-            <td class="px-5 py-3">
-              <div class="flex items-center gap-2.5">
-                <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700"
-                     x-text="getInitials(s.staff_name || s.full_name)"></div>
-                <span class="font-medium text-gray-800" x-text="s.staff_name || s.full_name || '-'"></span>
-              </div>
-            </td>
-            <td class="px-3 py-3 text-gray-500 whitespace-nowrap">
-              <span x-text="formatDateShort(s.week_start)"></span> -
-              <span x-text="formatDateShort(s.week_end)"></span>
-            </td>
-            <td class="px-3 py-3 text-right font-medium text-green-600">+₹<span x-text="Number(s.overtime_pay ?? 0).toLocaleString('en-IN')"></span></td>
-            <td class="px-3 py-3 text-right font-medium text-amber-600">
-              <button @click="showExpenseModal(s)" class="underline text-green-600">+₹<span x-text="Number(s.expenses ?? 0).toLocaleString('en-IN')"></span></button>
-            </td>
-            <td class="px-3 py-3 text-right font-medium text-red-600">-₹<span x-text="Number(s.advances ?? 0).toLocaleString('en-IN')"></span></td>
-            <td class="px-3 py-3 text-right">
-              <span class="inline-flex rounded-full bg-green-100 px-3 py-1 text-sm font-bold text-green-700">
-                ₹<span x-text="Number(s.net_payable ?? 0).toLocaleString('en-IN')"></span>
-              </span>
-            </td>
-            <td class="px-3 py-3 text-right font-medium text-blue-600">
-              <span x-text="formatHours(s.hours_worked)" title="Total hours worked"></span>
-            </td>
-            <td class="px-3 py-3 text-right font-medium text-purple-600">
-              <span x-text="formatHours(s.ot_hours)" title="OT hours"></span>
-            </td>
-            <!-- Status cell and Settle button removed -->
-          </tr>
+  <!-- -- Expense Modal --------------------------------------------------- -->
+  <div x-show="expenseModalOpen" class="fixed inset-0 z-50 flex items-end justify-center sm:items-center p-0 sm:p-4" style="background: rgba(0,0,0,0.3)">
+    <div class="bg-white rounded-t-3xl sm:rounded-3xl shadow-xl w-full max-w-md relative overflow-y-auto max-h-[85vh] p-5">
+      <div class="mx-auto mb-3 h-1 w-10 rounded-full bg-gray-200 sm:hidden"></div>
+      <button @click="expenseModalOpen = false" class="absolute top-4 right-4 rounded-full p-1.5 text-gray-400 hover:bg-gray-100">
+        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+      </button>
+      <h3 class="text-sm font-bold text-gray-900 mb-1">Expenses</h3>
+      <p class="text-xs text-gray-400 mb-3"><span x-text="expenseModalStaff"></span> · <span x-text="expenseModalPeriod"></span></p>
+      <div>
+        <template x-if="expenseModalRecords.length === 0">
+          <div class="py-6 text-center text-gray-400 text-xs">No expense records found</div>
         </template>
-      </tbody>
-      <!-- Totals Row -->
-      <tfoot>
-        <tr class="border-t-2 border-gray-200 bg-gray-50">
-          <td class="px-5 py-3 text-sm font-bold text-gray-700" colspan="2">Total (<span x-text="settlements.length"></span> records)</td>
-          <!-- Base Salary total removed -->
-          <td class="px-3 py-3 text-right text-sm font-bold text-green-600">+₹<span x-text="sumField('overtime_pay', 'overtime').toLocaleString('en-IN')"></span></td>
-          <td class="px-3 py-3 text-right text-sm font-bold text-green-600">+₹<span x-text="sumField('expenses', 'shop_expenses').toLocaleString('en-IN')"></span></td>
-          <td class="px-3 py-3 text-right text-sm font-bold text-red-600">-₹<span x-text="sumField('advances', 'personal_advances').toLocaleString('en-IN')"></span></td>
-          <td class="px-3 py-3 text-right text-sm font-bold text-green-700">₹<span x-text="sumField('net_payable', 'net_pay').toLocaleString('en-IN')"></span></td>
-        </tr>
-      </tfoot>
-    </table>
-        <!-- Modern Expense Modal -->
-        <div x-show="expenseModalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-          <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-xl w-full sm:w-[90vw] sm:max-w-[600px] relative animate-fadeIn overflow-y-auto max-h-[90vh]">
-            <button @click="expenseModalOpen = false" class="absolute top-4 right-4 bg-gray-100 hover:bg-gray-200 rounded-full p-2 text-gray-500 transition-all">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
-            <h3 class="text-xl font-bold mb-6 text-center">Expense Details for <span class="text-brand-600" x-text="expenseModalStaff"></span><br><span class="text-xs text-gray-400">(<span x-text="expenseModalPeriod"></span>)</span></h3>
-            <div>
-              <template x-if="expenseModalRecords.length === 0">
-                <div class="py-8 text-center text-gray-400 text-base">No expense records found for this period.</div>
-              </template>
-              <ul class="divide-y divide-gray-100">
-                <template x-for="e in expenseModalRecords" :key="e.request_id">
-                  <li class="py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                    <div class="flex flex-col">
-                      <span class="font-semibold text-gray-700">Category: <span class="text-brand-600" x-text="e.category"></span></span>
-                      <span class="text-xs text-gray-400 mt-1" x-text="e.description || e.notes || '-'" ></span>
-                      <span class="text-xs text-gray-400 mt-1">Date: <span x-text="formatDate(e.created_at)"></span></span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                      <span class="font-bold text-green-600 text-lg">₹<span x-text="Number(e.amount).toLocaleString('en-IN')"></span></span>
-                      <template x-if="e.receipt_url">
-                        <a :href="e.receipt_url" target="_blank" class="ml-2 text-xs text-blue-600 underline hover:text-blue-800">View Receipt</a>
-                      </template>
-                    </div>
-                  </li>
+        <div class="space-y-2">
+          <template x-for="e in expenseModalRecords" :key="e.request_id">
+            <div class="flex items-center justify-between rounded-xl bg-gray-50 px-3 py-2.5">
+              <div>
+                <span class="text-xs font-medium text-gray-700" x-text="e.category"></span>
+                <p class="text-[10px] text-gray-400 mt-0.5" x-text="e.description || e.notes || '-'"></p>
+              </div>
+              <div class="text-right">
+                <span class="text-sm font-bold text-gray-900">&#8377;<span x-text="Number(e.amount).toLocaleString('en-IN')"></span></span>
+                <template x-if="e.receipt_url">
+                  <a :href="e.receipt_url" target="_blank" class="block text-[10px] text-brand-600 mt-0.5">Receipt</a>
                 </template>
-              </ul>
+              </div>
             </div>
-          </div>
+          </template>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- -- Mark Settled Modal (bottom sheet on mobile) --------------------- -->
+  <div x-show="settleModalOpen" class="fixed inset-0 z-50 flex items-end justify-center sm:items-center p-0 sm:p-4" style="background: rgba(0,0,0,0.3)"
+       @keydown.escape.window="settleModalOpen = false">
+    <div class="bg-white rounded-t-3xl sm:rounded-3xl shadow-xl w-full max-w-sm relative overflow-hidden"
+         @click.outside="settleModalOpen = false">
+      <div class="mx-auto mt-2 mb-1 h-1 w-10 rounded-full bg-gray-200 sm:hidden"></div>
+      <div class="px-5 py-3 flex items-center justify-between">
+        <div>
+          <h3 class="text-sm font-bold text-gray-900" x-text="settleStaffName"></h3>
+          <p class="text-xs text-gray-400">Net &#8377;<span class="font-bold text-gray-700" x-text="Number(settleNetPayable).toLocaleString('en-IN')"></span></p>
+        </div>
+        <button @click="settleModalOpen = false" class="rounded-full p-1.5 text-gray-400 hover:bg-gray-100">
+          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="px-5 pb-6 space-y-3">
+        <div class="flex gap-1.5">
+          <button @click="settleAmount = settleNetPayable"
+                  class="flex-1 rounded-lg bg-green-50 py-2 text-[11px] font-semibold text-green-700 hover:bg-green-100">Full</button>
+          <button @click="settleAmount = Math.round(settleNetPayable / 2)"
+                  class="flex-1 rounded-lg bg-amber-50 py-2 text-[11px] font-semibold text-amber-700 hover:bg-amber-100">Half</button>
+          <button @click="settleAmount = 0"
+                  class="flex-1 rounded-lg bg-gray-50 py-2 text-[11px] font-semibold text-gray-600 hover:bg-gray-100">Custom</button>
+        </div>
+        <div>
+          <label class="block text-[11px] font-medium text-gray-500 mb-1">Amount (&#8377;)</label>
+          <input type="number" x-model.number="settleAmount" min="0" :max="settleNetPayable" step="1"
+                 class="w-full rounded-lg border-0 bg-gray-50 px-3 py-2.5 text-sm font-bold text-gray-900 focus:bg-white focus:ring-2 focus:ring-brand-200 focus:outline-none">
+        </div>
+        <template x-if="settleAmount < settleNetPayable && settleAmount >= 0">
+          <div class="rounded-lg bg-amber-50 px-2.5 py-1.5 text-center">
+            <p class="text-[11px] text-amber-600">&#8377;<span class="font-bold" x-text="Math.max(0, settleNetPayable - settleAmount).toLocaleString('en-IN')"></span> carries forward</p>
+          </div>
+        </template>
+        <button @click="confirmSettle()" :disabled="settleSubmitting"
+                class="w-full rounded-lg bg-brand-600 py-2.5 text-xs font-bold text-white hover:bg-brand-700 disabled:opacity-50 shadow-sm">
+          <span x-show="!settleSubmitting">Confirm Settlement</span>
+          <span x-show="settleSubmitting">Saving...</span>
+        </button>
+      </div>
+    </div>
   </div>
 
 </div>
@@ -253,31 +251,67 @@
     return out || '0 min';
   }
 
+  /* compact hours: 48h30m */
+  function fmtH(hours) {
+    if (typeof hours !== 'number' || isNaN(hours) || hours <= 0) return '-';
+    const m = Math.round(hours * 60);
+    const h = Math.floor(m / 60);
+    const r = m % 60;
+    return h + 'h' + (r > 0 ? r + 'm' : '');
+  }
+
   function settlementsPage() {
     return {
       loading: true,
-      generating: false,
-      showGenerator: false,
-      viewMode: 'table',
       settlements: [],
+      activeTab: 'weekly',
       filterStart: '',
       filterEnd: '',
+      statusFilter: '',
       expenseModalOpen: false,
       expenseModalStaff: '',
       expenseModalPeriod: '',
       expenseModalRecords: [],
-      statusFilter: '',
-      // Set default filter to current week (Monday-Sunday)
+      settleModalOpen: false,
+      settleSubmitting: false,
+      settleSettlementId: '',
+      settleStaffName: '',
+      settleNetPayable: 0,
+      settleAmount: 0,
+
+      get filteredSettlements() {
+        if (!this.statusFilter) return this.settlements;
+        return this.settlements.filter(s => (s.settlement_status || 'pending') === this.statusFilter);
+      },
+
       init() {
+        this.setDefaultDates();
+        this.loadSettlements();
+      },
+
+      setDefaultDates() {
         const today = new Date();
-        const day = today.getDay();
-        // Monday = 1, Sunday = 0
-        const monday = new Date(today);
-        monday.setDate(today.getDate() - ((day === 0 ? 7 : day) - 1));
-        const sunday = new Date(monday);
-        sunday.setDate(monday.getDate() + 6);
-        this.filterStart = monday.toISOString().slice(0, 10);
-        this.filterEnd = sunday.toISOString().slice(0, 10);
+        if (this.activeTab === 'weekly') {
+          const day = today.getDay();
+          const monday = new Date(today);
+          monday.setDate(today.getDate() - ((day === 0 ? 7 : day) - 1));
+          const sunday = new Date(monday);
+          sunday.setDate(monday.getDate() + 6);
+          this.filterStart = monday.toISOString().slice(0, 10);
+          this.filterEnd = sunday.toISOString().slice(0, 10);
+        } else {
+          const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+          const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+          this.filterStart = firstDay.toISOString().slice(0, 10);
+          this.filterEnd = lastDay.toISOString().slice(0, 10);
+        }
+      },
+
+      switchTab(tab) {
+        if (this.activeTab === tab) return;
+        this.activeTab = tab;
+        this.statusFilter = '';
+        this.setDefaultDates();
         this.loadSettlements();
       },
 
@@ -289,14 +323,16 @@
           if (this.filterStart) params.set('week_start', this.filterStart);
           if (this.filterEnd) params.set('week_end', this.filterEnd);
           if (params.toString()) url += '?' + params.toString();
-
           const res = await fetch(url, { credentials: 'include' });
           if (res.ok) {
             const data = await res.json();
-            this.settlements = data.settlements || data.data || [];
-            // If no settlements exist for the current week, auto-generate
+            let all = data.settlements || data.data || [];
+            this.settlements = all.filter(s => {
+              const cycle = s.settlement_cycle || s.salary_type || 'weekly';
+              return cycle === this.activeTab;
+            });
             if (this.settlements.length === 0 && this.filterStart && this.filterEnd) {
-              await this.autoGenerateCurrentWeek();
+              await this.autoGenerate();
             }
           } else {
             dispatchToast('error', 'Error', 'Failed to load settlements');
@@ -308,35 +344,32 @@
         }
       },
 
-      async autoGenerateCurrentWeek() {
+      async autoGenerate() {
         try {
-          const res = await fetch('/api/settlements/generate', {
+          const endpoint = this.activeTab === 'monthly'
+            ? '/api/settlements/generate-monthly'
+            : '/api/settlements/generate';
+          const bodyKey = this.activeTab === 'monthly'
+            ? { month_start: this.filterStart, month_end: this.filterEnd }
+            : { week_start: this.filterStart, week_end: this.filterEnd };
+          const res = await fetch(endpoint, {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              week_start: this.filterStart,
-              week_end: this.filterEnd,
-            }),
+            body: JSON.stringify(bodyKey),
           });
           if (res.ok) {
             const data = await res.json();
             this.settlements = data.settlements || [];
-            dispatchToast('success', 'Auto-Generated', `${this.settlements.length} settlements created for current week.`);
-          } else {
-            const err = await res.json().catch(() => ({}));
-            dispatchToast('error', 'Error', err.error || 'Failed to auto-generate settlements');
+            if (this.settlements.length > 0) {
+              dispatchToast('success', 'Auto-Generated', this.settlements.length + ' settlements created.');
+            }
           }
-        } catch (e) {
-          dispatchToast('error', 'Network Error', 'Could not reach the server');
-        }
+        } catch (e) { /* silent */ }
       },
 
-      getInitials(name) {
-        if (!name) return '?';
-        const parts = name.trim().split(/\s+/);
-        if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-        return parts[0].substring(0, 2).toUpperCase();
+      sumField(field) {
+        return this.filteredSettlements.reduce((sum, s) => sum + Number(s[field] ?? 0), 0);
       },
 
       formatDate(dateStr) {
@@ -353,34 +386,71 @@
         } catch (e) { return dateStr; }
       },
 
-      sumField(primary, fallback) {
-        return this.settlements.reduce((sum, s) => sum + Number(s[primary] ?? s[fallback] ?? 0), 0);
-      },
-
-      async showExpenseModal(settlement) {
-        this.expenseModalOpen = true;
-        this.expenseModalStaff = settlement.staff_name || settlement.full_name || '-';
-        this.expenseModalPeriod = `${this.formatDateShort(settlement.week_start)} - ${this.formatDateShort(settlement.week_end)}`;
-        // Fetch expense records for this settlement
-        try {
-          const res = await fetch(`/api/settlements/${settlement.settlement_id}`);
-          if (res.ok) {
-            const data = await res.json();
-            this.expenseModalRecords = (data.settlement && data.settlement.expense_records) ? data.settlement.expense_records : [];
-          } else {
-            this.expenseModalRecords = [];
-          }
-        } catch (e) {
-          this.expenseModalRecords = [];
-        }
-      },
-
       getExportUrl(format) {
         const params = new URLSearchParams();
         if (this.filterStart) params.set('week_start', this.filterStart);
         if (this.filterEnd) params.set('week_end', this.filterEnd);
         const queryString = params.toString();
-        return `/api/settlements/export/${format}${queryString ? '?' + queryString : ''}`;
+        return '/api/settlements/export/' + format + (queryString ? '?' + queryString : '');
+      },
+
+      async showExpenseModal(settlement) {
+        this.expenseModalOpen = true;
+        this.expenseModalStaff = settlement.staff_name || settlement.full_name || '-';
+        this.expenseModalPeriod = this.formatDateShort(settlement.week_start) + ' - ' + this.formatDateShort(settlement.week_end);
+        try {
+          const res = await fetch('/api/settlements/' + settlement.settlement_id);
+          if (res.ok) {
+            const data = await res.json();
+            this.expenseModalRecords = (data.settlement && data.settlement.expense_records) ? data.settlement.expense_records : [];
+          } else { this.expenseModalRecords = []; }
+        } catch (e) { this.expenseModalRecords = []; }
+      },
+
+      openSettleModal(settlement) {
+        this.settleModalOpen = true;
+        this.settleSettlementId = settlement.settlement_id;
+        this.settleStaffName = settlement.staff_name || settlement.full_name || '-';
+        this.settleNetPayable = Number(settlement.net_payable ?? 0);
+        const alreadySettled = Number(settlement.amount_settled ?? 0);
+        this.settleAmount = this.settleNetPayable - alreadySettled;
+      },
+
+      async confirmSettle() {
+        if (this.settleSubmitting) return;
+        this.settleSubmitting = true;
+        try {
+          const current = this.settlements.find(s => s.settlement_id === this.settleSettlementId);
+          const previouslySettled = current ? Number(current.amount_settled ?? 0) : 0;
+          const totalSettled = previouslySettled + this.settleAmount;
+          const res = await fetch('/api/settlements/' + this.settleSettlementId + '/settle', {
+            method: 'PUT',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ amount_settled: totalSettled }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            const idx = this.settlements.findIndex(s => s.settlement_id === this.settleSettlementId);
+            if (idx !== -1 && data.settlement) {
+              this.settlements[idx] = Object.assign({}, this.settlements[idx], data.settlement);
+            }
+            this.settleModalOpen = false;
+            const status = data.settlement && data.settlement.settlement_status;
+            if (status === 'settled') {
+              dispatchToast('success', 'Settled', 'Settlement marked as fully paid');
+            } else {
+              dispatchToast('success', 'Partial', 'Partial settlement recorded. Remainder will carry forward.');
+            }
+          } else {
+            const err = await res.json().catch(function(){ return {}; });
+            dispatchToast('error', 'Error', err.error || 'Failed to mark settlement');
+          }
+        } catch (e) {
+          dispatchToast('error', 'Network Error', 'Could not reach the server');
+        } finally {
+          this.settleSubmitting = false;
+        }
       },
     };
   }

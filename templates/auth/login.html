@@ -4,54 +4,54 @@
 
 {% block content %}
 <div class="flex min-h-full items-center justify-center px-4 py-8"
-     style="background: linear-gradient(135deg, #312e81 0%, #4f46e5 40%, #7c3aed 100%);">
+     style="background: linear-gradient(160deg, #4c0519 0%, #be123c 45%, #fb7185 100%);">
 
   <!-- Decorative orbs -->
   <div class="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true">
-    <div class="absolute -top-24 -left-24 h-96 w-96 rounded-full bg-white/5 blur-3xl"></div>
-    <div class="absolute -bottom-32 -right-32 h-[30rem] w-[30rem] rounded-full bg-purple-400/10 blur-3xl"></div>
+    <div class="absolute -top-24 -left-24 h-96 w-96 rounded-full blur-3xl" style="background:rgba(255,255,255,0.04)"></div>
+    <div class="absolute -bottom-32 -right-32 h-[30rem] w-[30rem] rounded-full blur-3xl" style="background: rgba(251,113,133,0.08)"></div>
   </div>
 
   <div class="relative w-full max-w-sm animate-slide-up"
        x-data="loginPage()" x-cloak>
 
     <!-- Card -->
-    <div class="overflow-hidden rounded-3xl bg-white shadow-2xl shadow-brand-900/30 ring-1 ring-white/10"
+    <div class="overflow-hidden rounded-3xl bg-white shadow-2xl"
          :class="{ 'animate-shake': shaking }">
 
       <!-- Header -->
-      <div class="bg-gradient-to-br from-brand-600 to-brand-800 px-6 pb-6 pt-8 text-center">
-        <div class="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 text-3xl backdrop-blur-sm">
+      <div class="bg-gradient-to-br from-brand-600 to-brand-800 px-5 pb-4 pt-5 text-center">
+        <div class="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-xl text-xl" style="background:rgba(255,255,255,0.15);backdrop-filter:blur(8px)">
           ✂️
         </div>
-        <h1 class="text-xl font-bold tracking-tight text-white">Infinity Designer Boutique</h1>
-        <p class="mt-1 text-sm text-brand-200">Staff Management Portal</p>
+        <h1 class="text-sm font-bold tracking-tight text-white">Infinity Designer Boutique</h1>
+        <p class="mt-0.5 text-xs text-brand-200">Staff Management Portal</p>
       </div>
 
-      <div class="px-6 pb-8 pt-6">
+      <div class="px-5 pb-5 pt-4">
 
         <!-- -- Step 1: Phone Number -- -->
         <div x-show="step === 'phone'" x-transition:enter="transition ease-out duration-200"
              x-transition:enter-start="opacity-0 translate-x-4" x-transition:enter-end="opacity-100 translate-x-0">
-          <label class="block text-sm font-medium text-gray-600 mb-2">Phone Number</label>
+          <label class="block text-xs font-medium text-gray-600 mb-1.5">Phone Number</label>
           <div class="relative">
-            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-semibold text-gray-400">+91</span>
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400">+91</span>
             <input type="tel" inputmode="numeric" maxlength="10"
                    x-model="phone"
                    @input="phone = phone.replace(/\D/g, '').slice(0, 10)"
                    @keydown.enter="phone.length === 10 && goToPin()"
                    placeholder="Enter 10-digit number"
-                   class="w-full rounded-xl border border-gray-200 bg-gray-50 py-4 pl-16 pr-4 text-xl font-semibold tracking-widest text-gray-800 placeholder:text-base placeholder:font-normal placeholder:tracking-normal transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                   class="w-full rounded-lg bg-gray-50 py-2.5 pl-10 pr-3 text-sm font-semibold tracking-widest text-gray-800 placeholder:text-xs placeholder:font-normal placeholder:tracking-normal transition-all focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-200"
                    autofocus>
           </div>
-          <p class="mt-2 text-center text-xs text-gray-400"
+          <p class="mt-1.5 text-center text-[10px] text-gray-400"
              x-text="phone.length + ' / 10 digits'"></p>
 
           <button @click="goToPin()"
                   :disabled="phone.length !== 10"
-                  class="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-brand-600 py-4 text-base font-semibold text-white shadow-lg shadow-brand-600/30 transition-all hover:bg-brand-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none">
+                  class="mt-4 flex w-full items-center justify-center gap-1.5 rounded-lg bg-brand-600 py-2.5 text-xs font-semibold text-white shadow-sm transition-all hover:bg-brand-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none">
             Continue
-            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/>
             </svg>
           </button>
@@ -63,20 +63,20 @@
 
           <!-- Back button -->
           <button @click="step = 'phone'; pin = ''; error = ''"
-                  class="mb-4 flex items-center gap-1 text-sm font-medium text-brand-600 transition-colors hover:text-brand-800">
+                  class="mb-4 flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-brand-600 transition-colors hover:bg-brand-50 hover:text-brand-800">
             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/>
             </svg>
             Back
           </button>
 
-          <p class="mb-1 text-center text-sm text-gray-500">Enter PIN for</p>
-          <p class="mb-5 text-center text-base font-semibold text-gray-800">+91 <span x-text="formatPhone(phone)"></span></p>
+          <p class="mb-0.5 text-center text-[11px] text-gray-500">Enter PIN for</p>
+          <p class="mb-4 text-center text-sm font-bold text-gray-800">+91 <span x-text="formatPhone(phone)"></span></p>
 
           <!-- PIN dots -->
-          <div class="mb-6 flex items-center justify-center gap-3">
+          <div class="mb-4 flex items-center justify-center gap-2.5">
             <template x-for="i in 4" :key="i">
-              <div class="flex h-14 w-14 items-center justify-center rounded-2xl border-2 transition-all duration-200"
+              <div class="flex h-10 w-10 items-center justify-center rounded-xl border-2 transition-all duration-200"
                    :class="pin.length >= i
                      ? 'border-brand-500 bg-brand-50 scale-105'
                      : pin.length === i - 1
@@ -85,27 +85,27 @@
                 <span x-show="pin.length >= i"
                       x-transition:enter="transition ease-out duration-150"
                       x-transition:enter-start="scale-0" x-transition:enter-end="scale-100"
-                      class="text-2xl text-brand-600">●</span>
+                      class="text-sm text-brand-600">●</span>
               </div>
             </template>
           </div>
 
           <!-- Error message -->
-          <p x-show="error" x-transition class="mb-4 text-center text-sm font-medium text-red-500" x-text="error"></p>
+          <p x-show="error" x-transition class="mb-3 text-center text-xs font-medium text-red-500" x-text="error"></p>
 
           <!-- Number Pad -->
-          <div class="mx-auto grid max-w-[18rem] grid-cols-3 gap-2.5">
+          <div class="mx-auto grid max-w-[14rem] grid-cols-3 gap-2">
             <template x-for="key in numKeys" :key="key">
               <button @click="tapKey(key)"
                       :disabled="submitting"
-                      class="flex h-14 items-center justify-center rounded-xl text-xl font-semibold transition-all active:scale-95"
+                      class="flex h-10 items-center justify-center rounded-lg text-sm font-semibold transition-all active:scale-95"
                       :class="key === 'backspace'
                         ? 'bg-red-50 text-red-500 hover:bg-red-100 active:bg-red-200'
                         : key === 'clear'
-                          ? 'bg-gray-100 text-gray-500 hover:bg-gray-200 active:bg-gray-300 text-sm'
-                          : 'bg-gray-50 text-gray-800 hover:bg-gray-100 active:bg-brand-100 active:text-brand-700 shadow-sm'">
+                          ? 'bg-gray-100 text-gray-500 hover:bg-gray-200 active:bg-gray-300 text-[11px]'
+                          : 'bg-gray-50 text-gray-800 hover:bg-gray-100 active:bg-brand-100 active:text-brand-700'">
                 <template x-if="key === 'backspace'">
-                  <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                  <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 9.75L14.25 12m0 0l2.25 2.25M14.25 12l2.25-2.25M14.25 12L12 14.25m-2.58 4.92l-6.375-6.375a1.125 1.125 0 010-1.59L9.42 4.83c.211-.211.498-.33.796-.33H19.5a2.25 2.25 0 012.25 2.25v10.5a2.25 2.25 0 01-2.25 2.25h-9.284c-.298 0-.585-.119-.796-.33z"/>
                   </svg>
                 </template>
@@ -122,10 +122,10 @@
           <!-- Login Button -->
           <button @click="doLogin()"
                   :disabled="pin.length !== 4 || submitting"
-                  class="mt-6 flex w-full items-center justify-center gap-2 rounded-xl py-4 text-base font-semibold text-white shadow-lg transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+                  class="mt-4 flex w-full items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-semibold text-white shadow-sm transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
                   :class="submitting ? 'bg-brand-400' : 'bg-brand-600 shadow-brand-600/30 hover:bg-brand-700'">
             <!-- Spinner -->
-            <svg x-show="submitting" class="h-5 w-5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <svg x-show="submitting" class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
@@ -137,7 +137,7 @@
     </div>
 
     <!-- Footer -->
-    <p class="mt-6 text-center text-xs text-white/40">
+    <p class="mt-8 text-center text-xs" style="color:rgba(255,255,255,0.35)">
       &copy; {{ now.year if now is defined else "2025" }} Infinity Designer Boutique
     </p>
   </div>

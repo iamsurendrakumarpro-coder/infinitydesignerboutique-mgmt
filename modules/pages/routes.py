@@ -154,6 +154,18 @@ def my_money():
     return render_template("staff/my_money.html", user=_session_user())
 
 
+@pages_bp.get("/staff/leave")
+def staff_leave():
+    """Staff leave application and history page."""
+    if not _is_staff():
+        if _is_admin():
+            return redirect(url_for("pages.admin_dashboard"))
+        return redirect(url_for("pages.login"))
+    if session.get("is_first_login"):
+        return redirect(url_for("pages.change_pin"))
+    return render_template("staff/leave.html", user=_session_user())
+
+
 @pages_bp.get("/staff/profile")
 def staff_profile():
     """Staff profile page."""

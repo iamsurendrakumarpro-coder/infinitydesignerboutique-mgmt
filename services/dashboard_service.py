@@ -32,6 +32,18 @@ def get_daily_summary(target_date: date | None = None) -> dict:
 
     active_staff = list_staff(status_filter="active")
     total_active = len(active_staff)
+    active_staff_ids = {s.get("user_id") for s in active_staff if s.get("user_id")}
+
+    # On leave today (active staff only)
+    from services.leave_service import get_leaves_for_date, get_pending_leave_count
+    on_leave_today_all = get_leaves_for_date(target_date)
+    on_leave_today = [
+        lv for lv in on_leave_today_all
+        if lv.get("user_id") in active_staff_ids
+    ]
+    on_leave_user_ids = {lv.get("user_id") for lv in on_leave_today if lv.get("user_id")}
+    on_leave_names = [lv.get("staff_name", "") for lv in on_leave_today if lv.get("staff_name")]
+    pending_leave = get_pending_leave_count()
 
     # Count who punched in today
     doc_id = date_to_doc_id(target_date)
@@ -39,16 +51,25 @@ def get_daily_summary(target_date: date | None = None) -> dict:
     punched_out = 0
     still_in = 0
     today_attendance = []
+    present_names = []
+    still_working_names = []
+    absent_names = []
+    absent_staff = []
     for staff in active_staff:
         uid = staff["user_id"]
         rec = db.collection("attendance").document(uid).collection("records").document(doc_id).get()
         if rec.exists:
             data = rec.to_dict()
             punched_in += 1
+            full_name = staff.get("full_name", "")
+            if full_name:
+                present_names.append(full_name)
             if data.get("status") == "out":
                 punched_out += 1
             else:
                 still_in += 1
+                if full_name:
+                    still_working_names.append(full_name)
             today_attendance.append({
                 "user_id": uid,
                 "full_name": staff.get("full_name", ""),
@@ -60,8 +81,18 @@ def get_daily_summary(target_date: date | None = None) -> dict:
                 "standard_login_time": staff.get("standard_login_time", "09:30"),
                 "standard_logout_time": staff.get("standard_logout_time", "18:30"),
             })
+        elif uid not in on_leave_user_ids:
+            full_name = staff.get("full_name", "")
+            if full_name:
+                absent_names.append(full_name)
+            absent_staff.append({
+                "user_id": uid,
+                "full_name": full_name,
+                "designation": staff.get("designation", ""),
+            })
 
     absent = total_active - punched_in
+    unexpected_absent = len(absent_staff)
 
     # Pending financial requests
     pending_financial = list(
@@ -77,15 +108,51 @@ def get_daily_summary(target_date: date | None = None) -> dict:
         .stream()
     )
 
+    # Late arrivals (punched in after standard login time + 15 min grace)
+    late_arrivals = []
+    for att in today_attendance:
+        std_time = att.get("standard_login_time", "10:00")
+        punch_in = att.get("punch_in_time")
+        if punch_in and std_time:
+            try:
+                import pytz
+                IST = pytz.timezone("Asia/Kolkata")
+                pi_ist = punch_in.astimezone(IST) if hasattr(punch_in, "astimezone") else punch_in
+                std_h, std_m = map(int, std_time.split(":"))
+                from datetime import time as dt_time
+                grace_minutes = 15
+                late_threshold = std_h * 60 + std_m + grace_minutes
+                actual_minutes = pi_ist.hour * 60 + pi_ist.minute
+                if actual_minutes > late_threshold:
+                    late_arrivals.append({
+                        "full_name": att.get("full_name", ""),
+                        "designation": att.get("designation", ""),
+                        "minutes_late": actual_minutes - (std_h * 60 + std_m),
+                    })
+            except Exception:
+                pass
+
     summary = {
         "date": target_date.strftime("%Y-%m-%d"),
         "total_active_staff": total_active,
         "punched_in": punched_in,
         "punched_out": punched_out,
         "still_working": still_in,
+        "present_names": present_names,
+        "still_working_names": still_working_names,
         "absent": absent,
+        "absent_names": absent_names,
+        "absent_staff": absent_staff,
+        "unexpected_absent": unexpected_absent,
+        "on_leave": len(on_leave_today),
+        "on_leave_names": on_leave_names,
+        "on_leave_details": on_leave_today,
+        "late_arrivals": late_arrivals,
+        "late_count": len(late_arrivals),
         "pending_financial_requests": len(pending_financial),
         "pending_overtime_approvals": len(pending_overtime),
+        "pending_leave_requests": pending_leave,
+        "total_pending_approvals": len(pending_financial) + len(pending_overtime) + pending_leave,
         "today_attendance": today_attendance,
     }
 
@@ -220,8 +287,9 @@ def get_dashboard_analytics() -> dict:
       - Financial overview (for doughnut chart)
       - Staff distribution by designation (for bar chart)
     """
-    from datetime import timedelta
+    from datetime import datetime, timedelta
     from collections import Counter
+    import pytz
     from services.user_service import list_staff
 
     log.debug("get_dashboard_analytics")
@@ -253,6 +321,76 @@ def get_dashboard_analytics() -> dict:
     start, end = period_range("monthly")
     financial_summary = get_financial_summary(start, end)
 
+    # -- Leave overview (this month) + trend (last 14 days) --
+    IST = pytz.timezone("Asia/Kolkata")
+    leave_docs = list(db.collection("leave_requests").stream())
+
+    def _to_ist_date(value):
+        if not value:
+            return None
+        if hasattr(value, "astimezone"):
+            return value.astimezone(IST).date()
+        if isinstance(value, str):
+            try:
+                return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(IST).date()
+            except ValueError:
+                return None
+        return None
+
+    leave_status_counts = {
+        "pending": 0,
+        "approved": 0,
+        "rejected": 0,
+        "cancelled": 0,
+    }
+    leave_type_counts = {
+        "half_day": 0,
+        "full_day": 0,
+        "multiple_days": 0,
+    }
+    approved_leave_days = 0.0
+
+    trend_days = 14
+    trend_start = today - timedelta(days=trend_days - 1)
+    leave_trend = []
+    leave_trend_index = {}
+    for i in range(trend_days):
+        d = trend_start + timedelta(days=i)
+        k = d.isoformat()
+        row = {
+            "date": k,
+            "day": d.strftime("%d %b"),
+            "requested": 0,
+            "approved": 0,
+        }
+        leave_trend.append(row)
+        leave_trend_index[k] = row
+
+    for leave_doc in leave_docs:
+        lv = leave_doc.to_dict()
+        status = lv.get("status")
+        leave_type = lv.get("leave_type")
+        created_date = _to_ist_date(lv.get("created_at"))
+        reviewed_date = _to_ist_date(lv.get("reviewed_at"))
+
+        if created_date and start <= created_date <= end:
+            if status in leave_status_counts:
+                leave_status_counts[status] += 1
+            if leave_type in leave_type_counts:
+                leave_type_counts[leave_type] += 1
+            if status == "approved":
+                approved_leave_days += float(lv.get("total_days") or 0.0)
+
+        if created_date and trend_start <= created_date <= today:
+            row = leave_trend_index.get(created_date.isoformat())
+            if row:
+                row["requested"] += 1
+
+        if status == "approved" and reviewed_date and trend_start <= reviewed_date <= today:
+            row = leave_trend_index.get(reviewed_date.isoformat())
+            if row:
+                row["approved"] += 1
+
     # -- Staff distribution by designation --
     designation_counts = Counter(s.get("designation", "Other") for s in active_staff)
     staff_distribution = [
@@ -271,6 +409,18 @@ def get_dashboard_analytics() -> dict:
             "approved_count": financial_summary["approved_count"],
             "rejected_count": financial_summary["rejected_count"],
         },
+        "leave_overview": {
+            "pending_count": leave_status_counts["pending"],
+            "approved_count": leave_status_counts["approved"],
+            "rejected_count": leave_status_counts["rejected"],
+            "cancelled_count": leave_status_counts["cancelled"],
+            "approved_days": round(approved_leave_days, 1),
+            "half_day_count": leave_type_counts["half_day"],
+            "full_day_count": leave_type_counts["full_day"],
+            "multiple_days_count": leave_type_counts["multiple_days"],
+            "total_requests": sum(leave_status_counts.values()),
+        },
+        "leave_trend": leave_trend,
         "staff_distribution": staff_distribution,
         "total_active_staff": total_active,
     }

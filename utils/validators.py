@@ -196,10 +196,9 @@ def validate_staff_create(data: dict) -> dict[str, str]:
     if not ok:
         errors["standard_logout_time"] = msg
 
-    if data.get("emergency_contact"):
-        ok, msg = validate_phone(data.get("emergency_contact"))
-        if not ok:
-            errors["emergency_contact"] = "Emergency contact: " + msg
+    ok, msg = validate_phone(data.get("emergency_contact"))
+    if not ok:
+        errors["emergency_contact"] = "Emergency contact: " + msg
 
     # salary_type is optional; default to "weekly" for backward compatibility
     salary_type = data.get("salary_type", "weekly")
@@ -259,7 +258,7 @@ def validate_staff_update(data: dict) -> dict[str, str]:
         if not ok:
             errors["standard_logout_time"] = msg
 
-    if "emergency_contact" in data and data["emergency_contact"]:
+    if "emergency_contact" in data:
         ok, msg = validate_phone(data.get("emergency_contact"))
         if not ok:
             errors["emergency_contact"] = "Emergency contact: " + msg

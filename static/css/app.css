@@ -4,13 +4,26 @@
    ────────────────────────────────────────────────────────────────────────── */
 
 /* ── Web-font preload ─────────────────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 /* ── CSS custom properties ────────────────────────────────────────────────── */
 :root {
-  --color-primary: #4f46e5;
-  --color-primary-light: #6366f1;
-  --color-primary-dark: #4338ca;
+  /* Boutique Rose Palette – warm, elegant, fashion-forward */
+  --color-brand-50:  #fff1f2;
+  --color-brand-100: #ffe4e6;
+  --color-brand-200: #fecdd3;
+  --color-brand-300: #fda4af;
+  --color-brand-400: #fb7185;
+  --color-brand-500: #f43f5e;
+  --color-brand-600: #e11d48;
+  --color-brand-700: #be123c;
+  --color-brand-800: #9f1239;
+  --color-brand-900: #881337;
+  --color-brand-950: #4c0519;
+
+  --color-primary: #e11d48;
+  --color-primary-light: #fb7185;
+  --color-primary-dark: #be123c;
   --color-success: #059669;
   --color-warning: #d97706;
   --color-danger: #dc2626;
@@ -22,6 +35,58 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
+  --boutique-gold: #c9956b;
+  --boutique-bg: #faf8f6;
+}
+
+/* ── Mobile-first compact sizing ──────────────────────────────────────────── */
+/* Tighter text sizes for mobile-dominant usage */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* Compact inputs for mobile */
+input[type="text"],
+input[type="tel"],
+input[type="email"],
+input[type="number"],
+input[type="date"],
+input[type="time"],
+input[type="search"],
+select,
+textarea {
+  font-family: inherit;
+  font-size: 13px;
+}
+
+/* Refined button baseline */
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* Compact table cells */
+table {
+  font-size: 12px;
+}
+
+table th {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 10px;
+}
+
+/* Modern card surfaces */
+.modern-card {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.03), 0 4px 16px rgba(0,0,0,0.02);
+}
+
+.modern-card:hover {
+  box-shadow: 0 4px 24px rgba(0,0,0,0.06);
 }
 
 /* ── Base resets ──────────────────────────────────────────────────────────── */
@@ -37,13 +102,18 @@ html {
 body {
   overscroll-behavior-y: none;
   font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  background-color: var(--boutique-bg);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Remove autofill background flash on iOS / Chrome */
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus {
-  -webkit-box-shadow: 0 0 0 1000px #f9fafb inset;
+  -webkit-box-shadow: 0 0 0 1000px var(--boutique-bg) inset;
   transition: background-color 5000s ease-in-out 0s;
 }
 
@@ -103,18 +173,18 @@ textarea,
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(99, 102, 241, 0.2);
+  background: rgba(225, 29, 72, 0.15);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(99, 102, 241, 0.4);
+  background: rgba(225, 29, 72, 0.3);
 }
 
 /* Firefox scrollbar */
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(99, 102, 241, 0.2) transparent;
+  scrollbar-color: rgba(225, 29, 72, 0.15) transparent;
 }
 
 /* ── Focus-visible outline (a11y) ─────────────────────────────────────────── */
@@ -137,13 +207,13 @@ textarea,
 }
 
 .numpad-btn:hover {
-  background-color: rgba(99, 102, 241, 0.08);
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+  background-color: rgba(225, 29, 72, 0.06);
+  box-shadow: 0 0 0 2px rgba(225, 29, 72, 0.12);
 }
 
 .numpad-btn:active {
   transform: scale(0.92);
-  background-color: rgba(99, 102, 241, 0.15);
+  background-color: rgba(225, 29, 72, 0.12);
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
@@ -278,12 +348,12 @@ textarea,
 
 .punch-btn:hover {
   transform: scale(1.03);
-  box-shadow: 0 8px 30px rgba(79, 70, 229, 0.35);
+  box-shadow: 0 8px 30px rgba(225, 29, 72, 0.3);
 }
 
 .punch-btn:active {
   transform: scale(0.97);
-  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.25);
+  box-shadow: 0 2px 8px rgba(225, 29, 72, 0.2);
 }
 
 .punch-btn:active::before {
@@ -298,7 +368,7 @@ textarea,
 
 .card-hover:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 8px 25px rgba(136, 19, 55, 0.07), 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .card-hover:active {
@@ -458,4 +528,151 @@ textarea,
   background-size: 800px 100%;
   animation: shimmer 1.5s infinite linear;
   border-radius: 0.375rem;
+}
+
+/* ── Missing Tailwind lg: responsive utilities ────────────────────────────── */
+/* These classes are used in templates but missing from the pre-compiled
+   tailwind.css. The lg breakpoint triggers at 64rem (1024px).              */
+@media (min-width: 64rem) {
+  .lg\:py-3       { padding-top: calc(var(--spacing) * 3); padding-bottom: calc(var(--spacing) * 3); }
+  .lg\:grid       { display: grid; }
+  .lg\:col-span-2 { grid-column: span 2 / span 2; }
+  .lg\:block      { display: block; }
+}
+
+/* ── Missing Tailwind base utilities ──────────────────────────────────────── */
+.h-3\.5 { height: calc(var(--spacing) * 3.5); }
+.w-3\.5 { width:  calc(var(--spacing) * 3.5); }
+
+/* Alignment fallback utilities frequently used in forms/search bars.
+  These keep UI spacing stable when precompiled Tailwind misses classes. */
+.h-9 { height: calc(var(--spacing) * 9); }
+.pl-8 { padding-left: calc(var(--spacing) * 8); }
+.pl-9 { padding-left: calc(var(--spacing) * 9); }
+.pl-10 { padding-left: calc(var(--spacing) * 10); }
+.pr-3 { padding-right: calc(var(--spacing) * 3); }
+.left-2\.5 { left: calc(var(--spacing) * 2.5); }
+.left-3 { left: calc(var(--spacing) * 3); }
+
+/* ── Boutique Premium Surfaces ────────────────────────────────────────── */
+.boutique-sidebar {
+  background: linear-gradient(180deg, #fffcfc 0%, #faf8f6 100%);
+  border-right: 1px solid rgba(225, 29, 72, 0.06);
+}
+
+.boutique-header {
+  background: rgba(250, 248, 246, 0.85);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+
+.boutique-bottomnav {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-top: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+.boutique-card {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03), 0 6px 24px rgba(0, 0, 0, 0.02);
+  transition: box-shadow var(--transition-base), transform var(--transition-base);
+}
+
+.boutique-card:hover {
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+  transform: translateY(-1px);
+}
+
+.gold-accent { color: var(--boutique-gold); }
+
+.ring-brand-200 { --tw-ring-color: var(--color-brand-200); }
+.hover\:ring-brand-200:hover { --tw-ring-color: var(--color-brand-200); }
+.hover\:ring-brand-300:hover { --tw-ring-color: var(--color-brand-300); }
+
+/* ── Floating Bottom Navigation (mobile) ──────────────────────────────── */
+.floating-nav {
+  position: fixed;
+  bottom: calc(12px + var(--safe-bottom));
+  left: 12px;
+  right: 12px;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 6px 4px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: saturate(180%) blur(24px);
+  -webkit-backdrop-filter: saturate(180%) blur(24px);
+  border-radius: 24px;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.07), 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.floating-nav a {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 8px 10px;
+  border-radius: 16px;
+  color: #9ca3af;
+  text-decoration: none;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.floating-nav a.fnav-active {
+  color: var(--color-primary);
+  background: var(--color-brand-50);
+  padding: 8px 14px;
+}
+
+.floating-nav .fnav-label {
+  font-size: 10px;
+  font-weight: 600;
+  display: none;
+}
+
+.floating-nav a.fnav-active .fnav-label {
+  display: inline;
+}
+
+.floating-nav .fnav-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 15px;
+  height: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: #ef4444;
+  color: white;
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* ── Mobile Header (glassmorphism) ────────────────────────────────────── */
+.mobile-header {
+  background: rgba(250, 248, 246, 0.85);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+
+/* ── Slide-up animation ───────────────────────────────────────────────── */
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-shake {
+  animation: shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
 }

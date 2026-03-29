@@ -6,123 +6,135 @@
 <div x-data="approvalsDesk()" x-init="loadAll()" x-cloak>
 
   <!-- Header -->
-  <div class="mb-5">
-    <h1 class="text-2xl font-bold text-gray-900">✅ Approvals Desk</h1>
-    <p class="mt-0.5 text-sm text-gray-400">Review and act on pending requests</p>
+  <div class="mb-3">
+    <h1 class="text-sm font-semibold text-gray-800">Approvals</h1>
+    <p class="text-[11px] text-gray-400">Review and act on pending requests</p>
   </div>
 
   <!-- Tab Navigation -->
-  <div class="mb-5 flex items-center gap-1 rounded-xl bg-gray-100 p-1">
+  <div class="mb-3 flex items-center gap-1 rounded-xl bg-white p-0.5 shadow-sm">
     <button @click="activeTab = 'financial'"
-            class="relative flex-1 rounded-lg py-2.5 text-center text-sm font-semibold transition-all"
+            class="relative flex-1 rounded-lg py-1.5 text-center text-[11px] font-semibold transition-all"
             :class="activeTab === 'financial'
-              ? 'bg-white text-gray-800 shadow-sm'
-              : 'text-gray-500 hover:text-gray-700'">
-      💳 Financial Requests
+              ? 'bg-brand-600 text-white shadow-sm'
+              : 'text-gray-400 hover:text-gray-600'">
+      Financial
       <span x-show="financialRequests.length > 0"
-            class="ml-1 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-amber-500 px-1.5 text-[10px] font-bold text-white"
+            class="ml-0.5 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full px-1 text-[8px] font-bold"
+            :class="activeTab === 'financial' ? 'bg-white text-brand-600' : 'bg-amber-500 text-white'"
             x-text="financialRequests.length"></span>
     </button>
     <button @click="activeTab = 'overtime'"
-            class="relative flex-1 rounded-lg py-2.5 text-center text-sm font-semibold transition-all"
+            class="relative flex-1 rounded-lg py-1.5 text-center text-[11px] font-semibold transition-all"
             :class="activeTab === 'overtime'
-              ? 'bg-white text-gray-800 shadow-sm'
-              : 'text-gray-500 hover:text-gray-700'">
-      ⏰ Overtime
+              ? 'bg-brand-600 text-white shadow-sm'
+              : 'text-gray-400 hover:text-gray-600'">
+      Overtime
       <span x-show="overtimeRecords.length > 0"
-            class="ml-1 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-purple-500 px-1.5 text-[10px] font-bold text-white"
+            class="ml-0.5 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full px-1 text-[8px] font-bold"
+            :class="activeTab === 'overtime' ? 'bg-white text-brand-600' : 'bg-purple-500 text-white'"
             x-text="overtimeRecords.length"></span>
     </button>
+        <button @click="activeTab = 'leave'"
+          class="relative flex-1 rounded-lg py-1.5 text-center text-[11px] font-semibold transition-all"
+          :class="activeTab === 'leave'
+            ? 'bg-brand-600 text-white shadow-sm'
+            : 'text-gray-400 hover:text-gray-600'">
+          Leave
+          <span x-show="leaveRequests.length > 0"
+          class="ml-0.5 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full px-1 text-[8px] font-bold"
+          :class="activeTab === 'leave' ? 'bg-white text-brand-600' : 'bg-orange-500 text-white'"
+          x-text="leaveRequests.length"></span>
+        </button>
   </div>
 
   <!-- -- Financial Requests Tab ---------------------------------------- -->
   <div x-show="activeTab === 'financial'">
 
     <!-- Loading -->
-    <div x-show="financialLoading" class="py-16 text-center">
-      <svg class="mx-auto h-10 w-10 animate-spin text-brand-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+    <div x-show="financialLoading" class="py-12 text-center">
+      <svg class="mx-auto h-8 w-8 animate-spin text-brand-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
       </svg>
     </div>
 
     <!-- Empty -->
-    <div x-show="!financialLoading && financialRequests.length === 0" class="py-16 text-center">
-      <p class="text-4xl mb-3">🎉</p>
-      <p class="text-base font-medium text-gray-500">All caught up!</p>
-      <p class="mt-1 text-sm text-gray-400">No pending financial requests</p>
+    <div x-show="!financialLoading && financialRequests.length === 0" class="py-10 text-center">
+            <p class="text-xs font-medium text-gray-500">All caught up!</p>
+      <p class="mt-1 text-[11px] text-gray-400">No pending financial requests</p>
     </div>
 
     <!-- Request Cards -->
-    <div x-show="!financialLoading && financialRequests.length > 0" class="space-y-4">
+    <div x-show="!financialLoading && financialRequests.length > 0" class="space-y-2">
       <template x-for="req in financialRequests" :key="req.id || req.request_id">
-        <div class="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 transition-all"
-             :class="req._processing ? 'ring-gray-200 opacity-60' : 'ring-amber-200'">
+        <div class="overflow-hidden rounded-xl bg-white shadow-sm transition-all"
+             :class="req._processing && 'opacity-60'">
 
           <!-- Card Header -->
-          <div class="border-l-4 border-amber-400 px-5 py-4">
-            <div class="flex items-start justify-between gap-3">
-              <div class="flex items-center gap-3">
-                <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-lg"
+          <div class="border-l-4 border-amber-400 px-3 py-2.5">
+            <div class="flex items-start justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
                      :class="(req.type === 'personal_advance' || req.type === 'advance')
                        ? 'bg-blue-50' : 'bg-amber-50'"
-                     x-text="(req.type === 'personal_advance' || req.type === 'advance') ? '👤' : '🏪'"></div>
+                     x-html="(req.type === 'personal_advance' || req.type === 'advance') ? renderIcon('user', 'h-3.5 w-3.5 text-blue-600') : renderIcon('building-storefront', 'h-3.5 w-3.5 text-amber-600')"></div>
                 <div>
-                  <h3 class="text-sm font-semibold text-gray-900" x-text="req.staff_name || req.full_name || 'Staff'"></h3>
-                  <p class="text-xs text-gray-400">
+                  <h3 class="text-xs font-semibold text-gray-800" x-text="req.staff_name || req.full_name || 'Staff'"></h3>
+                  <p class="text-[11px] text-gray-400">
                     <span x-text="formatType(req.type)"></span>
-                    <span class="mx-1">·</span>
+                    <span class="mx-0.5">·</span>
                     <span x-text="formatDate(req.created_at || req.date)"></span>
                   </p>
                 </div>
               </div>
               <div class="text-right shrink-0">
-                <p class="text-lg font-bold text-gray-900">₹<span x-text="Number(req.amount).toLocaleString('en-IN')"></span></p>
-                <span class="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Pending</span>
+                <p class="text-sm font-bold text-gray-800">₹<span x-text="Number(req.amount).toLocaleString('en-IN')"></span></p>
+                <span class="inline-flex rounded-md bg-amber-50 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700">Pending</span>
               </div>
             </div>
 
             <!-- Reason -->
-              <div class="mt-3 rounded-xl bg-gray-50 px-4 py-2.5">
-                <p class="text-xs font-medium uppercase text-gray-400">Reason</p>
-                <p class="mt-0.5 text-sm text-gray-700" x-text="req.notes || req.reason || req.description || 'No reason provided'"></p>
+              <div class="mt-1.5 rounded-lg bg-gray-50 px-2.5 py-1.5">
+                <p class="text-[9px] font-medium uppercase text-gray-400">Reason</p>
+                <p class="mt-0.5 text-[11px] text-gray-700" x-text="req.notes || req.reason || req.description || 'No reason provided'"></p>
                 <template x-if="req.receipt_url">
-                  <div class="mt-3">
+                  <div class="mt-2">
                     <a :href="req.receipt_url" target="_blank">
-                      <img :src="req.receipt_url" alt="Receipt" class="max-h-32 rounded-xl border border-gray-200">
+                      <img :src="req.receipt_url" alt="Receipt" class="max-h-24 rounded-md border border-gray-200">
                     </a>
-                    <p class="text-xs text-gray-400 mt-1">Receipt Screenshot</p>
+                    <p class="text-[10px] text-gray-400 mt-0.5">Receipt Screenshot</p>
                   </div>
                 </template>
               </div>
 
             <!-- Week-to-date earned (Personal Advance) -->
-            <div x-show="(req.type === 'personal_advance' || req.type === 'advance') && req.week_earned != null" class="mt-2">
-              <span class="inline-flex items-center gap-1 rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 ring-1 ring-blue-100">
-                📊 Week-to-date earned: ₹<span x-text="Number(req.week_earned || 0).toLocaleString('en-IN')"></span>
+            <div x-show="(req.type === 'personal_advance' || req.type === 'advance') && req.week_earned != null" class="mt-1.5">
+              <span class="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
+                Week-to-date earned: ₹<span x-text="Number(req.week_earned || 0).toLocaleString('en-IN')"></span>
               </span>
             </div>
 
             <!-- Admin Notes & Actions -->
-            <div class="mt-4" x-data="{ notes: '', showNotes: false }">
+            <div class="mt-2" x-data="{ notes: '', showNotes: false }">
               <button x-show="!showNotes" @click="showNotes = true"
-                      class="text-xs font-medium text-brand-600 hover:text-brand-700">
+                      class="text-[10px] font-medium text-brand-600 hover:text-brand-700">
                 + Add notes before action
               </button>
               <textarea x-show="showNotes" x-model="notes" rows="2"
                         placeholder="Admin notes (optional)..."
-                        class="mb-3 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-700 transition-all focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20"></textarea>
+                        class="mb-1.5 w-full rounded-lg bg-gray-50 px-2.5 py-1.5 text-[11px] text-gray-700 transition-all focus:outline-none focus:ring-2 focus:ring-brand-200"></textarea>
 
-              <div class="flex gap-2">
+              <div class="flex gap-1.5">
                 <button @click="approveFinancial(req, notes)"
                         :disabled="req._processing"
-                        class="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-green-600 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-green-700 active:scale-95 disabled:opacity-50">
-                  ✓ Approve
+                        class="flex-1 inline-flex items-center justify-center rounded-lg bg-green-600 py-1.5 text-[11px] font-semibold text-white transition-all hover:bg-green-700 active:scale-95 disabled:opacity-50">
+                  Approve
                 </button>
                 <button @click="rejectFinancial(req, notes)"
                         :disabled="req._processing"
-                        class="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-red-700 active:scale-95 disabled:opacity-50">
-                  ✕ Reject
+                        class="flex-1 inline-flex items-center justify-center rounded-lg bg-red-600 py-1.5 text-[11px] font-semibold text-white transition-all hover:bg-red-700 active:scale-95 disabled:opacity-50">
+                  Reject
                 </button>
               </div>
             </div>
@@ -136,61 +148,132 @@
   <div x-show="activeTab === 'overtime'">
 
     <!-- Loading -->
-    <div x-show="overtimeLoading" class="py-16 text-center">
-      <svg class="mx-auto h-10 w-10 animate-spin text-brand-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+    <div x-show="overtimeLoading" class="py-12 text-center">
+      <svg class="mx-auto h-8 w-8 animate-spin text-brand-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
       </svg>
     </div>
 
     <!-- Empty -->
-    <div x-show="!overtimeLoading && overtimeRecords.length === 0" class="py-16 text-center">
-      <p class="text-4xl mb-3">🎉</p>
-      <p class="text-base font-medium text-gray-500">No pending overtime</p>
-      <p class="mt-1 text-sm text-gray-400">All overtime records have been reviewed</p>
+    <div x-show="!overtimeLoading && overtimeRecords.length === 0" class="py-10 text-center">
+            <p class="text-xs font-medium text-gray-500">No pending overtime</p>
+      <p class="mt-1 text-[11px] text-gray-400">All overtime records have been reviewed</p>
     </div>
 
     <!-- Overtime Cards -->
-    <div x-show="!overtimeLoading && overtimeRecords.length > 0" class="space-y-4">
+    <div x-show="!overtimeLoading && overtimeRecords.length > 0" class="space-y-2">
       <template x-for="ot in overtimeRecords" :key="ot.id || ot.overtime_id">
-        <div class="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 transition-all"
-             :class="ot._processing ? 'ring-gray-200 opacity-60' : 'ring-purple-200'">
-          <div class="border-l-4 border-purple-400 px-5 py-4">
-            <div class="flex items-start justify-between gap-3">
-              <div class="flex items-center gap-3">
-                <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-purple-50 text-lg">⏰</div>
+        <div class="overflow-hidden rounded-xl bg-white shadow-sm transition-all"
+             :class="ot._processing && 'opacity-60'">
+          <div class="border-l-4 border-purple-400 px-3 py-2.5">
+            <div class="flex items-start justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-purple-50 text-purple-600" x-html="renderIcon('clock', 'h-3.5 w-3.5')"></div>
                 <div>
-                  <h3 class="text-sm font-semibold text-gray-900" x-text="ot.staff_name || ot.full_name || 'Staff'"></h3>
-                  <p class="text-xs text-gray-400" x-text="formatDate(ot.date || ot.created_at)"></p>
+                  <h3 class="text-xs font-semibold text-gray-800" x-text="ot.staff_name || ot.full_name || 'Staff'"></h3>
+                  <p class="text-[11px] text-gray-400" x-text="formatDate(ot.date || ot.created_at)"></p>
                 </div>
               </div>
               <div class="text-right shrink-0">
-                <p class="text-lg font-bold text-purple-700" x-text="ot.overtime_minutes + ' min'"></p>
-                <span x-show="ot.calculated_payout != null"
-                      class="inline-flex rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-semibold text-green-700">
-                  ₹<span x-text="Number(ot.calculated_payout || 0).toLocaleString('en-IN')"></span>
+                <p class="text-sm font-bold text-purple-700" x-text="(ot.overtime_minutes || ot.ot_minutes || 0) + ' min'"></p>
+                <span x-show="(ot.calculated_payout ?? ot.payout) != null"
+                      class="inline-flex rounded-md bg-green-50 px-1.5 py-0.5 text-[9px] font-semibold text-green-700">
+                  ₹<span x-text="Number(ot.calculated_payout || ot.payout || 0).toLocaleString('en-IN')"></span>
                 </span>
               </div>
             </div>
 
             <!-- Details -->
-            <div x-show="ot.reason || ot.notes" class="mt-3 rounded-xl bg-gray-50 px-4 py-2.5">
-              <p class="text-xs font-medium uppercase text-gray-400">Notes</p>
-              <p class="mt-0.5 text-sm text-gray-700" x-text="ot.reason || ot.notes || ''"></p>
+            <div x-show="ot.reason || ot.notes" class="mt-1.5 rounded-lg bg-gray-50 px-2.5 py-1.5">
+              <p class="text-[9px] font-medium uppercase text-gray-400">Notes</p>
+              <p class="mt-0.5 text-[11px] text-gray-700" x-text="ot.reason || ot.notes || ''"></p>
             </div>
 
             <!-- Actions -->
-            <div class="mt-4 flex gap-2">
+            <div class="mt-2 flex gap-1.5">
               <button @click="approveOvertime(ot)"
                       :disabled="ot._processing"
-                      class="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-green-600 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-green-700 active:scale-95 disabled:opacity-50">
-                ✓ Approve OT
+                      class="flex-1 inline-flex items-center justify-center rounded-lg bg-green-600 py-1.5 text-[11px] font-semibold text-white transition-all hover:bg-green-700 active:scale-95 disabled:opacity-50">
+                Approve OT
               </button>
               <button @click="rejectOvertime(ot)"
                       :disabled="ot._processing"
-                      class="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-red-700 active:scale-95 disabled:opacity-50">
-                ✕ Reject
+                      class="flex-1 inline-flex items-center justify-center rounded-lg bg-red-600 py-1.5 text-[11px] font-semibold text-white transition-all hover:bg-red-700 active:scale-95 disabled:opacity-50">
+                Reject
               </button>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <!-- -- Leave Tab ----------------------------------------------------- -->
+  <div x-show="activeTab === 'leave'">
+
+    <!-- Loading -->
+    <div x-show="leaveLoading" class="py-12 text-center">
+      <svg class="mx-auto h-8 w-8 animate-spin text-brand-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+      </svg>
+    </div>
+
+    <!-- Empty -->
+    <div x-show="!leaveLoading && leaveRequests.length === 0" class="py-10 text-center">
+      <p class="text-xs font-medium text-gray-500">No pending leave requests</p>
+      <p class="mt-1 text-[11px] text-gray-400">All leave requests have been reviewed</p>
+    </div>
+
+    <!-- Leave Cards -->
+    <div x-show="!leaveLoading && leaveRequests.length > 0" class="space-y-2">
+      <template x-for="lv in leaveRequests" :key="lv.id || lv.request_id">
+        <div class="overflow-hidden rounded-xl bg-white shadow-sm transition-all"
+             :class="lv._processing && 'opacity-60'">
+          <div class="border-l-4 border-orange-400 px-3 py-2.5">
+            <div class="flex items-start justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-orange-50 text-orange-600"
+                     x-html="renderIcon('calendar-days', 'h-3.5 w-3.5')"></div>
+                <div>
+                  <h3 class="text-xs font-semibold text-gray-800" x-text="lv.staff_name || 'Staff'"></h3>
+                  <p class="text-[11px] text-gray-400" x-text="leavePeriodLabel(lv)"></p>
+                </div>
+              </div>
+              <div class="text-right shrink-0">
+                <span class="inline-flex rounded-md bg-orange-50 px-1.5 py-0.5 text-[9px] font-semibold text-orange-700"
+                      x-text="leaveTypeLabel(lv)"></span>
+                <p class="mt-1 text-[10px] text-gray-400" x-text="(lv.total_days || 0) + ' day(s)'"></p>
+              </div>
+            </div>
+
+            <div class="mt-1.5 rounded-lg bg-gray-50 px-2.5 py-1.5">
+              <p class="text-[9px] font-medium uppercase text-gray-400">Reason</p>
+              <p class="mt-0.5 text-[11px] text-gray-700" x-text="lv.reason || 'No reason provided'"></p>
+            </div>
+
+            <div class="mt-2" x-data="{ notes: '', showNotes: false }">
+              <button x-show="!showNotes" @click="showNotes = true"
+                      class="text-[10px] font-medium text-brand-600 hover:text-brand-700">
+                + Add notes before action
+              </button>
+              <textarea x-show="showNotes" x-model="notes" rows="2"
+                        placeholder="Admin notes (optional)..."
+                        class="mb-1.5 w-full rounded-lg bg-gray-50 px-2.5 py-1.5 text-[11px] text-gray-700 transition-all focus:outline-none focus:ring-2 focus:ring-brand-200"></textarea>
+
+              <div class="flex gap-1.5">
+                <button @click="approveLeave(lv, notes)"
+                        :disabled="lv._processing"
+                        class="flex-1 inline-flex items-center justify-center rounded-lg bg-green-600 py-1.5 text-[11px] font-semibold text-white transition-all hover:bg-green-700 active:scale-95 disabled:opacity-50">
+                  Approve Leave
+                </button>
+                <button @click="rejectLeave(lv, notes)"
+                        :disabled="lv._processing"
+                        class="flex-1 inline-flex items-center justify-center rounded-lg bg-red-600 py-1.5 text-[11px] font-semibold text-white transition-all hover:bg-red-700 active:scale-95 disabled:opacity-50">
+                  Reject
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -208,13 +291,16 @@
       activeTab: 'financial',
       financialLoading: true,
       overtimeLoading: true,
+      leaveLoading: true,
       financialRequests: [],
       overtimeRecords: [],
+      leaveRequests: [],
 
       async loadAll() {
         await Promise.all([
           this.fetchFinancial(),
           this.fetchOvertime(),
+          this.fetchLeave(),
         ]);
       },
 
@@ -245,6 +331,21 @@
           dispatchToast('error', 'Error', 'Failed to load overtime records');
         } finally {
           this.overtimeLoading = false;
+        }
+      },
+
+      async fetchLeave() {
+        this.leaveLoading = true;
+        try {
+          const res = await fetch('/api/leave/requests?status=pending', { credentials: 'include' });
+          if (res.ok) {
+            const data = await res.json();
+            this.leaveRequests = (data.leaves || []).map(r => ({ ...r, _processing: false }));
+          }
+        } catch (e) {
+          dispatchToast('error', 'Error', 'Failed to load leave requests');
+        } finally {
+          this.leaveLoading = false;
         }
       },
 
@@ -307,7 +408,7 @@
           });
           if (res.ok) {
             this.overtimeRecords = this.overtimeRecords.filter(r => (r.id || r.overtime_id) !== id);
-            dispatchToast('success', 'OT Approved', `${ot.overtime_minutes} min overtime approved for ${ot.staff_name || 'staff'}`);
+            dispatchToast('success', 'OT Approved', `${ot.overtime_minutes || ot.ot_minutes || 0} min overtime approved for ${ot.staff_name || ot.full_name || 'staff'}`);
           } else {
             const err = await res.json().catch(() => ({}));
             dispatchToast('error', 'Error', err.error || 'Failed to approve overtime');
@@ -342,6 +443,54 @@
         }
       },
 
+      async approveLeave(lv, notes) {
+        lv._processing = true;
+        try {
+          const id = lv.id || lv.request_id;
+          const res = await fetch('/api/leave/requests/' + id, {
+            method: 'PATCH',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'approve', admin_notes: notes || '' }),
+          });
+          if (res.ok) {
+            this.leaveRequests = this.leaveRequests.filter(r => (r.id || r.request_id) !== id);
+            dispatchToast('success', 'Leave Approved', 'Leave request approved successfully');
+          } else {
+            const err = await res.json().catch(() => ({}));
+            dispatchToast('error', 'Error', err.error || 'Failed to approve leave request');
+            lv._processing = false;
+          }
+        } catch (e) {
+          dispatchToast('error', 'Network Error', 'Could not reach the server');
+          lv._processing = false;
+        }
+      },
+
+      async rejectLeave(lv, notes) {
+        lv._processing = true;
+        try {
+          const id = lv.id || lv.request_id;
+          const res = await fetch('/api/leave/requests/' + id, {
+            method: 'PATCH',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'reject', admin_notes: notes || '' }),
+          });
+          if (res.ok) {
+            this.leaveRequests = this.leaveRequests.filter(r => (r.id || r.request_id) !== id);
+            dispatchToast('info', 'Leave Rejected', 'Leave request rejected');
+          } else {
+            const err = await res.json().catch(() => ({}));
+            dispatchToast('error', 'Error', err.error || 'Failed to reject leave request');
+            lv._processing = false;
+          }
+        } catch (e) {
+          dispatchToast('error', 'Network Error', 'Could not reach the server');
+          lv._processing = false;
+        }
+      },
+
       formatType(type) {
         const map = {
           personal_advance: 'Personal Advance',
@@ -360,6 +509,24 @@
         } catch (e) {
           return dateStr;
         }
+      },
+
+      leaveTypeLabel(lv) {
+        if (lv.leave_type === 'half_day') {
+          return 'Half Day (' + (lv.half_day_period === 'morning' ? 'AM' : 'PM') + ')';
+        }
+        if (lv.leave_type === 'multiple_days') {
+          return 'Multiple Days';
+        }
+        return 'Full Day';
+      },
+
+      leavePeriodLabel(lv) {
+        const start = this.formatDate(lv.start_date);
+        const end = this.formatDate(lv.end_date);
+        if (!lv.start_date || !lv.end_date) return '-';
+        if (lv.start_date === lv.end_date) return start;
+        return start + ' to ' + end;
       },
     };
   }

@@ -3,53 +3,43 @@
 {% block title %}{% block page_title %}Staff{% endblock %} - Infinity Designer Boutique{% endblock %}
 
 {% block content %}
-<div class="flex min-h-screen flex-col bg-gray-50" x-data="staffLayout()" x-cloak>
+<div class="flex min-h-screen flex-col" x-data="staffLayout()" x-cloak>
 
-  <!-- -- Top Header ----------------------------------------------------- -->
-  <header class="sticky top-0 z-30 border-b border-gray-200 bg-white/90 backdrop-blur-md">
-    <div class="mx-auto flex max-w-lg items-center justify-between px-4 py-3">
+  <!-- -- Mobile Header (glass) ----------------------------------------- -->
+  <header class="mobile-header sticky top-0 z-30">
+    <div class="mx-auto flex max-w-lg items-center justify-between px-4 py-2.5">
       <div class="flex items-center gap-2.5">
-        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 text-white"
-             x-html="renderIcon('scissors', 'h-4 w-4')"></div>
+        <div class="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-600 text-white text-sm">✂️</div>
         <div class="min-w-0">
-          <p class="text-sm font-bold text-gray-900 truncate">Infinity Designer</p>
-          <p class="text-[11px] text-gray-400 truncate">Hi, <span class="text-brand-600 font-medium">{{ user.full_name|default("Staff") }}</span></p>
+          <p class="text-sm font-bold text-gray-900 truncate leading-tight">Infinity</p>
+          <p class="text-[10px] text-gray-400 truncate -mt-0.5">Hi, <span class="text-brand-600 font-medium">{{ user.full_name|default("Staff") }}</span></p>
         </div>
       </div>
       <div class="flex items-center gap-2">
-        <!-- Offline indicator -->
         <span x-show="!online" x-transition
               class="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-1 text-[10px] font-semibold text-red-600">
           <span class="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse"></span> Offline
         </span>
         <span x-show="online" x-transition
-              class="inline-flex h-2 w-2 rounded-full bg-green-400"></span>
+              class="inline-flex h-2.5 w-2.5 rounded-full bg-green-400"></span>
       </div>
     </div>
   </header>
 
   <!-- -- Page Content --------------------------------------------------- -->
-  <main class="mx-auto w-full max-w-lg flex-1 px-4 pb-24 pt-4">
+  <main class="mx-auto w-full max-w-lg flex-1 px-4 pb-24 pt-3">
     {% block page_content %}{% endblock %}
   </main>
 
-  <!-- -- Bottom Navigation ---------------------------------------------- -->
-  <nav class="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 backdrop-blur-md safe-area-bottom">
-    <div class="mx-auto grid max-w-lg grid-cols-3">
-      <template x-for="item in navItems" :key="item.href">
-        <a :href="item.href"
-           class="relative flex flex-col items-center gap-0.5 py-2.5 transition-colors"
-           :class="isActive(item.href)
-             ? 'text-brand-600'
-             : 'text-gray-400 hover:text-gray-600'">
-          <!-- Active indicator -->
-          <span x-show="isActive(item.href)"
-                class="absolute top-0 left-1/2 -translate-x-1/2 h-0.5 w-10 rounded-full bg-brand-600"></span>
-          <span x-html="renderIcon(item.icon, 'h-5 w-5')"></span>
-          <span class="text-[10px] font-semibold" x-text="item.label"></span>
-        </a>
-      </template>
-    </div>
+  <!-- -- Floating Bottom Navigation ------------------------------------- -->
+  <nav class="floating-nav">
+    <template x-for="item in navItems" :key="item.href">
+      <a :href="item.href"
+         :class="isActive(item.href) ? 'fnav-active' : ''">
+        <span x-html="renderIcon(item.icon, 'h-5 w-5')"></span>
+        <span class="fnav-label" x-text="item.label"></span>
+      </a>
+    </template>
   </nav>
 
 </div>
@@ -64,6 +54,7 @@
       navItems: [
         { href: '/staff/duty',    icon: 'clock',     label: 'Duty Station' },
         { href: '/staff/money',   icon: 'banknotes', label: 'My Money' },
+        { href: '/staff/leave',   icon: 'calendar-days', label: 'Leaves' },
         { href: '/staff/profile', icon: 'user',      label: 'Profile' },
       ],
 

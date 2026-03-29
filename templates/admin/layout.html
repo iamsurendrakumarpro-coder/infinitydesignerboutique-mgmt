@@ -6,33 +6,32 @@
 <div class="flex h-full min-h-screen" x-data="adminLayout()" x-cloak>
 
   <!-- -- Desktop Sidebar ------------------------------------------------- -->
-  <aside class="hidden lg:flex flex-col border-r border-gray-200 bg-white transition-all duration-300"
+  <aside class="hidden lg:flex flex-col border-r border-gray-200 boutique-sidebar transition-all duration-300"
          :class="sidebarOpen ? 'w-64' : 'w-20'">
 
     <!-- Brand Header -->
-    <div class="flex items-center gap-3 border-b border-gray-100 px-4 py-5">
-      <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white"
-           x-html="renderIcon('scissors', 'h-5 w-5')"></div>
+    <div class="flex items-center gap-2.5 border-b border-gray-100 px-3 py-3">
+      <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-600 text-white"
+           x-html="renderIcon('scissors', 'h-4 w-4')"></div>
       <div x-show="sidebarOpen" x-transition.opacity class="min-w-0">
-        <p class="truncate text-sm font-bold text-gray-900">Infinity Designer</p>
-        <p class="truncate text-xs text-gray-400">Boutique Manager</p>
+        <p class="truncate text-xs font-bold text-gray-800">Infinity Designer</p>
+        <p class="truncate text-[10px] text-gray-400">Boutique Manager</p>
       </div>
     </div>
 
-    <!-- Nav Items -->
-    <nav class="flex-1 space-y-1 px-3 py-4">
+    <nav class="flex-1 space-y-0.5 px-2 py-3">
       <template x-for="item in navItems" :key="item.href">
         <a :href="item.href"
-           class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all"
+           class="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-xs font-medium transition-all"
            :class="isActive(item.href)
-             ? 'bg-brand-50 text-brand-700 shadow-sm ring-1 ring-brand-100'
-             : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'">
-          <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
-                :class="isActive(item.href) ? 'bg-brand-100 text-brand-600' : 'bg-gray-100 text-gray-500'"
-                x-html="renderIcon(item.icon, 'h-5 w-5')"></span>
+             ? 'bg-brand-50 text-brand-700 ring-1 ring-brand-100'
+             : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'">
+          <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md"
+                :class="isActive(item.href) ? 'bg-brand-100 text-brand-600' : 'bg-gray-50 text-gray-400'"
+                x-html="renderIcon(item.icon, 'h-3.5 w-3.5')"></span>
           <span x-show="sidebarOpen" x-transition.opacity class="truncate" x-text="item.label"></span>
           <span x-show="sidebarOpen && item.badge > 0" x-transition
-                class="ml-auto inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white"
+                class="ml-auto inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-red-500 px-1 text-[8px] font-bold text-white"
                 x-text="item.badge"></span>
         </a>
       </template>
@@ -40,25 +39,25 @@
 
     <!-- Collapse Toggle -->
     <button @click="sidebarOpen = !sidebarOpen"
-            class="mx-3 mb-3 flex items-center justify-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-500 transition-colors hover:bg-gray-50">
-      <svg class="h-4 w-4 transition-transform" :class="sidebarOpen || 'rotate-180'" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            class="mx-2 mb-2 flex items-center justify-center gap-1.5 rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-400 transition-colors hover:bg-gray-50">
+      <svg class="h-3.5 w-3.5 transition-transform" :class="sidebarOpen || 'rotate-180'" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/>
       </svg>
-      <span x-show="sidebarOpen" x-transition.opacity>Collapse</span>
+      <span x-show="sidebarOpen" x-transition.opacity class="text-[10px]">Collapse</span>
     </button>
 
     <!-- User Footer -->
-    <div class="border-t border-gray-100 p-3">
-      <div class="flex items-center gap-3 rounded-xl bg-gray-50 px-3 py-2.5">
-        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-600 text-sm font-bold text-white"
-             x-text="userInitials"></div>
+    <div class="border-t border-gray-100 p-2">
+      <div class="flex items-center gap-2 rounded-md bg-gray-50 px-2.5 py-2">
+        <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-brand-600 text-white"
+             x-html="renderIcon('user', 'h-3.5 w-3.5')"></div>
         <div x-show="sidebarOpen" x-transition.opacity class="min-w-0 flex-1">
-          <p class="truncate text-sm font-semibold text-gray-800" x-text="userName"></p>
-          <p class="text-xs text-gray-400">Admin</p>
+          <p class="truncate text-xs font-semibold text-gray-700" x-text="userName"></p>
+          <p class="text-[10px] text-gray-400">Admin</p>
         </div>
         <button x-show="sidebarOpen" @click="doLogout()" title="Logout"
-                class="shrink-0 rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500">
-          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                class="shrink-0 rounded-md p-1 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500">
+          <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9"/>
           </svg>
         </button>
@@ -69,109 +68,60 @@
   <!-- -- Main Content Area ----------------------------------------------- -->
   <div class="flex flex-1 flex-col min-w-0">
 
-    <!-- Top Header (Mobile + Desktop) -->
-    <header class="sticky top-0 z-30 flex items-center justify-between border-b border-gray-200 bg-white/80 backdrop-blur-md px-4 py-3 lg:px-6">
-      <!-- Mobile Menu Button -->
-      <button @click="mobileMenuOpen = true" class="lg:hidden rounded-lg p-2 text-gray-500 hover:bg-gray-100">
-        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/>
-        </svg>
-      </button>
-
-      <div class="flex items-center gap-2">
-        <span class="text-lg font-bold text-brand-700 hidden sm:inline">Infinity Designer Boutique</span>
-        <span class="text-lg font-bold text-brand-700 sm:hidden">IDB</span>
+    <!-- Mobile Header (glass) -->
+    <header class="mobile-header sticky top-0 z-30 lg:hidden">
+      <div class="flex items-center justify-between px-4 py-2.5">
+        <div class="flex items-center gap-2.5">
+          <div class="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-600 text-white text-sm">✂️</div>
+          <div>
+            <p class="text-sm font-bold text-gray-900 leading-tight">Infinity</p>
+            <p class="text-[10px] text-gray-400 -mt-0.5">Designer Boutique</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-medium text-gray-500 hidden sm:inline" x-text="userName"></span>
+          <button @click="doLogout()" title="Logout"
+                  class="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9"/>
+            </svg>
+          </button>
+        </div>
       </div>
-
-        <!-- Removed user avatar and logout button from top nav -->
     </header>
 
-    <!-- Page Content -->
-    <main class="flex-1 overflow-y-auto p-4 pb-24 lg:p-6 lg:pb-6">
-      {% block page_content %}{% endblock %}
-    </main>
-  </div>
-
-  <!-- -- Mobile Bottom Navigation ---------------------------------------- -->
-  <nav class="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 backdrop-blur-md lg:hidden safe-area-bottom">
-    <div class="grid grid-cols-5 gap-0">
-      <template x-for="item in navItems" :key="item.href">
-        <a :href="item.href"
-           class="relative flex flex-col items-center gap-0.5 py-2 text-[10px] font-medium transition-colors"
-           :class="isActive(item.href)
-             ? 'text-brand-600'
-             : 'text-gray-400 hover:text-gray-600'">
-          <span class="relative" x-html="renderIcon(item.icon, 'h-5 w-5')">
-          </span>
-          <span x-show="item.badge > 0"
-                class="absolute top-1 left-1/2 ml-1.5 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white"
-                x-text="item.badge"></span>
-          <span x-text="item.label"></span>
-          <span x-show="isActive(item.href)"
-                class="absolute top-0 left-1/2 -translate-x-1/2 h-0.5 w-8 rounded-full bg-brand-600"></span>
-        </a>
-      </template>
-    </div>
-  </nav>
-
-  <!-- -- Mobile Sidebar Overlay ------------------------------------------ -->
-  <div x-show="mobileMenuOpen" x-transition.opacity
-       class="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm lg:hidden"
-       @click="mobileMenuOpen = false">
-  </div>
-  <div x-show="mobileMenuOpen"
-       x-transition:enter="transition ease-out duration-300"
-       x-transition:enter-start="-translate-x-full" x-transition:enter-end="translate-x-0"
-       x-transition:leave="transition ease-in duration-200"
-       x-transition:leave-start="translate-x-0" x-transition:leave-end="-translate-x-full"
-       class="fixed inset-y-0 left-0 z-50 w-72 bg-white shadow-xl lg:hidden">
-
-    <div class="flex items-center justify-between border-b border-gray-100 px-4 py-4">
-      <div class="flex items-center gap-3">
-        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 text-white"
-             x-html="renderIcon('scissors', 'h-5 w-5')"></div>
-        <p class="text-sm font-bold text-gray-900">Infinity Designer</p>
-      </div>
-      <button @click="mobileMenuOpen = false" class="rounded-lg p-2 text-gray-400 hover:bg-gray-100">
-        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-        </svg>
-      </button>
-    </div>
-
-    <nav class="space-y-1 px-3 py-4">
-      <template x-for="item in navItems" :key="item.href">
-        <a :href="item.href" @click="mobileMenuOpen = false"
-           class="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-all"
-           :class="isActive(item.href)
-             ? 'bg-brand-50 text-brand-700'
-             : 'text-gray-600 hover:bg-gray-50'">
-          <span :class="isActive(item.href) ? 'text-brand-600' : 'text-gray-500'"
-                x-html="renderIcon(item.icon, 'h-5 w-5')"></span>
-          <span x-text="item.label"></span>
-          <span x-show="item.badge > 0"
-                class="ml-auto inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white"
-                x-text="item.badge"></span>
-        </a>
-      </template>
-    </nav>
-
-    <div class="absolute inset-x-0 bottom-0 border-t border-gray-100 p-3">
-      <div class="flex items-center gap-3 rounded-xl bg-gray-50 px-3 py-3">
-        <div class="flex h-9 w-9 items-center justify-center rounded-full bg-brand-600 text-sm font-bold text-white"
-             x-text="userInitials"></div>
-        <div class="min-w-0 flex-1">
-          <p class="truncate text-sm font-semibold text-gray-800" x-text="userName"></p>
-          <p class="text-xs text-gray-400">Admin</p>
-        </div>
-        <button @click="doLogout()" class="rounded-lg p-2 text-gray-400 hover:text-red-500">
-          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+    <!-- Desktop Header -->
+    <header class="hidden lg:flex sticky top-0 z-30 items-center justify-between border-b border-gray-100 px-5 py-2" style="background:rgba(250,248,246,0.9);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)">
+      <span class="text-xs font-bold text-gray-800">Infinity Designer Boutique</span>
+      <div class="flex items-center gap-2">
+        <span class="text-xs text-gray-500" x-text="userName"></span>
+        <button @click="doLogout()" title="Logout"
+                class="rounded-md p-1 text-gray-400 hover:bg-red-50 hover:text-red-500">
+          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9"/>
           </svg>
         </button>
       </div>
-    </div>
+    </header>
+
+    <!-- Page Content -->
+    <main class="flex-1 overflow-y-auto px-4 pb-24 pt-3 lg:px-6 lg:pb-6 lg:pt-4">
+      {% block page_content %}{% endblock %}
+    </main>
   </div>
+
+  <!-- -- Floating Bottom Navigation (mobile) ----------------------------- -->
+  <nav class="floating-nav lg:hidden">
+    <template x-for="item in navItems" :key="item.href">
+      <a :href="item.href"
+         :class="isActive(item.href) ? 'fnav-active' : ''">
+        <span x-html="renderIcon(item.icon, 'h-5 w-5')"></span>
+        <span class="fnav-label" x-text="item.label"></span>
+        <span x-show="item.badge > 0" class="fnav-badge" x-text="item.badge"></span>
+      </a>
+    </template>
+  </nav>
+
 
 </div>
 {% endblock %}
@@ -181,9 +131,7 @@
   function adminLayout() {
     return {
       sidebarOpen: true,
-      mobileMenuOpen: false,
       userName: '{{ user.full_name|default("Admin") }}',
-      userInitials: 'A',
 
       navItems: [
         { href: '/admin/dashboard',   icon: 'chart-bar',   label: 'Dashboard',   badge: 0 },
@@ -194,15 +142,7 @@
       ],
 
       init() {
-        this.userInitials = this.computeInitials(this.userName);
         this.fetchBadgeCounts();
-      },
-
-      computeInitials(name) {
-        if (!name) return 'A';
-        const parts = name.trim().split(/\s+/);
-        if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-        return parts[0].substring(0, 2).toUpperCase();
       },
 
       isActive(href) {
@@ -213,9 +153,10 @@
 
       async fetchBadgeCounts() {
         try {
-          const [finRes, otRes] = await Promise.all([
+          const [finRes, otRes, leaveRes] = await Promise.all([
             fetch('/api/financial/requests?status=pending', { credentials: 'include' }),
             fetch('/api/overtime/pending', { credentials: 'include' }),
+            fetch('/api/leave/pending-count', { credentials: 'include' }),
           ]);
           let count = 0;
           if (finRes.ok) {
@@ -225,6 +166,10 @@
           if (otRes.ok) {
             const otData = await otRes.json();
             count += (otData.records || otData.data || []).length;
+          }
+          if (leaveRes.ok) {
+            const leaveData = await leaveRes.json();
+            count += Number(leaveData.count || 0);
           }
           const approvalItem = this.navItems.find(i => i.href === '/admin/approvals');
           if (approvalItem) approvalItem.badge = count;

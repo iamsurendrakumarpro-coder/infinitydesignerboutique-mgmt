@@ -1,0 +1,347 @@
+{% extends "staff/layout.html" %}
+
+{% block page_title %}Leaves{% endblock %}
+
+{% block page_content %}
+<div x-data="staffLeavePage()" x-init="init()" x-cloak>
+
+  <div class="mb-3">
+    <h1 class="text-sm font-semibold text-gray-800">Leave Management</h1>
+    <p class="text-[11px] text-gray-400">Apply and track leave requests</p>
+  </div>
+
+  <div class="mb-3 rounded-lg bg-white p-3 ring-1 ring-gray-100">
+    <h2 class="mb-2 text-xs font-semibold text-gray-800">Apply for Leave</h2>
+
+    <div class="grid grid-cols-2 gap-2">
+      <div class="col-span-2">
+        <label class="mb-1 block text-[10px] font-medium uppercase text-gray-400">Leave Type</label>
+        <select x-model="leaveType"
+                class="w-full rounded-md border border-gray-200 bg-white px-2.5 py-2 text-xs text-gray-700 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+          <option value="full_day">Full Day</option>
+          <option value="half_day">Half Day</option>
+          <option value="multiple_days">Multiple Days</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="mb-1 block text-[10px] font-medium uppercase text-gray-400">Start Date</label>
+        <input type="date" x-model="startDate" :min="todayDate"
+               class="w-full rounded-md border border-gray-200 bg-white px-2.5 py-2 text-xs text-gray-700 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+      </div>
+
+      <div x-show="leaveType === 'multiple_days'">
+        <label class="mb-1 block text-[10px] font-medium uppercase text-gray-400">End Date</label>
+        <input type="date" x-model="endDate" :min="startDate || todayDate"
+               class="w-full rounded-md border border-gray-200 bg-white px-2.5 py-2 text-xs text-gray-700 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+      </div>
+
+      <div x-show="leaveType === 'half_day'">
+        <label class="mb-1 block text-[10px] font-medium uppercase text-gray-400">Half Day Slot</label>
+        <select x-model="halfDayPeriod"
+                class="w-full rounded-md border border-gray-200 bg-white px-2.5 py-2 text-xs text-gray-700 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+          <option value="morning">Morning</option>
+          <option value="afternoon">Afternoon</option>
+        </select>
+      </div>
+
+      <div class="col-span-2">
+        <label class="mb-1 block text-[10px] font-medium uppercase text-gray-400">Reason</label>
+        <textarea x-model="reason" rows="3" maxlength="500" placeholder="Enter reason for leave"
+                  class="w-full rounded-md border border-gray-200 bg-white px-2.5 py-2 text-xs text-gray-700 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20"></textarea>
+        <p class="mt-1 text-[10px] text-gray-400"><span x-text="reason.length"></span>/500</p>
+      </div>
+    </div>
+
+    <div class="mt-2.5 flex items-center justify-between rounded-md bg-gray-50 px-2.5 py-2">
+      <div>
+        <p class="text-[10px] text-gray-400">Duration</p>
+        <p class="text-xs font-semibold text-gray-700" x-text="leaveDurationLabel()"></p>
+      </div>
+      <button @click="submitLeave()" :disabled="submitting"
+              class="inline-flex items-center gap-1 rounded-md bg-brand-600 px-3 py-1.5 text-[11px] font-semibold text-white transition-all hover:bg-brand-700 disabled:opacity-60">
+        <span x-show="!submitting">Submit Request</span>
+        <span x-show="submitting">Submitting...</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="rounded-lg bg-white ring-1 ring-gray-100 overflow-hidden">
+    <div class="flex items-center justify-between border-b border-gray-100 px-3 py-2">
+      <h2 class="text-xs font-semibold text-gray-800">Leave History</h2>
+      <select x-model="statusFilter"
+              class="rounded-md border border-gray-200 bg-white px-2 py-1 text-[10px] text-gray-600 focus:border-brand-300 focus:outline-none">
+        <option value="">All</option>
+        <option value="pending">Pending</option>
+        <option value="approved">Approved</option>
+        <option value="rejected">Rejected</option>
+        <option value="cancelled">Cancelled</option>
+      </select>
+    </div>
+
+    <div x-show="loading" class="py-8 text-center">
+      <div class="spinner spinner-sm mx-auto"></div>
+    </div>
+
+    <div x-show="!loading && filteredRequests.length === 0" class="py-8 text-center">
+      <p class="text-xs font-medium text-gray-500">No leave requests found</p>
+      <p class="mt-1 text-[11px] text-gray-400">Your requests will appear here</p>
+    </div>
+
+    <div x-show="!loading && filteredRequests.length > 0" class="divide-y divide-gray-50">
+      <template x-for="req in filteredRequests" :key="req.id || req.request_id">
+        <div class="px-3 py-2.5">
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <div class="flex items-center gap-1.5">
+                <p class="text-xs font-semibold text-gray-800" x-text="formatLeaveType(req)"></p>
+                <span class="inline-flex rounded-md px-1.5 py-0.5 text-[9px] font-semibold"
+                      :class="statusClass(req.status)"
+                      x-text="(req.status || '').toUpperCase()"></span>
+              </div>
+              <p class="mt-0.5 text-[11px] text-gray-500" x-text="formatDateRange(req)"></p>
+            </div>
+            <button x-show="req.status === 'pending'" @click="cancelLeave(req)"
+                    class="rounded-md bg-red-50 px-2 py-1 text-[10px] font-medium text-red-600 transition-all hover:bg-red-100">
+              Cancel
+            </button>
+          </div>
+
+          <p class="mt-1.5 text-[11px] text-gray-700" x-text="req.reason || '-'" style="white-space: pre-wrap;"></p>
+
+          <p x-show="req.admin_notes" class="mt-1.5 rounded-md bg-gray-50 px-2 py-1.5 text-[10px] text-gray-600">
+            <span class="font-semibold text-gray-500">Admin Notes:</span>
+            <span x-text="req.admin_notes"></span>
+          </p>
+
+          <p class="mt-1 text-[10px] text-gray-400">
+            Requested: <span x-text="formatDateTime(req.created_at)"></span>
+          </p>
+        </div>
+      </template>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+  function staffLeavePage() {
+    return {
+      todayDate: '',
+      leaveType: 'full_day',
+      startDate: '',
+      endDate: '',
+      halfDayPeriod: 'morning',
+      reason: '',
+      submitting: false,
+      loading: true,
+      statusFilter: '',
+      requests: [],
+
+      get filteredRequests() {
+        if (!this.statusFilter) return this.requests;
+        return this.requests.filter(r => r.status === this.statusFilter);
+      },
+
+      init() {
+        this.todayDate = this.getTodayDate();
+        this.startDate = this.todayDate;
+        this.endDate = this.todayDate;
+        this.loadRequests();
+      },
+
+      getTodayDate() {
+        const now = new Date();
+        const tzOffset = now.getTimezoneOffset() * 60000;
+        return new Date(now.getTime() - tzOffset).toISOString().slice(0, 10);
+      },
+
+      leaveDurationLabel() {
+        if (this.leaveType === 'half_day') {
+          return '0.5 day (' + (this.halfDayPeriod === 'morning' ? 'Morning' : 'Afternoon') + ')';
+        }
+        if (this.leaveType === 'full_day') {
+          return '1 day';
+        }
+        if (!this.startDate || !this.endDate) {
+          return '-';
+        }
+        const s = new Date(this.startDate);
+        const e = new Date(this.endDate);
+        if (isNaN(s) || isNaN(e) || e < s) {
+          return '-';
+        }
+        const days = Math.round((e - s) / 86400000) + 1;
+        return days + (days === 1 ? ' day' : ' days');
+      },
+
+      async loadRequests() {
+        this.loading = true;
+        try {
+          const res = await fetch('/api/leave/requests', { credentials: 'include' });
+          if (res.ok) {
+            const data = await res.json();
+            const rows = data.leaves || [];
+            this.requests = rows.sort((a, b) => {
+              const aTime = new Date(a.created_at || 0).getTime();
+              const bTime = new Date(b.created_at || 0).getTime();
+              return bTime - aTime;
+            });
+          } else {
+            const err = await res.json().catch(() => ({}));
+            dispatchToast('error', 'Error', err.error || 'Failed to load leave requests');
+          }
+        } catch (e) {
+          dispatchToast('error', 'Network Error', 'Could not reach the server');
+        } finally {
+          this.loading = false;
+        }
+      },
+
+      async submitLeave() {
+        if (this.submitting) return;
+
+        const reason = (this.reason || '').trim();
+        if (!this.startDate) {
+          dispatchToast('error', 'Validation', 'Start date is required');
+          return;
+        }
+        if (!reason) {
+          dispatchToast('error', 'Validation', 'Reason is required');
+          return;
+        }
+        if (this.leaveType === 'multiple_days') {
+          if (!this.endDate) {
+            dispatchToast('error', 'Validation', 'End date is required for multiple days leave');
+            return;
+          }
+          if (this.endDate <= this.startDate) {
+            dispatchToast('error', 'Validation', 'End date must be after start date for multiple days leave');
+            return;
+          }
+        }
+
+        this.submitting = true;
+        try {
+          const payload = {
+            leave_type: this.leaveType,
+            start_date: this.startDate,
+            reason: reason,
+          };
+          if (this.leaveType === 'multiple_days') {
+            payload.end_date = this.endDate;
+          }
+          if (this.leaveType === 'half_day') {
+            payload.half_day_period = this.halfDayPeriod;
+          }
+
+          const res = await fetch('/api/leave/requests', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+
+          if (res.ok) {
+            dispatchToast('success', 'Submitted', 'Leave request submitted successfully');
+            this.leaveType = 'full_day';
+            this.startDate = this.todayDate;
+            this.endDate = this.todayDate;
+            this.halfDayPeriod = 'morning';
+            this.reason = '';
+            await this.loadRequests();
+          } else {
+            const err = await res.json().catch(() => ({}));
+            dispatchToast('error', 'Error', err.error || 'Failed to submit leave request');
+          }
+        } catch (e) {
+          dispatchToast('error', 'Network Error', 'Could not reach the server');
+        } finally {
+          this.submitting = false;
+        }
+      },
+
+      async cancelLeave(req) {
+        if (!req || req.status !== 'pending') return;
+        if (!confirm('Cancel this pending leave request?')) return;
+
+        const id = req.id || req.request_id;
+        if (!id) return;
+
+        try {
+          const res = await fetch('/api/leave/requests/' + id, {
+            method: 'DELETE',
+            credentials: 'include',
+          });
+          if (res.ok) {
+            dispatchToast('success', 'Cancelled', 'Leave request cancelled');
+            await this.loadRequests();
+          } else {
+            const err = await res.json().catch(() => ({}));
+            dispatchToast('error', 'Error', err.error || 'Failed to cancel leave request');
+          }
+        } catch (e) {
+          dispatchToast('error', 'Network Error', 'Could not reach the server');
+        }
+      },
+
+      formatLeaveType(req) {
+        const t = req.leave_type;
+        if (t === 'half_day') {
+          const slot = req.half_day_period === 'morning' ? 'AM' : 'PM';
+          return 'Half Day (' + slot + ')';
+        }
+        if (t === 'multiple_days') {
+          return (req.total_days || 0) + ' Day Leave';
+        }
+        return 'Full Day Leave';
+      },
+
+      formatDateRange(req) {
+        const s = this.formatDate(req.start_date);
+        const e = this.formatDate(req.end_date);
+        if (!req.start_date || !req.end_date) return '-';
+        if (req.start_date === req.end_date) return s;
+        return s + ' to ' + e;
+      },
+
+      formatDate(value) {
+        if (!value) return '-';
+        try {
+          return new Date(value).toLocaleDateString('en-IN', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+          });
+        } catch (e) {
+          return value;
+        }
+      },
+
+      formatDateTime(value) {
+        if (!value) return '-';
+        try {
+          return new Date(value).toLocaleString('en-IN', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+        } catch (e) {
+          return value;
+        }
+      },
+
+      statusClass(status) {
+        if (status === 'approved') return 'bg-green-100 text-green-700';
+        if (status === 'rejected') return 'bg-red-100 text-red-700';
+        if (status === 'cancelled') return 'bg-gray-100 text-gray-600';
+        return 'bg-amber-100 text-amber-700';
+      },
+    };
+  }
+</script>
+{% endblock %}

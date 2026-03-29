@@ -6,266 +6,226 @@
 <div x-data="staffForm()" x-init="init()" x-cloak>
 
   <!-- Header -->
-  <div class="mb-6 flex items-center gap-3">
-    <a href="/admin/staff"
-       class="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 text-gray-500 transition-colors hover:bg-gray-50">
-      <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/>
-      </svg>
-    </a>
-    <div>
-      <h1 class="text-2xl font-bold text-gray-900" x-text="mode === 'edit' ? '✏️ Edit Staff' : '➕ Add New Staff'"></h1>
-      <p class="text-sm text-gray-400" x-text="mode === 'edit' ? 'Update staff details' : 'Register a new team member'"></p>
-    </div>
-  </div>
-
-  <!-- Loading (edit mode) -->
-  <div x-show="fetchingData" class="py-20 text-center">
-    <svg class="mx-auto h-10 w-10 animate-spin text-brand-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-    </svg>
-    <p class="mt-3 text-sm text-gray-400">Loading staff details...</p>
-  </div>
-
-  <!-- Form -->
-  <form x-show="!fetchingData" @submit.prevent="submitForm()" class="space-y-6">
-
-    <div class="grid gap-6 lg:grid-cols-2">
-      <!-- Left Column -->
-      <div class="space-y-5">
-
-        <!-- Personal Information Card -->
-        <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 sm:p-6">
-          <h2 class="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-gray-400">
-            <span>👤</span> Personal Information
-          </h2>
-
-          <!-- Full Name -->
-          <div class="mb-4">
-            <label class="mb-1.5 block text-sm font-medium text-gray-700">Full Name <span class="text-red-400">*</span></label>
-            <input type="text" x-model="form.full_name" required
-                   placeholder="e.g. Ravi Kumar"
-                   class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
-            <p x-show="errors.full_name" class="mt-1 text-xs text-red-500" x-text="errors.full_name"></p>
-          </div>
-
-          <!-- Phone Number -->
-          <div class="mb-4">
-            <label class="mb-1.5 block text-sm font-medium text-gray-700">Phone Number (Login ID) <span class="text-red-400">*</span></label>
-            <div class="relative">
-              <span class="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400">+91</span>
-              <input type="tel" inputmode="numeric" x-model="form.phone_number" required
-                     maxlength="10"
-                     @input="form.phone_number = form.phone_number.replace(/\D/g, '').slice(0, 10)"
-                     placeholder="10-digit number"
-                     class="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-14 pr-4 text-sm text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
-            </div>
-            <p class="mt-1 text-xs text-gray-400" x-text="form.phone_number.length + '/10 digits'"></p>
-            <p x-show="errors.phone_number" class="mt-1 text-xs text-red-500" x-text="errors.phone_number"></p>
-          </div>
-
-          <!-- Default PIN (Create only) -->
-          <div x-show="mode === 'create'" class="mb-4">
-            <label class="mb-1.5 block text-sm font-medium text-gray-700">Default PIN <span class="text-red-400">*</span></label>
-            <input type="text" inputmode="numeric" x-model="form.pin" maxlength="4"
-                   @input="form.pin = form.pin.replace(/\D/g, '').slice(0, 4)"
-                   placeholder="4-digit PIN"
-                   class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm tracking-[0.3em] text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
-            <p class="mt-1 text-xs text-gray-400">Staff will use this PIN to login</p>
-            <p x-show="errors.pin" class="mt-1 text-xs text-red-500" x-text="errors.pin"></p>
-          </div>
-
-          <!-- Emergency Contact -->
-          <div>
-            <label class="mb-1.5 block text-sm font-medium text-gray-700">Emergency Contact <span class="text-red-400">*</span></label>
-            <input type="tel" inputmode="numeric" x-model="form.emergency_contact" maxlength="10"
-                   @input="form.emergency_contact = form.emergency_contact.replace(/\D/g, '').slice(0, 10)"
-                   placeholder="10-digit emergency number"
-                   class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
-            <p x-show="errors.emergency_contact" class="mt-1 text-xs text-red-500" x-text="errors.emergency_contact"></p>
-          </div>
-        </div>
-
-        <!-- Skills Card -->
-        <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 sm:p-6">
-          <h2 class="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-gray-400">
-            <span>🎯</span> Skills
-          </h2>
-
-          <div class="mb-3 flex flex-wrap gap-2">
-            <template x-for="(skill, idx) in form.skills" :key="idx">
-              <span class="inline-flex items-center gap-1 rounded-full bg-brand-100 px-3 py-1 text-xs font-semibold text-brand-700">
-                <span x-text="skill"></span>
-                <button type="button" @click="form.skills.splice(idx, 1)"
-                        class="ml-0.5 rounded-full p-0.5 transition-colors hover:bg-brand-200">
-                  <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-                  </svg>
-                </button>
-              </span>
-            </template>
-          </div>
-
-          <div class="relative">
-            <input type="text" x-model="skillInput"
-                   @keydown.enter.prevent="addSkill()"
-                   @keydown.comma.prevent="addSkill()"
-                   placeholder="Type a skill and press Enter (e.g. Zardosi, Blouse Cutting)"
-                   class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
-          </div>
-          <p class="mt-1 text-xs text-gray-400">Press Enter or comma to add each skill</p>
-        </div>
-      </div>
-
-      <!-- Right Column -->
-      <div class="space-y-5">
-
-        <!-- Work Details Card -->
-        <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 sm:p-6">
-          <h2 class="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-gray-400">
-            <span>💼</span> Work Details
-          </h2>
-
-          <!-- Hidden role field -->
-          <input type="hidden" x-model="form.role" value="staff">
-
-          <!-- Designation -->
-          <div class="mb-4">
-            <label class="mb-1.5 block text-sm font-medium text-gray-700">Designation <span class="text-red-400">*</span></label>
-            <select x-model="form.designation" required
-                    class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
-              <option value="">Select designation...</option>
-              <template x-for="key in designationKeys" :key="key">
-                <option :value="key" x-text="designationLabels[key] || key"></option>
-              </template>
-            </select>
-            <p x-show="errors.designation" class="mt-1 text-xs text-red-500" x-text="errors.designation"></p>
-          </div>
-
-          <!-- Joining Date -->
-          <div class="mb-4">
-            <label class="mb-1.5 block text-sm font-medium text-gray-700">Joining Date <span class="text-red-400">*</span></label>
-            <input type="date" x-model="form.joining_date" required
-                   class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
-            <p x-show="errors.joining_date" class="mt-1 text-xs text-red-500" x-text="errors.joining_date"></p>
-          </div>
-
-          <!-- Working Hours -->
-          <div class="mb-4 grid grid-cols-2 gap-3">
-            <div>
-              <label class="mb-1.5 block text-sm font-medium text-gray-700">Login Time <span class="text-red-400">*</span></label>
-              <input type="time" x-model="form.standard_login_time" required
-                     class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
-            </div>
-            <div>
-              <label class="mb-1.5 block text-sm font-medium text-gray-700">Logout Time <span class="text-red-400">*</span></label>
-              <input type="time" x-model="form.standard_logout_time" required
-                     class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
-            </div>
-          </div>
-
-          <!-- Status -->
-          <!-- Status field removed for user creation -->
-        </div>
-
-        <!-- Salary Card -->
-        <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 sm:p-6">
-          <h2 class="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-gray-400">
-            <span>💰</span> Salary
-          </h2>
-
-          <!-- Salary Type Toggle -->
-          <div class="mb-4">
-            <label class="mb-1.5 block text-sm font-medium text-gray-700">Salary Type <span class="text-red-400">*</span></label>
-            <div class="flex rounded-xl bg-gray-100 p-1">
-              <button type="button" @click="form.salary_type = 'weekly'; form.settlement_cycle = 'weekly'"
-                      class="flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition-all"
-                      :class="form.salary_type === 'weekly'
-                        ? 'bg-white text-gray-800 shadow-sm'
-                        : 'text-gray-500 hover:text-gray-700'">
-                Weekly
-              </button>
-              <button type="button" @click="form.salary_type = 'monthly'; form.settlement_cycle = 'monthly'"
-                      class="flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition-all"
-                      :class="form.salary_type === 'monthly'
-                        ? 'bg-white text-gray-800 shadow-sm'
-                        : 'text-gray-500 hover:text-gray-700'">
-                Monthly
-              </button>
-            </div>
-          </div>
-
-          <!-- Weekly Salary (shown when salary_type is weekly) -->
-          <div x-show="form.salary_type === 'weekly'" class="mb-4">
-            <label class="mb-1.5 block text-sm font-medium text-gray-700">Weekly Salary <span class="text-red-400">*</span></label>
-            <div class="relative">
-              <span class="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400">₹</span>
-              <input type="number" x-model.number="form.weekly_salary" min="0" step="1"
-                     placeholder="e.g. 6000"
-                     class="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-10 pr-4 text-sm text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
-            </div>
-            <p x-show="errors.weekly_salary" class="mt-1 text-xs text-red-500" x-text="errors.weekly_salary"></p>
-          </div>
-
-          <!-- Monthly Salary (shown when salary_type is monthly) -->
-          <div x-show="form.salary_type === 'monthly'" class="mb-4">
-            <label class="mb-1.5 block text-sm font-medium text-gray-700">Monthly Salary <span class="text-red-400">*</span></label>
-            <div class="relative">
-              <span class="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400">₹</span>
-              <input type="number" x-model.number="form.monthly_salary" min="0" step="1"
-                     placeholder="e.g. 25000"
-                     class="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-10 pr-4 text-sm text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
-            </div>
-            <p x-show="errors.monthly_salary" class="mt-1 text-xs text-red-500" x-text="errors.monthly_salary"></p>
-          </div>
-
-          <!-- Settlement Cycle -->
-          <div class="mb-4">
-            <label class="mb-1.5 block text-sm font-medium text-gray-700">Settlement Cycle</label>
-            <select x-model="form.settlement_cycle"
-                    class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
-              <option value="weekly">Weekly</option>
-              <option value="monthly">Monthly</option>
-            </select>
-            <p class="mt-1 text-xs text-gray-400">When settlements are generated for this staff</p>
-          </div>
-
-          <!-- Daily Salary (Auto-calculated) -->
-          <div class="rounded-xl bg-brand-50 p-4 ring-1 ring-brand-100">
-            <div class="flex items-center justify-between">
-              <div>
-                <p class="text-xs font-medium text-brand-600">Daily Salary (auto-calculated)</p>
-                <p class="text-sm text-brand-500" x-text="form.salary_type === 'monthly' ? 'Monthly / 26 working days' : 'Weekly / 6 working days'"></p>
-              </div>
-              <p class="text-2xl font-bold text-brand-700">
-                ₹<span x-text="form.salary_type === 'monthly'
-                  ? (form.monthly_salary ? Math.round(form.monthly_salary / 26).toLocaleString('en-IN') : '-')
-                  : (form.weekly_salary ? Math.round(form.weekly_salary / 6).toLocaleString('en-IN') : '-')"></span>
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Submit Button Row -->
-    <div class="flex items-center justify-end gap-3 border-t border-gray-200 pt-5">
+  <div class="mb-4 flex items-center justify-between gap-2.5">
+    <div class="flex items-center gap-2.5">
       <a href="/admin/staff"
-         class="rounded-xl border border-gray-200 px-6 py-3 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50">
-        Cancel
-      </a>
-      <button type="submit" :disabled="submitting"
-              class="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-brand-600/20 transition-all hover:bg-brand-700 active:scale-95 disabled:opacity-50">
-        <svg x-show="submitting" class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+         class="flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 text-gray-500 transition-colors hover:bg-gray-50">
+        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/>
         </svg>
-        <span x-text="submitting ? 'Saving...' : (mode === 'edit' ? 'Update Staff' : 'Create Staff')"></span>
-      </button>
+      </a>
+      <div>
+        <h1 class="text-sm font-semibold text-gray-900" x-text="mode === 'edit' ? 'Edit Staff' : 'Add New Staff'"></h1>
+        <p class="text-xs text-gray-400" x-text="mode === 'edit' ? 'Update staff profile details' : 'Create staff profile'"></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="mx-auto max-w-6xl">
+    <!-- Loading (edit mode) -->
+    <div x-show="fetchingData" class="py-16 text-center">
+      <svg class="mx-auto h-8 w-8 animate-spin text-brand-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+      </svg>
+      <p class="mt-2 text-xs text-gray-400">Loading staff details...</p>
     </div>
 
-  </form>
+    <!-- Form -->
+    <form x-show="!fetchingData" @submit.prevent="submitForm()" class="space-y-3">
+
+      <div class="grid gap-3 lg:grid-cols-2">
+        <!-- Left Column -->
+        <div class="space-y-3">
+
+          <!-- Personal Information Card -->
+          <div class="rounded-lg bg-white p-3 ring-1 ring-gray-100 sm:p-4">
+            <h2 class="mb-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+              Personal Information
+            </h2>
+
+            <!-- Full Name -->
+            <div class="mb-2.5">
+              <label class="mb-1 block text-[11px] font-medium text-gray-700">Full Name <span class="text-red-400">*</span></label>
+              <input type="text" x-model="form.full_name" required
+                     placeholder="e.g. Ravi Kumar"
+                     class="w-full rounded-md border border-gray-200 bg-gray-50 px-2.5 py-2 text-xs text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+              <p x-show="errors.full_name" class="mt-1 text-xs text-red-500" x-text="errors.full_name"></p>
+            </div>
+
+            <!-- Phone Number -->
+            <div class="mb-2.5">
+              <label class="mb-1 block text-[11px] font-medium text-gray-700">Phone Number (Login ID) <span class="text-red-400">*</span></label>
+              <div class="relative">
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400">+91</span>
+                <input type="tel" inputmode="numeric" x-model="form.phone_number" required
+                       maxlength="10"
+                       @input="form.phone_number = form.phone_number.replace(/\D/g, '').slice(0, 10)"
+                       placeholder="10-digit number"
+                       class="w-full rounded-md border border-gray-200 bg-gray-50 py-2 pl-10 pr-3 text-xs text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+              </div>
+              <p class="mt-1 text-[10px] text-gray-400" x-text="form.phone_number.length + '/10 digits'"></p>
+              <p x-show="errors.phone_number" class="mt-1 text-xs text-red-500" x-text="errors.phone_number"></p>
+            </div>
+
+            <!-- Default PIN (Create only) -->
+            <div x-show="mode === 'create'" class="mb-2.5">
+              <label class="mb-1 block text-[11px] font-medium text-gray-700">Default PIN <span class="text-red-400">*</span></label>
+              <input type="text" inputmode="numeric" x-model="form.pin" maxlength="4"
+                     @input="form.pin = form.pin.replace(/\D/g, '').slice(0, 4)"
+                     placeholder="4-digit PIN"
+                     class="w-full rounded-md border border-gray-200 bg-gray-50 px-2.5 py-2 text-xs tracking-[0.3em] text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+              <p class="mt-1 text-[10px] text-gray-400">Used by staff for first login.</p>
+              <p x-show="errors.pin" class="mt-1 text-xs text-red-500" x-text="errors.pin"></p>
+            </div>
+
+            <!-- Emergency Contact -->
+            <div>
+              <label class="mb-1 block text-[11px] font-medium text-gray-700">Emergency Contact <span class="text-red-400">*</span></label>
+              <div class="relative">
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400">+91</span>
+                <input type="tel" inputmode="numeric" x-model="form.emergency_contact" required maxlength="10"
+                       @input="form.emergency_contact = form.emergency_contact.replace(/\D/g, '').slice(0, 10)"
+                       placeholder="10-digit number"
+                       class="w-full rounded-md border border-gray-200 bg-gray-50 py-2 pl-10 pr-3 text-xs text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+              </div>
+              <p class="mt-1 text-[10px] text-gray-400">Required for staff record and emergency outreach.</p>
+              <p x-show="errors.emergency_contact" class="mt-1 text-xs text-red-500" x-text="errors.emergency_contact"></p>
+            </div>
+
+            <!-- Govt Proof -->
+            <div class="mt-2.5">
+              <label class="mb-1 block text-[11px] font-medium text-gray-700">
+                Govt Proof Attachment
+                <span x-show="mode === 'create'" class="text-red-400">*</span>
+              </label>
+              <div class="flex flex-wrap gap-2">
+                <label class="inline-flex cursor-pointer items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-[11px] font-medium text-gray-700 hover:bg-gray-100">
+                  <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 16.5V19a2 2 0 002 2h14a2 2 0 002-2v-2.5M7 10l5 5m0 0l5-5m-5 5V3"/></svg>
+                  Upload File
+                  <input type="file" class="hidden" accept="image/*,application/pdf" @change="handleGovtProofSelect($event)">
+                </label>
+                <label class="inline-flex cursor-pointer items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-[11px] font-medium text-gray-700 hover:bg-gray-100">
+                  <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h4l2-2h6l2 2h4v12H3V7zm9 9a4 4 0 100-8 4 4 0 000 8z"/></svg>
+                  Take Photo
+                  <input type="file" class="hidden" accept="image/*" capture="environment" @change="handleGovtProofSelect($event)">
+                </label>
+              </div>
+              <p class="mt-1 text-[10px] text-gray-400" x-text="govtProofName || (mode === 'create' ? 'Upload ID card, Aadhaar, PAN, or similar document' : 'Upload to replace current proof')"></p>
+              <p x-show="errors.govt_proof" class="mt-1 text-xs text-red-500" x-text="errors.govt_proof"></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column -->
+        <div class="space-y-3">
+
+          <!-- Work Details Card -->
+          <div class="rounded-lg bg-white p-3 ring-1 ring-gray-100 sm:p-4">
+            <h2 class="mb-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+              Work Details
+            </h2>
+
+            <input type="hidden" x-model="form.role" value="staff">
+
+            <!-- Designation -->
+            <div class="mb-2.5">
+              <label class="mb-1 block text-[11px] font-medium text-gray-700">Designation <span class="text-red-400">*</span></label>
+              <select x-model="form.designation" required
+                      class="w-full rounded-md border border-gray-200 bg-gray-50 px-2.5 py-2 text-xs text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+                <option value="">Select designation...</option>
+                <template x-for="key in designationKeys" :key="key">
+                  <option :value="key" x-text="designationLabels[key] || key"></option>
+                </template>
+              </select>
+              <p x-show="errors.designation" class="mt-1 text-xs text-red-500" x-text="errors.designation"></p>
+            </div>
+
+            <!-- Joining Date -->
+            <div class="mb-2.5">
+              <label class="mb-1 block text-[11px] font-medium text-gray-700">Joining Date <span class="text-red-400">*</span></label>
+              <input type="date" x-model="form.joining_date" required
+                     class="w-full rounded-md border border-gray-200 bg-gray-50 px-2.5 py-2 text-xs text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+              <p x-show="errors.joining_date" class="mt-1 text-[10px] text-red-500" x-text="errors.joining_date"></p>
+            </div>
+
+            <!-- Working Hours -->
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="mb-1 block text-[11px] font-medium text-gray-700">Login Time <span class="text-red-400">*</span></label>
+                <input type="time" x-model="form.standard_login_time" required
+                       class="w-full rounded-md border border-gray-200 bg-gray-50 px-2.5 py-2 text-xs text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+              </div>
+              <div>
+                <label class="mb-1 block text-[11px] font-medium text-gray-700">Logout Time <span class="text-red-400">*</span></label>
+                <input type="time" x-model="form.standard_logout_time" required
+                       class="w-full rounded-md border border-gray-200 bg-gray-50 px-2.5 py-2 text-xs text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+              </div>
+            </div>
+          </div>
+
+          <!-- Salary Card -->
+          <div class="rounded-lg bg-white p-3 ring-1 ring-gray-100 sm:p-4">
+            <h2 class="mb-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+              Compensation
+            </h2>
+
+            <!-- Salary Type -->
+            <div class="mb-2.5">
+              <label class="mb-1 block text-[11px] font-medium text-gray-700">Salary Type <span class="text-red-400">*</span></label>
+              <select x-model="form.salary_type" @change="form.settlement_cycle = form.salary_type"
+                      class="h-9 w-full rounded-md border border-gray-200 bg-gray-50 px-2.5 text-xs text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+              </select>
+            </div>
+
+            <!-- Weekly Salary -->
+            <div x-show="form.salary_type === 'weekly'" class="mb-2.5">
+              <label class="mb-1 block text-[11px] font-medium text-gray-700">Weekly Salary <span class="text-red-400">*</span></label>
+              <div class="relative">
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400">₹</span>
+                <input type="number" x-model.number="form.weekly_salary" min="0" step="1"
+                       placeholder="e.g. 6000"
+                       class="w-full rounded-md border border-gray-200 bg-gray-50 py-2 pl-8 pr-3 text-xs text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+              </div>
+              <p x-show="errors.weekly_salary" class="mt-1 text-xs text-red-500" x-text="errors.weekly_salary"></p>
+            </div>
+
+            <!-- Monthly Salary -->
+            <div x-show="form.salary_type === 'monthly'" class="mb-2.5">
+              <label class="mb-1 block text-[11px] font-medium text-gray-700">Monthly Salary <span class="text-red-400">*</span></label>
+              <div class="relative">
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400">₹</span>
+                <input type="number" x-model.number="form.monthly_salary" min="0" step="1"
+                       placeholder="e.g. 25000"
+                       class="w-full rounded-md border border-gray-200 bg-gray-50 py-2 pl-8 pr-3 text-xs text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+              </div>
+              <p x-show="errors.monthly_salary" class="mt-1 text-xs text-red-500" x-text="errors.monthly_salary"></p>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Submit Button Row -->
+      <div class="flex items-center justify-end gap-2 border-t border-gray-200 pt-4">
+        <a href="/admin/staff"
+           class="rounded-md border border-gray-200 px-4 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50">
+          Cancel
+        </a>
+        <button type="submit" :disabled="submitting"
+                class="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hover:bg-brand-700 active:scale-95 disabled:opacity-50">
+          <svg x-show="submitting" class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+          </svg>
+          <span x-text="submitting ? 'Saving...' : (mode === 'edit' ? 'Update Staff' : 'Create Staff')"></span>
+        </button>
+      </div>
+
+    </form>
+  </div>
 </div>
 {% endblock %}
 
@@ -277,7 +237,8 @@
       staffId: '{{ staff_id|default("") }}',
       fetchingData: false,
       submitting: false,
-      skillInput: '',
+      govtProofFile: null,
+      govtProofName: '',
       errors: {},
 
       designations: [
@@ -305,7 +266,6 @@
         settlement_cycle: 'weekly',
         weekly_salary: '',
         monthly_salary: '',
-        skills: [],
         status: 'active',
       },
 
@@ -324,7 +284,6 @@
             const settings = data.settings || {};
             this.designationKeys = settings.list || [];
             this.designationLabels = settings.labels || {};
-            // Also populate the legacy designations array with labels for backward compatibility
             this.designations = this.designationKeys.map(k => this.designationLabels[k] || k);
           }
         } catch (e) {
@@ -348,10 +307,9 @@
             this.form.standard_logout_time = s.standard_logout_time || '18:30';
             this.form.emergency_contact = s.emergency_contact || '';
             this.form.salary_type = s.salary_type || 'weekly';
-            this.form.settlement_cycle = s.settlement_cycle || this.form.salary_type;
+            this.form.settlement_cycle = s.salary_type || s.settlement_cycle || 'weekly';
             this.form.weekly_salary = s.weekly_salary || '';
             this.form.monthly_salary = s.monthly_salary || '';
-            this.form.skills = Array.isArray(s.skills) ? [...s.skills] : [];
             this.form.status = s.status || 'active';
           } else {
             dispatchToast('error', 'Error', 'Failed to load staff details');
@@ -363,14 +321,6 @@
         }
       },
 
-      addSkill() {
-        const skill = this.skillInput.trim();
-        if (skill && !this.form.skills.includes(skill)) {
-          this.form.skills.push(skill);
-        }
-        this.skillInput = '';
-      },
-
       validate() {
         this.errors = {};
         if (!this.form.full_name.trim()) this.errors.full_name = 'Full name is required';
@@ -379,13 +329,35 @@
         if (!this.form.designation) this.errors.designation = 'Designation is required';
         if (!this.form.joining_date) this.errors.joining_date = 'Joining date is required';
         if (this.form.emergency_contact.length !== 10) this.errors.emergency_contact = 'Emergency contact must be 10 digits';
-        // Salary validation based on salary_type
         if (this.form.salary_type === 'monthly') {
           if (!this.form.monthly_salary || this.form.monthly_salary <= 0) this.errors.monthly_salary = 'Monthly salary is required';
         } else {
           if (!this.form.weekly_salary || this.form.weekly_salary <= 0) this.errors.weekly_salary = 'Weekly salary is required';
         }
+        if (this.mode === 'create' && !this.govtProofFile) {
+          this.errors.govt_proof = 'Govt proof attachment is required';
+        }
         return Object.keys(this.errors).length === 0;
+      },
+
+      handleGovtProofSelect(event) {
+        const file = event && event.target && event.target.files ? event.target.files[0] : null;
+        if (!file) return;
+
+        const maxSize = 10 * 1024 * 1024;
+        const allowed = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+        if (file.size > maxSize) {
+          this.errors.govt_proof = 'File size must be 10MB or less';
+          return;
+        }
+        if (!allowed.includes(file.type)) {
+          this.errors.govt_proof = 'Only JPG, PNG, WEBP or PDF files are allowed';
+          return;
+        }
+
+        this.errors.govt_proof = '';
+        this.govtProofFile = file;
+        this.govtProofName = file.name;
       },
 
       async submitForm() {
@@ -398,8 +370,7 @@
         const isEdit = this.mode === 'edit';
 
         const payload = { ...this.form };
-        // Designation is already a key (fetched from API), no mapping needed
-        // Send pin as temp_pin for create
+        payload.settlement_cycle = payload.salary_type;
         if (!isEdit) {
           payload.temp_pin = this.form.pin;
         }
@@ -413,11 +384,29 @@
             : '/api/users/staff';
           const method = isEdit ? 'PUT' : 'POST';
 
+          let body;
+          let headers = {};
+          if (!isEdit) {
+            const formData = new FormData();
+            Object.keys(payload).forEach((key) => {
+              const value = payload[key];
+              if (value === undefined || value === null) return;
+              formData.append(key, Array.isArray(value) ? JSON.stringify(value) : String(value));
+            });
+            if (this.govtProofFile) {
+              formData.append('govt_proof', this.govtProofFile);
+            }
+            body = formData;
+          } else {
+            headers = { 'Content-Type': 'application/json' };
+            body = JSON.stringify(payload);
+          }
+
           const res = await fetch(url, {
             method,
             credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
+            headers,
+            body,
           });
 
           if (res.ok) {

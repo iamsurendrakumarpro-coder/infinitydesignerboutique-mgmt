@@ -5,23 +5,23 @@
 {% block page_content %}
 <div x-data="myMoney()" x-init="init()" x-cloak>
 
-  <div class="mb-5 flex gap-1 rounded-2xl bg-gray-100 p-1">
+  <div class="mb-4 flex gap-1 rounded-xl bg-gray-50 p-0.5">
     <button @click="tab = 'new'"
-            class="flex-1 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all"
+            class="flex-1 rounded-lg px-2.5 py-2 text-xs font-semibold transition-all"
             :class="tab === 'new'
               ? 'bg-white text-brand-700 shadow-sm'
               : 'text-gray-500 hover:text-gray-700'">
       ➕ New
     </button>
     <button @click="tab = 'history'; fetchRequests()"
-            class="flex-1 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all"
+            class="flex-1 rounded-lg px-2.5 py-2 text-xs font-semibold transition-all"
             :class="tab === 'history'
               ? 'bg-white text-brand-700 shadow-sm'
               : 'text-gray-500 hover:text-gray-700'">
       📋 Requests
     </button>
     <button @click="tab = 'overtime'; fetchOvertime()"
-            class="flex-1 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all"
+            class="flex-1 rounded-lg px-2.5 py-2 text-xs font-semibold transition-all"
             :class="tab === 'overtime'
               ? 'bg-white text-brand-700 shadow-sm'
               : 'text-gray-500 hover:text-gray-700'">
@@ -29,39 +29,39 @@
     </button>
   </div>
 
-  <div x-show="tab === 'new'" x-transition class="space-y-4">
+  <div x-show="tab === 'new'" x-transition class="space-y-3">
 
-    <p class="text-center text-sm text-gray-400">What do you need money for?</p>
+    <p class="text-center text-xs text-gray-400">What do you need money for?</p>
 
-    <div class="grid grid-cols-1 gap-3">
+    <div class="grid grid-cols-1 gap-2.5">
 
       <button @click="selectCategory('shop_expense', 'materials', '🧵', 'Materials')"
-              class="flex items-center gap-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 transition-all hover:shadow-md hover:ring-brand-200 active:scale-[0.98]"
+              class="flex items-center gap-2.5 rounded-xl bg-white p-3 ring-1 ring-gray-100 transition-all hover:shadow-md hover:ring-brand-200 active:scale-[0.98]"
               :class="form.category === 'materials' && 'ring-2 ring-brand-400 bg-brand-50'">
-        <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-purple-50 text-3xl">🧵</div>
+        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-purple-50 text-lg">🧵</div>
         <div class="text-left">
-          <p class="text-base font-semibold text-gray-800">Materials</p>
-          <p class="text-xs text-gray-400">Fabric, thread, buttons, zippers etc...</p>
+          <p class="text-xs font-semibold text-gray-800">Materials</p>
+          <p class="text-[10px] text-gray-400">Fabric, thread, buttons, zippers etc...</p>
         </div>
       </button>
 
       <button @click="selectCategory('shop_expense', 'food', '🍵', 'Food / Tea')"
-              class="flex items-center gap-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 transition-all hover:shadow-md hover:ring-brand-200 active:scale-[0.98]"
+              class="flex items-center gap-2.5 rounded-xl bg-white p-3 ring-1 ring-gray-100 transition-all hover:shadow-md hover:ring-brand-200 active:scale-[0.98]"
               :class="form.category === 'food' && 'ring-2 ring-brand-400 bg-brand-50'">
-        <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-3xl">🍵</div>
+        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-lg">🍵</div>
         <div class="text-left">
-          <p class="text-base font-semibold text-gray-800">Food / Tea</p>
-          <p class="text-xs text-gray-400">Tea, snacks, food expenses</p>
+          <p class="text-xs font-semibold text-gray-800">Food / Tea</p>
+          <p class="text-[10px] text-gray-400">Tea, snacks, food expenses</p>
         </div>
       </button>
 
       <button @click="selectCategory('personal_advance', 'personal', '💳', 'Personal Advance')"
-              class="flex items-center gap-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 transition-all hover:shadow-md hover:ring-brand-200 active:scale-[0.98]"
+              class="flex items-center gap-2.5 rounded-xl bg-white p-3 ring-1 ring-gray-100 transition-all hover:shadow-md hover:ring-brand-200 active:scale-[0.98]"
               :class="form.category === 'personal' && 'ring-2 ring-brand-400 bg-brand-50'">
-        <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-3xl">💳</div>
+        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-lg">💳</div>
         <div class="text-left">
-          <p class="text-base font-semibold text-gray-800">Personal Advance</p>
-          <p class="text-xs text-gray-400">Salary advance or personal need</p>
+          <p class="text-xs font-semibold text-gray-800">Personal Advance</p>
+          <p class="text-[10px] text-gray-400">Salary advance or personal need</p>
         </div>
       </button>
 
@@ -77,16 +77,16 @@
       </svg>
     </div>
 
-    <div class="mb-4 flex flex-wrap gap-3 items-center justify-end">
-      <label class="text-sm text-gray-600">Status:</label>
-      <select x-model="filterStatus" class="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800">
+    <div class="mb-3 flex flex-wrap gap-2 items-center justify-end">
+      <label class="text-xs text-gray-600">Status:</label>
+      <select x-model="filterStatus" class="rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs text-gray-800">
         <option value="">All</option>
         <option value="pending">Pending</option>
         <option value="approved">Approved</option>
         <option value="rejected">Rejected</option>
       </select>
-      <label class="text-sm text-gray-600">Period:</label>
-      <select x-model="filterPeriod" class="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800">
+      <label class="text-xs text-gray-600">Period:</label>
+      <select x-model="filterPeriod" class="rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs text-gray-800">
         <option value="">All</option>
         <option value="daily">Today</option>
         <option value="weekly">This Week</option>
@@ -94,26 +94,26 @@
       </select>
     </div>
 
-    <div x-show="!historyLoading && requests.length === 0" class="py-12 text-center">
-      <p class="text-4xl mb-3">📭</p>
-      <p class="text-base font-semibold text-gray-600">No requests yet</p>
-      <p class="mt-1 text-sm text-gray-400">Your financial requests will appear here</p>
+    <div x-show="!historyLoading && requests.length === 0" class="py-10 text-center">
+      <p class="text-xl mb-1.5">📭</p>
+      <p class="text-xs font-semibold text-gray-600">No requests yet</p>
+      <p class="mt-0.5 text-[11px] text-gray-400">Your financial requests will appear here</p>
       <button @click="tab = 'new'"
-              class="mt-4 inline-flex items-center gap-2 rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-700 active:scale-95">
+              class="mt-2.5 inline-flex items-center gap-1 rounded-lg bg-brand-600 px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm hover:bg-brand-700 active:scale-95">
         ➕ Make a Request
       </button>
     </div>
 
     <template x-for="req in filteredRequests" :key="req.id || req.request_id">
-      <div class="flex overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 transition-all hover:shadow-md">
-        <div class="w-1.5 shrink-0"
+      <div class="flex overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-100 transition-all hover:shadow-md">
+        <div class="w-1 shrink-0"
              :class="{
                'bg-yellow-400': req.status === 'pending',
                'bg-green-500':  req.status === 'approved',
                'bg-red-500':    req.status === 'rejected',
              }"></div>
-        <div class="flex flex-1 items-center gap-3 p-4">
-          <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-xl"
+        <div class="flex flex-1 items-center gap-2.5 p-3">
+          <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-base"
                :class="{
                  'bg-purple-50': req.category === 'materials',
                  'bg-amber-50': req.category === 'food',
@@ -122,7 +122,7 @@
                x-text="getCategoryIcon(req)"></div>
           <div class="min-w-0 flex-1">
             <div class="flex items-center justify-between">
-              <p class="text-sm font-semibold text-gray-800">
+              <p class="text-xs font-semibold text-gray-800">
                 ₹<span x-text="Number(req.amount).toLocaleString('en-IN')"></span>
               </p>
               <span class="inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase"
@@ -154,22 +154,22 @@
       </svg>
     </div>
 
-    <div x-show="!overtimeLoading && overtimeRecords.length === 0" class="py-12 text-center">
-      <p class="text-4xl mb-3">⏰</p>
-      <p class="text-base font-semibold text-gray-600">No overtime records</p>
-      <p class="mt-1 text-sm text-gray-400">Your overtime will appear here after working extra hours</p>
+    <div x-show="!overtimeLoading && overtimeRecords.length === 0" class="py-10 text-center">
+      <p class="text-xl mb-1.5">⏰</p>
+      <p class="text-xs font-semibold text-gray-600">No overtime records</p>
+      <p class="mt-0.5 text-[11px] text-gray-400">Your overtime will appear here after working extra hours</p>
     </div>
 
     <template x-for="ot in overtimeRecords" :key="ot.record_id || ot.id">
-      <div class="flex overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 transition-all hover:shadow-md">
-        <div class="w-1.5 shrink-0"
+      <div class="flex overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-100 transition-all hover:shadow-md">
+        <div class="w-1 shrink-0"
              :class="{
                'bg-yellow-400': ot.status === 'pending',
                'bg-green-500':  ot.status === 'approved',
                'bg-red-500':    ot.status === 'rejected',
              }"></div>
-        <div class="flex flex-1 items-center gap-3 p-4">
-          <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-purple-50 text-xl">⏰</div>
+        <div class="flex flex-1 items-center gap-2.5 p-3">
+          <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-purple-50 text-base">⏰</div>
           <div class="min-w-0 flex-1">
             <div class="flex items-center justify-between">
               <p class="text-sm font-semibold text-gray-800">
@@ -203,43 +203,43 @@
          x-transition:leave="transition ease-in duration-200"
          x-transition:leave-start="translate-y-0"
          x-transition:leave-end="translate-y-full"
-         class="w-full max-w-lg rounded-t-3xl bg-white pb-8 shadow-2xl safe-area-bottom">
+         class="w-full max-w-lg rounded-t-2xl bg-white pb-6 shadow-2xl safe-area-bottom">
 
-      <div class="flex justify-center py-3">
-        <div class="h-1 w-10 rounded-full bg-gray-200"></div>
+      <div class="flex justify-center py-2.5">
+        <div class="h-1 w-8 rounded-full bg-gray-200"></div>
       </div>
 
-      <div class="flex items-center gap-3 px-6 pb-4">
-        <span class="text-2xl" x-text="form.icon"></span>
+      <div class="flex items-center gap-2.5 px-5 pb-3">
+        <span class="text-xl" x-text="form.icon"></span>
         <div>
-          <p class="text-lg font-bold text-gray-900" x-text="form.label"></p>
-          <p class="text-xs text-gray-400" x-text="form.type === 'personal_advance' ? 'Personal Advance' : 'Shop Expense'"></p>
+          <p class="text-sm font-bold text-gray-900" x-text="form.label"></p>
+          <p class="text-[10px] text-gray-400" x-text="form.type === 'personal_advance' ? 'Personal Advance' : 'Shop Expense'"></p>
         </div>
       </div>
 
-      <div class="space-y-4 px-6">
+      <div class="space-y-3 px-5">
 
         <div>
-          <label class="mb-1.5 block text-sm font-medium text-gray-600">Amount (₹)</label>
+          <label class="mb-1 block text-xs font-medium text-gray-600">Amount (₹)</label>
           <div class="relative">
-            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-xl font-bold text-gray-400">₹</span>
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-gray-400">₹</span>
             <input type="number"
                    x-model.number="form.amount"
                    placeholder="0"
                    inputmode="numeric"
                    min="1"
-                   class="w-full rounded-2xl border border-gray-200 bg-gray-50 py-4 pl-10 pr-4 text-2xl font-bold text-gray-800 transition-colors focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-100"
+                   class="w-full rounded-lg border border-gray-200 bg-gray-50 py-2.5 pl-8 pr-3 text-sm font-bold text-gray-800 transition-colors focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-100"
                    @keydown.enter="$refs.reasonInput.focus()">
           </div>
         </div>
 
         <div>
-          <label class="mb-1.5 block text-sm font-medium text-gray-600">Reason <span class="text-gray-400 text-xs">(optional)</span></label>
+          <label class="mb-1 block text-xs font-medium text-gray-600">Reason <span class="text-gray-400 text-[10px]">(optional)</span></label>
           <input type="text"
                  x-ref="reasonInput"
                  x-model="form.reason"
                  placeholder="What is this for? (optional)"
-                 class="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm text-gray-800 transition-colors focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-100"
+                 class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-800 transition-colors focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-100"
                  @keydown.enter="submitRequest()">
         </div>
 
@@ -249,10 +249,10 @@
 
         <button @click="submitRequest()"
                 :disabled="!form.amount || form.amount <= 0 || submitting"
-                class="w-full rounded-2xl bg-brand-600 py-4 text-base font-bold text-white shadow-lg shadow-brand-600/30 transition-all hover:bg-brand-700 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed">
+                class="w-full rounded-lg bg-brand-600 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-brand-700 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed">
           <span x-show="!submitting">Submit Request</span>
-          <span x-show="submitting" class="inline-flex items-center gap-2">
-            <svg class="h-5 w-5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <span x-show="submitting" class="inline-flex items-center gap-1.5">
+            <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
             </svg>
@@ -261,7 +261,7 @@
         </button>
 
         <button @click="closeModal()"
-                class="w-full rounded-2xl border border-gray-200 py-3 text-sm font-medium text-gray-500 transition-colors hover:bg-gray-50">
+                class="w-full rounded-lg border border-gray-200 py-2 text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-50">
           Cancel
         </button>
       </div>

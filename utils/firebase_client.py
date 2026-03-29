@@ -33,6 +33,26 @@ log = get_logger(__name__)
 _app: firebase_admin.App | None = None
 
 
+def _resolve_storage_bucket(configured_bucket: str, project_id: str) -> str:
+    """
+    Resolve a safe Firebase Storage bucket name from environment config.
+
+    If the configured bucket is missing or clearly invalid (e.g. contains
+    underscores), fall back to the project's default appspot bucket.
+    """
+    bucket = (configured_bucket or "").strip()
+    project = (project_id or "").strip()
+
+    if not bucket and project:
+        return f"{project}.appspot.com"
+
+    # GCS bucket names cannot contain underscores.
+    if "_" in bucket and project:
+        return f"{project}.appspot.com"
+
+    return bucket
+
+
 def _init_firebase() -> firebase_admin.App:
     """
     Initialise the Firebase Admin SDK exactly once (idempotent).
@@ -51,7 +71,8 @@ def _init_firebase() -> firebase_admin.App:
 
     cred_path = os.getenv("FIREBASE_CREDENTIALS_PATH", "firebase-credentials.json")
     project_id = os.getenv("FIREBASE_PROJECT_ID", "")
-    storage_bucket = os.getenv("FIREBASE_STORAGE_BUCKET", "")
+    configured_bucket = os.getenv("FIREBASE_STORAGE_BUCKET", "")
+    storage_bucket = _resolve_storage_bucket(configured_bucket, project_id)
 
     log.info(
         "Initialising Firebase Admin SDK | credentials=%s | project=%s | bucket=%s",
@@ -59,6 +80,13 @@ def _init_firebase() -> firebase_admin.App:
         project_id,
         storage_bucket,
     )
+
+    if configured_bucket and configured_bucket != storage_bucket:
+        log.warning(
+            "Invalid FIREBASE_STORAGE_BUCKET '%s'; falling back to '%s'.",
+            configured_bucket,
+            storage_bucket,
+        )
 
     if os.path.exists(cred_path):
         # Explicit service-account credentials file (local dev and CI).

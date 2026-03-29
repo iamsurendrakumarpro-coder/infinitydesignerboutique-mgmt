@@ -31,6 +31,7 @@ from flask import (
 
 from middleware.auth_middleware import admin_required, login_required
 from services import user_service, auth_service
+from utils.firebase_client import get_firestore
 from utils.validators import (
     validate_staff_create,
     validate_staff_update,
@@ -61,7 +62,30 @@ def api_list_staff():
 @users_bp.post("/api/users/staff")
 @admin_required
 def api_create_staff():
-    data = request.get_json(silent=True) or {}
+    content_type = request.content_type or ""
+    is_multipart = "multipart/form-data" in content_type.lower()
+
+    govt_proof_file = None
+    govt_proof_bytes = b""
+    if is_multipart:
+        data = request.form.to_dict(flat=True)
+        govt_proof_file = request.files.get("govt_proof")
+        if govt_proof_file is None:
+            return jsonify({"success": False, "error": "Govt proof attachment is required."}), 400
+
+        govt_proof_bytes = govt_proof_file.read()
+        if not govt_proof_bytes:
+            return jsonify({"success": False, "error": "Uploaded proof file is empty."}), 400
+        if len(govt_proof_bytes) > 10 * 1024 * 1024:
+            return jsonify({"success": False, "error": "Proof file must be 10 MB or smaller."}), 400
+
+        allowed_mime = {"image/jpeg", "image/png", "image/webp", "application/pdf"}
+        mime = str(govt_proof_file.mimetype or "").lower()
+        if mime and mime not in allowed_mime:
+            return jsonify({"success": False, "error": "Only JPG, PNG, WEBP or PDF files are allowed."}), 400
+    else:
+        return jsonify({"success": False, "error": "Govt proof attachment is required for onboarding."}), 400
+
     log.info("Creating staff | admin_id=%s", session["user_id"])
     errors = validate_staff_create(data)
     if errors:
@@ -73,9 +97,31 @@ def api_create_staff():
         log.warning("Staff creation conflict | admin_id=%s | error=%s", session["user_id"], error)
         return jsonify({"success": False, "error": error}), 409
 
+    proof_uploaded = False
+    if is_multipart and govt_proof_file is not None:
+        proof_success, proof_error, _proof_meta = user_service.upload_staff_govt_proof(
+            doc.get("user_id", ""),
+            govt_proof_bytes,
+            govt_proof_file.filename or "proof",
+            uploaded_by=session["user_id"],
+            content_type=govt_proof_file.mimetype,
+        )
+        if not proof_success:
+            # Rollback staff creation to keep onboarding atomic.
+            db = get_firestore()
+            db.collection("staff").document(doc.get("user_id", "")).delete()
+            log.error(
+                "Staff create rolled back due to govt proof upload failure | admin_id=%s | user_id=%s | error=%s",
+                session["user_id"],
+                doc.get("user_id"),
+                proof_error,
+            )
+            return jsonify({"success": False, "error": proof_error}), 500
+        proof_uploaded = True
+
     log.info("Staff created via API | created_by=%s | user_id=%s", session["user_id"], doc.get("user_id"))
     audit_log(session["user_id"], "CREATE_STAFF", "staff/%s" % doc.get("user_id"))
-    return jsonify({"success": True, "staff": doc}), 201
+    return jsonify({"success": True, "staff": doc, "proof_uploaded": proof_uploaded}), 201
 
 
 @users_bp.get("/api/users/staff/<uid>")
