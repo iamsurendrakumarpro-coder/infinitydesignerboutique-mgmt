@@ -4,19 +4,17 @@ services/user_service.py - User management business logic.
 Handles creation, retrieval, updates, status changes, gallery management,
 and performance-log management for both admins and staff.
 
-Firestore structure
--------------------
-admins/{user_id}                              - Admin profile documents
-staff/{user_id}                               - Staff profile documents
-staff/{user_id}/work_gallery/{image_id}       - Gallery images (metadata + Storage path)
-staff/{user_id}/performance_logs/{log_id}     - Performance notes added by admins
+Persistence model
+-----------------
+admins table                                  - Admin profiles
+staff table                                   - Staff profiles
+staff_work_gallery table                      - Gallery metadata + storage path
+staff_performance_logs table                  - Performance notes added by admins
 
-Phone uniqueness is enforced by querying both admins and staff
-collections directly (no separate index collection required).
+Phone uniqueness is enforced by querying both admins and staff tables directly.
 """
 from __future__ import annotations
 
-import os
 import uuid
 from datetime import datetime
 
@@ -28,8 +26,6 @@ from utils.timezone_utils import now_utc, today_ist_str
 from services.settings_service import (
     get_app_config,
     get_working_config,
-    get_salary_types,
-    get_settlement_cycles,
     get_staff_statuses,
 )
 
@@ -46,17 +42,13 @@ def _db_timestamp():
 
 def compute_daily_salary(
     salary: float,
-    salary_type: str = "weekly",
 ) -> float:
     """
-    Compute daily salary based on salary type.
+    Compute daily salary from weekly salary.
 
-    For weekly staff: weekly_salary / working_days_per_week (default 6)
-    For monthly staff: monthly_salary / monthly_working_days (default 26)
+    weekly_salary / working_days_per_week (default 6)
     """
     working_config = get_working_config()
-    if salary_type == "monthly":
-        return round(salary / working_config["monthly_working_days"], 2)
     return round(salary / working_config["working_days_per_week"], 2)
 
 
@@ -166,28 +158,15 @@ def create_staff(data: dict, created_by: str) -> tuple[bool, str, dict]:
     joining_date = str(data.get("joining_date") or today_ist_str()).strip()
 
     # Get dynamic settings
-    salary_types = get_salary_types()
-    settlement_cycles = get_settlement_cycles()
     app_config = get_app_config()
 
-    # Salary type and settlement cycle
-    salary_type = str(data.get("salary_type", "weekly")).strip()
-    if salary_type not in salary_types:
-        salary_type = "weekly"
-
-    settlement_cycle = str(data.get("settlement_cycle", salary_type)).strip()
-    if settlement_cycle not in settlement_cycles:
-        settlement_cycle = salary_type
-
     # Compute salary fields based on salary_type
-    if salary_type == "monthly":
-        monthly_salary = float(data.get("monthly_salary", 0))
-        weekly_salary = None
-        daily_salary = compute_daily_salary(monthly_salary, "monthly")
-    else:
-        weekly_salary = float(data.get("weekly_salary", 0))
-        monthly_salary = None
-        daily_salary = compute_daily_salary(weekly_salary, "weekly")
+    weekly_salary = float(data.get("weekly_salary", 0))
+    daily_salary = compute_daily_salary(weekly_salary)
+
+    role_value = str(data.get("role", "staff")).strip().lower()
+    if role_value not in {"staff", "manager"}:
+        role_value = "staff"
 
     doc = {
         "user_id": user_id,
@@ -198,15 +177,15 @@ def create_staff(data: dict, created_by: str) -> tuple[bool, str, dict]:
         "standard_login_time": str(data.get("standard_login_time", app_config.get("default_login_time", "10:00"))).strip(),
         "standard_logout_time": str(data.get("standard_logout_time", app_config.get("default_logout_time", "19:00"))).strip(),
         "emergency_contact": str(data.get("emergency_contact", "")).strip(),
-        "salary_type": salary_type,
-        "settlement_cycle": settlement_cycle,
+        "salary_type": "weekly",
+        "settlement_cycle": "weekly",
         "weekly_salary": weekly_salary,
-        "monthly_salary": monthly_salary,
+        "monthly_salary": None,
         "daily_salary": daily_salary,
         "skills": data.get("skills", []) if isinstance(data.get("skills"), list) else [],
         "status": "active",
         "pin_hash": pin_hash,
-        "role": "staff",
+        "role": role_value,
         "is_first_login": True,
         "created_at": _db_timestamp(),
         "updated_at": _db_timestamp(),
@@ -215,12 +194,12 @@ def create_staff(data: dict, created_by: str) -> tuple[bool, str, dict]:
 
     _repo().save_staff(user_id, doc)
     log.info(
-        "Staff created | user_id=%s | phone=%s | designation=%s | salary_type=%s | by=%s",
-        user_id, phone, doc["designation"], salary_type, created_by,
+        "Staff created | user_id=%s | phone=%s | designation=%s | by=%s",
+        user_id, phone, doc["designation"], created_by,
     )
     audit_log(created_by, "CREATE_STAFF", f"staff/{user_id}", f"phone={phone}")
     doc.pop("pin_hash", None)
-    # Remove Firestore SERVER_TIMESTAMP fields before returning
+    # Remove timestamp fields before returning.
     doc.pop("created_at", None)
     doc.pop("updated_at", None)
     return True, "", doc
@@ -234,33 +213,19 @@ def get_staff(user_id: str) -> dict | None:
         return None
 
     # Get dynamic settings
-    salary_types = get_salary_types()
-    settlement_cycles = get_settlement_cycles()
-
     # Guarantee salary_type and settlement_cycle defaults
-    if "salary_type" not in data or data["salary_type"] not in salary_types:
-        data["salary_type"] = "weekly"
-    if "settlement_cycle" not in data or data["settlement_cycle"] not in settlement_cycles:
-        data["settlement_cycle"] = data["salary_type"]
+    data["salary_type"] = "weekly"
+    data["settlement_cycle"] = "weekly"
 
     # Guarantee all required fields for frontend
     if "joining_date" not in data or not data["joining_date"]:
         data["joining_date"] = "-"
     if "weekly_salary" not in data:
         data["weekly_salary"] = None
-    if "monthly_salary" not in data:
-        data["monthly_salary"] = None
     if "daily_salary" not in data or not data["daily_salary"]:
-        # Compute from appropriate salary field
-        salary_type = data.get("salary_type", "weekly")
-        if salary_type == "monthly" and data.get("monthly_salary"):
+        if data.get("weekly_salary"):
             try:
-                data["daily_salary"] = compute_daily_salary(float(data["monthly_salary"]), "monthly")
-            except Exception:
-                data["daily_salary"] = None
-        elif data.get("weekly_salary"):
-            try:
-                data["daily_salary"] = compute_daily_salary(float(data["weekly_salary"]), "weekly")
+                data["daily_salary"] = compute_daily_salary(float(data["weekly_salary"]))
             except Exception:
                 data["daily_salary"] = None
         else:
@@ -270,7 +235,12 @@ def get_staff(user_id: str) -> dict | None:
     return data
 
 
-def list_staff(status_filter: str | None = None) -> list[dict]:
+def list_staff(
+    status_filter: str | None = None,
+    *,
+    limit: int | None = None,
+    offset: int = 0,
+) -> list[dict]:
     """
     Return all staff profiles.
 
@@ -278,9 +248,34 @@ def list_staff(status_filter: str | None = None) -> list[dict]:
     ----------
     status_filter : If provided, only return staff with this status.
     """
-    result = _repo().list_staff(status_filter)
+    result = _repo().list_staff(status_filter, limit=limit, offset=offset)
     log.debug("list_staff | count=%d | filter=%s", len(result), status_filter)
     return result
+
+
+def list_staff_page(
+    status_filter: str | None = None,
+    *,
+    page: int = 1,
+    page_size: int = 100,
+) -> dict:
+    """Return paginated staff data and metadata for list APIs."""
+    safe_page = max(int(page), 1)
+    safe_page_size = max(1, min(int(page_size), 500))
+    offset = (safe_page - 1) * safe_page_size
+
+    repo = _repo()
+    total = repo.count_staff(status_filter)
+    items = repo.list_staff(status_filter, limit=safe_page_size, offset=offset)
+    has_more = offset + len(items) < total
+
+    return {
+        "items": items,
+        "page": safe_page,
+        "page_size": safe_page_size,
+        "total": total,
+        "has_more": has_more,
+    }
 
 
 def update_staff(user_id: str, data: dict, updated_by: str) -> tuple[bool, str]:
@@ -297,44 +292,31 @@ def update_staff(user_id: str, data: dict, updated_by: str) -> tuple[bool, str]:
     data.pop("phone_number", None)
     data.pop("pin_hash", None)
     data.pop("user_id", None)
-    data.pop("role", None)
     data.pop("created_at", None)
     data.pop("is_root", None)
+
+    # Restrict role updates to staff-like roles only.
+    if "role" in data:
+        role_value = str(data.get("role", "")).strip().lower()
+        if role_value not in {"staff", "manager"}:
+            data.pop("role", None)
+        else:
+            data["role"] = role_value
 
     # Handle skills - ensure list
     if "skills" in data and isinstance(data["skills"], str):
         data["skills"] = [s.strip() for s in data["skills"].split(",") if s.strip()]
 
     # Get dynamic settings
-    salary_types = get_salary_types()
-    settlement_cycles = get_settlement_cycles()
-
     # Handle salary_type change
-    salary_type = data.get("salary_type", current_data.get("salary_type", "weekly"))
-    if salary_type not in salary_types:
-        salary_type = "weekly"
-    data["salary_type"] = salary_type
-
-    # Handle settlement_cycle
-    if "settlement_cycle" in data:
-        if data["settlement_cycle"] not in settlement_cycles:
-            data["settlement_cycle"] = salary_type
+    data["salary_type"] = "weekly"
+    data["settlement_cycle"] = "weekly"
 
     # Numeric coercion for salary fields and daily_salary recomputation
-    if salary_type == "monthly":
-        if "monthly_salary" in data:
-            data["monthly_salary"] = float(data["monthly_salary"])
-            data["daily_salary"] = compute_daily_salary(data["monthly_salary"], "monthly")
-        elif "weekly_salary" in data:
-            # If switching to monthly but only weekly provided, ignore weekly
-            data.pop("weekly_salary", None)
-    else:
-        if "weekly_salary" in data:
-            data["weekly_salary"] = float(data["weekly_salary"])
-            data["daily_salary"] = compute_daily_salary(data["weekly_salary"], "weekly")
-        elif "monthly_salary" in data:
-            # If switching to weekly but only monthly provided, ignore monthly
-            data.pop("monthly_salary", None)
+    if "weekly_salary" in data:
+        data["weekly_salary"] = float(data["weekly_salary"])
+        data["daily_salary"] = compute_daily_salary(data["weekly_salary"])
+    data.pop("monthly_salary", None)
 
     data["updated_at"] = _db_timestamp()
 
@@ -439,7 +421,7 @@ def upload_staff_govt_proof(
 
 def upload_gallery_image(user_id: str, file_bytes: bytes, filename: str, caption: str, uploaded_by: str) -> tuple[bool, str, dict]:
     """
-    Upload an image to configured storage and record metadata in Firestore.
+    Upload an image to configured storage and record metadata via repository.
 
     Returns (success, error_message, gallery_item_dict).
     """
@@ -494,7 +476,7 @@ def list_gallery(user_id: str) -> list[dict]:
 
 
 def delete_gallery_image(user_id: str, image_id: str, deleted_by: str) -> tuple[bool, str]:
-    """Delete a gallery image from both Storage and Firestore."""
+    """Delete a gallery image from both storage and repository."""
     item = _repo().get_gallery_item(user_id, image_id)
     if item is None:
         return False, "Gallery item not found."

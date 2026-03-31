@@ -1,16 +1,10 @@
-"""Attendance persistence adapters for Firebase and PostgreSQL."""
+"""Attendance persistence adapter for PostgreSQL."""
 from __future__ import annotations
 
-import os
 from datetime import date
 from typing import Any
 
 from utils.db.postgres_client import get_postgres_connection
-from utils.firebase_client import get_firestore
-
-_ATTENDANCE = "attendance"
-_RECORDS = "records"
-
 
 class AttendanceRepository:
     """Persistence contract for attendance storage backends."""
@@ -24,45 +18,11 @@ class AttendanceRepository:
     def list_by_user_between(self, user_id: str, start: date, end: date) -> list[dict]:
         raise NotImplementedError
 
+    def list_by_date(self, day: date) -> list[dict]:
+        raise NotImplementedError
 
-class FirestoreAttendanceRepository(AttendanceRepository):
-    @staticmethod
-    def _date_to_doc_id(day: date) -> str:
-        return day.strftime("%Y%m%d")
-
-    def get_by_user_and_date(self, user_id: str, day: date) -> dict | None:
-        db = get_firestore()
-        doc_id = self._date_to_doc_id(day)
-        doc = db.collection(_ATTENDANCE).document(user_id).collection(_RECORDS).document(doc_id).get()
-        if not doc.exists:
-            return None
-        return doc.to_dict()
-
-    def save(self, record: dict) -> None:
-        db = get_firestore()
-        user_id = record["user_id"]
-        date_value = record.get("date")
-        if isinstance(date_value, date):
-            date_str = date_value.isoformat()
-        else:
-            date_str = str(date_value)
-        doc_id = date_str.replace("-", "")
-        db.collection(_ATTENDANCE).document(user_id).collection(_RECORDS).document(doc_id).set(record)
-
-    def list_by_user_between(self, user_id: str, start: date, end: date) -> list[dict]:
-        db = get_firestore()
-        records_ref = db.collection(_ATTENDANCE).document(user_id).collection(_RECORDS)
-
-        start_id = self._date_to_doc_id(start)
-        end_id = self._date_to_doc_id(end)
-        docs = (
-            records_ref
-            .where("__name__", ">=", records_ref.document(start_id))
-            .where("__name__", "<=", records_ref.document(end_id))
-            .order_by("__name__")
-            .stream()
-        )
-        return [d.to_dict() for d in docs]
+    def list_by_users_between(self, user_ids: list[str], start: date, end: date) -> list[dict]:
+        raise NotImplementedError
 
 
 class PostgresAttendanceRepository(AttendanceRepository):
@@ -173,9 +133,40 @@ class PostgresAttendanceRepository(AttendanceRepository):
                 rows = self._fetchall_dicts(cur)
                 return [self._normalize(r) for r in rows]
 
+    def list_by_date(self, day: date) -> list[dict]:
+        with get_postgres_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT *
+                    FROM attendance_logs
+                    WHERE attendance_date = %s
+                    """,
+                    (day,),
+                )
+                rows = self._fetchall_dicts(cur)
+                return [self._normalize(r) for r in rows]
+
+    def list_by_users_between(self, user_ids: list[str], start: date, end: date) -> list[dict]:
+        if not user_ids:
+            return []
+
+        with get_postgres_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT *
+                    FROM attendance_logs
+                    WHERE user_id = ANY(%s)
+                      AND attendance_date >= %s
+                      AND attendance_date <= %s
+                    ORDER BY user_id ASC, attendance_date ASC
+                    """,
+                    (user_ids, start, end),
+                )
+                rows = self._fetchall_dicts(cur)
+                return [self._normalize(r) for r in rows]
+
 
 def get_attendance_repository() -> AttendanceRepository:
-    provider = os.getenv("APP_DB_PROVIDER", "firebase").strip().lower()
-    if provider == "postgres":
-        return PostgresAttendanceRepository()
-    return FirestoreAttendanceRepository()
+    return PostgresAttendanceRepository()

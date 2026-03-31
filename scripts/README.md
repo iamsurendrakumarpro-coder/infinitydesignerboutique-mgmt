@@ -4,16 +4,41 @@ Automated tools for deploying the Infinity Designer Boutique application to AWS.
 
 ## Quick Start
 
+### Single Entry Point
+
+```bash
+# Full bootstrap + setup + check
+python aws_manage.py full-setup --project-name infinity-boutique --region ap-south-1 --use-default-credentials
+
+# Local app bootstrap (reset Postgres + seed lightweight data + run app)
+python reset_seed_and_run.py
+
+# Optional: choose a larger dataset profile when needed
+python seed_postgres_e2e.py --size small
+
+# Apply or re-check performance indexes
+python apply_indexes.py
+
+# Or run each phase separately
+python aws_manage.py iam --use-default-credentials --region ap-south-1
+python aws_manage.py setup --project-name infinity-boutique --aws-profile infinity-provisioner
+python aws_manage.py check --project-name infinity-boutique --aws-profile infinity-provisioner
+
+# Cleanup resources later
+python aws_cleanup.py --project-name infinity-boutique --region ap-south-1 --aws-profile infinity-provisioner
+```
+
 ### 1. Setup AWS Resources (5-15 minutes)
 
 ```bash
 # Install dependencies
 pip install boto3 psycopg2-binary
 
-# Run setup script
-python aws_setup.py \
+# Run setup
+python aws_manage.py setup \
   --project-name infinity-boutique \
-  --region ap-south-1
+  --region ap-south-1 \
+  --aws-profile infinity-provisioner
 ```
 
 This creates:
@@ -25,9 +50,10 @@ This creates:
 ### 2. Verify Resources (after RDS initializes)
 
 ```bash
-python aws_check.py \
+python aws_manage.py check \
   --project-name infinity-boutique \
-  --region ap-south-1
+  --region ap-south-1 \
+  --aws-profile infinity-provisioner
 ```
 
 Displays:
@@ -36,18 +62,19 @@ Displays:
 - ✅ Security group rules
 - ✅ PostgreSQL connection string
 
-### 3. Migrate Data & Deploy
+### 3. Initialize DB & Deploy
 
 ```bash
 # Copy generated .env
 cp .env.aws .env
 
-# Migrate Firestore data to Postgres (if migrating existing app)
-python migrate_firestore_to_postgres.py
+# Initialize schema / seed local test data (optional)
+python reset_seed_and_run.py --seed-only
 
-# Start application with Postgres
-export APP_DB_PROVIDER=postgres
-export APP_STORAGE_PROVIDER=s3
+# Ensure performance indexes exist
+python apply_indexes.py
+
+# Start application
 python app.py
 ```
 
@@ -55,31 +82,45 @@ python app.py
 
 ## Scripts
 
-### `aws_setup.py`
+### `aws_manage.py`
 
-**Purpose:** Create all AWS resources in one command
+**Purpose:** Single script for IAM bootstrap, setup, status checks, and cleanup delegation
+
+**Commands:**
+- `python aws_manage.py iam --use-default-credentials --region ap-south-1`
+- `python aws_manage.py setup --project-name infinity-boutique --aws-profile infinity-provisioner`
+- `python aws_manage.py check --project-name infinity-boutique --aws-profile infinity-provisioner`
+- `python aws_manage.py full-setup --project-name infinity-boutique --use-default-credentials`
+- `python aws_manage.py cleanup --project-name infinity-boutique --aws-profile infinity-provisioner`
+
+### `aws_cleanup.py`
+
+**Purpose:** Remove provisioned AWS resources for a project
 
 **Usage:**
 ```bash
-python aws_setup.py \
-  --project-name my-project \
+python aws_cleanup.py \
+  --project-name infinity-boutique \
   --region ap-south-1 \
-  --db-password your-secure-password \
-  --output-env .env.aws
+  --aws-profile infinity-provisioner
 ```
 
-**Options:**
-- `--project-name` (required): Project identifier (e.g., `infinity-boutique`)
-- `--region` (default: `ap-south-1`): AWS region
-- `--db-password`: Database password (auto-generated if not provided)
-- `--output-env` (default: `.env.aws`): Output .env file path
+**Optional flags:**
+- `--delete-final-snapshot`: keep a final RDS snapshot instead of skipping it
+- `--final-snapshot-id`: explicit final snapshot id to use with the flag above
+- `--delete-app-policy`: remove the project IAM policy created during setup
+- `--delete-iam-users`: also remove the IAM users created during bootstrap
+- `--force`: skip confirmation prompt
 
-**Creates:**
-- RDS PostgreSQL instance
-- S3 bucket with versioning
-- Security group for database access
-- IAM policy for application permissions
-- `.env.aws` with connection details
+### `aws_workflows.py`
+
+**Purpose:** Internal shared workflow module used by `aws_manage.py`
+
+This module contains the shared logic for:
+- IAM bootstrap
+- AWS resource provisioning
+- Status checks
+- `.env.aws` generation
 
 **Example Output:**
 ```
@@ -97,54 +138,7 @@ AWS Resource Setup for Infinity Designer Boutique
 Next Steps:
 1. Wait 5-10 minutes for RDS instance to fully initialize
 2. Review and update .env.aws
-3. Run: python aws_check.py --project-name infinity-boutique
-```
-
-### `aws_check.py`
-
-**Purpose:** Verify AWS resources and retrieve connection details
-
-**Usage:**
-```bash
-python aws_check.py \
-  --project-name infinity-boutique \
-  --region ap-south-1
-```
-
-**Options:**
-- `--project-name` (required): Project identifier
-- `--region` (default: `ap-south-1`): AWS region
-
-**Displays:**
-- RDS instance status (creating/available)
-- S3 bucket configuration
-- Security group rules
-- PostgreSQL connection string
-- Environment variables needed in `.env`
-
-**Example Output:**
-```
-======================================================================
-RDS PostgreSQL Instance
-======================================================================
-Identifier:      infinity-boutique-db
-Status:          available
-Engine:          postgres 15.3
-Endpoint:        infinity-boutique-db.xxxxx.ap-south-1.rds.amazonaws.com:5432
-Database:        infinity_boutique
-Master Username: dbadmin
-
-======================================================================
-Connection Details
-======================================================================
-PostgreSQL Connection String:
-  postgresql://dbadmin:PASSWORD@infinity-boutique-db.xxxxx.ap-south-1.rds.amazonaws.com:5432/infinity_boutique
-
-Environment Variables:
-  POSTGRES_HOST=infinity-boutique-db.xxxxx.ap-south-1.rds.amazonaws.com
-  POSTGRES_PORT=5432
-  POSTGRES_DB=infinity_boutique
-  POSTGRES_USER=dbadmin
+3. Run: python aws_manage.py check --project-name infinity-boutique --aws-profile infinity-provisioner
 ```
 
 ---
@@ -182,7 +176,7 @@ aws sts get-caller-identity
 #### Step 3: Run Setup Script
 
 ```bash
-python aws_setup.py --project-name infinity-boutique --region ap-south-1
+python aws_manage.py setup --project-name infinity-boutique --region ap-south-1 --aws-profile infinity-provisioner
 ```
 
 **⏱️ Wait 5-10 minutes for RDS to initialize**
@@ -190,7 +184,7 @@ python aws_setup.py --project-name infinity-boutique --region ap-south-1
 #### Step 4: Verify Resources Are Ready
 
 ```bash
-python aws_check.py --project-name infinity-boutique --region ap-south-1
+python aws_manage.py check --project-name infinity-boutique --region ap-south-1 --aws-profile infinity-provisioner
 ```
 
 Wait for status to show `available` for RDS.
@@ -219,10 +213,6 @@ psql -h $POSTGRES_HOST \
 #### Step 7: Deploy Application
 
 ```bash
-# Set to use Postgres and S3
-export APP_DB_PROVIDER=postgres
-export APP_STORAGE_PROVIDER=s3
-
 # Start application
 python app.py
 ```

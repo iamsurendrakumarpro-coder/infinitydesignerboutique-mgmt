@@ -18,13 +18,13 @@
   -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#faf8f6">
+  <meta name="theme-color" content="#ffffff">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="IDB Manager">
-  <meta name="description" content="Infinity Designer Boutique - Staff Management System">
+  <meta name="description" content="{{ boutique_name }} - Staff Management System">
 
-  <title>{% block title %}Infinity Designer Boutique{% endblock %}</title>
+  <title>{% block title %}{{ boutique_name }}{% endblock %}</title>
 
   <link rel="manifest" href="/static/manifest.json">
   <link rel="apple-touch-icon" href="/static/icons/icon.svg">
@@ -149,6 +149,29 @@
     {% block content %}{% endblock %}
   </main>
 
+  <!-- -- Global Confirm Modal ----------------------------------------- -->
+  <div x-data="confirmModal()" x-cloak @open-confirm.window="openFromEvent($event)" x-show="visible"
+       x-transition.opacity class="fixed inset-0 z-[10000] flex items-center justify-center">
+    <div class="fixed inset-0 bg-black/50 backdrop-blur-sm" @click="cancel()"></div>
+    <div x-transition class="relative mx-4 w-full max-w-md rounded-lg bg-white p-4 shadow-xl ring-1 ring-black/10">
+      <div class="flex items-start gap-3">
+        <div class="flex h-9 w-9 items-center justify-center rounded-full bg-amber-50 text-amber-600">
+          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <div class="flex-1">
+          <p class="text-sm font-semibold text-gray-900" x-text="title"></p>
+          <p class="mt-1 text-sm text-gray-600" x-text="message"></p>
+        </div>
+      </div>
+      <div class="mt-4 flex justify-end gap-2">
+        <button @click="cancel()" class="rounded-md px-3 py-2 text-sm font-medium bg-gray-100 text-gray-700">Cancel</button>
+        <button @click="confirm()" class="rounded-md px-3 py-2 text-sm font-semibold bg-brand-600 text-white">OK</button>
+      </div>
+    </div>
+  </div>
+
   <!-- -- Global Scripts ------------------------------------------------- -->
   <script>
     function appGlobal() {
@@ -197,6 +220,59 @@
         navigator.serviceWorker.register('/static/sw.js').catch(() => {});
       });
     }
+  </script>
+
+  <script>
+    function confirmModal() {
+      return {
+        visible: false,
+        title: 'Confirm',
+        message: '',
+        _resolve: null,
+
+        open(message = '', title = 'Confirm') {
+          this.title = title || 'Confirm';
+          this.message = message || '';
+          this.visible = true;
+          return new Promise((resolve) => { this._resolve = resolve; });
+        },
+
+        openFromEvent(ev) {
+          const d = ev.detail || {};
+          const message = d.message || '';
+          const title = d.title || 'Confirm';
+          const resolver = d.resolve;
+          if (resolver && typeof resolver === 'function') {
+            // support direct-resolve style
+            this.visible = true;
+            this.title = title;
+            this.message = message;
+            this._resolve = resolver;
+            return;
+          }
+          // fallback: return Promise via window.showConfirm
+          this.open(message, title);
+        },
+
+        confirm() {
+          this.visible = false;
+          if (this._resolve) { this._resolve(true); this._resolve = null; }
+        },
+
+        cancel() {
+          this.visible = false;
+          if (this._resolve) { this._resolve(false); this._resolve = null; }
+        }
+      };
+    }
+
+    // Global helper to open confirm dialogs from anywhere
+    window.showConfirm = function(message, title) {
+      // dispatch an event that the Alpine component listens for
+      return new Promise((resolve) => {
+        window.dispatchEvent(new CustomEvent('open-confirm', { detail: { message, title, resolve } }));
+      });
+    };
   </script>
 
   {% block scripts %}{% endblock %}

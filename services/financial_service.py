@@ -1,31 +1,32 @@
 """
 services/financial_service.py - Financial request business logic.
 
-Firestore collection: financial_requests/{request_id}
+PostgreSQL table: financial_requests
 
 Supports two request types:
-  - shop_expense: Approved shop expenses that are reimbursed in the weekly settlement.
-  - personal_advance: Salary advance deducted from the weekly settlement.
+    - shop_expense: Approved shop expenses that are reimbursed as a separate stream.
+    - personal_advance: Salary advance deducted from payroll settlement.
 
 All monetary amounts are stored in INR (Indian Rupees).
-All timestamps are stored as Firestore SERVER_TIMESTAMP and serialised to IST strings
-before being returned to the API layer via _sanitise().
+All timestamps are serialised to IST strings before being returned to the API layer
+via _sanitise().
 """
 from __future__ import annotations
 
-import os
 import uuid
 from datetime import date
 
 from services.repositories.financial_repository import get_financial_repository
+from services.requester_context import build_requester_context_map
 from utils.storage_provider import generate_download_url
 from utils.logger import get_logger, audit_log
-from utils.timezone_utils import now_ist, today_ist_str, period_range, now_utc
+from utils.timezone_utils import period_range, now_utc
 
 log = get_logger(__name__)
 
 _VALID_TYPES = ("shop_expense", "personal_advance")
 _VALID_STATUSES = ("pending", "approved", "rejected")
+_VALID_REIMBURSEMENT_STATUSES = ("pending", "paid", "not_applicable")
 
 
 def _repo():
@@ -34,6 +35,38 @@ def _repo():
 
 def _db_timestamp():
     return now_utc()
+
+
+def _attach_requester_context(data: dict, context_map: dict[str, dict] | None = None) -> dict:
+    """Attach requester profile fields used by admin approval cards."""
+    out = dict(data)
+    uid = out.get("user_id")
+
+    requester_name = "Unknown Staff"
+    requester_phone = ""
+    requester_role = "staff"
+    requester_designation = ""
+
+    if uid and context_map:
+        ctx = context_map.get(str(uid))
+        if ctx:
+            requester_name = ctx.get("requester_name") or requester_name
+            requester_phone = ctx.get("requester_phone") or ""
+            requester_role = ctx.get("requester_role") or "staff"
+            requester_designation = ctx.get("requester_designation") or ""
+
+    out["requester_user_id"] = uid
+    out["requester_name"] = requester_name
+    out["requester_phone"] = requester_phone
+    out["requester_role"] = requester_role
+    out["requester_designation"] = requester_designation
+
+    # Backward-compatible aliases used across templates.
+    out["employee_name"] = requester_name
+    out["staff_name"] = requester_name
+    out["full_name"] = requester_name
+
+    return out
 
 
 def create_request(user_id: str, data: dict) -> tuple[bool, str, dict]:
@@ -45,8 +78,6 @@ def create_request(user_id: str, data: dict) -> tuple[bool, str, dict]:
 
     Returns (success, error_message, created_doc).
     """
-    db = get_firestore()
-
     req_type = str(data.get("type", "")).strip()
     if req_type not in _VALID_TYPES:
         return False, f"Type must be one of: {', '.join(_VALID_TYPES)}.", {}
@@ -54,6 +85,11 @@ def create_request(user_id: str, data: dict) -> tuple[bool, str, dict]:
     category = str(data.get("category", "")).strip()
     if req_type == "shop_expense" and not category:
         return False, "Category is required for shop expenses.", {}
+
+    gcs_path = str(data.get("gcs_path", "")).strip()
+    # Bill image is required for shop expenses except the 'food' category (Food / Tea)
+    if req_type == "shop_expense" and category != 'food' and not gcs_path:
+        return False, "Bill image is required for shop expenses.", {}
     # For personal_advance, category is optional
 
     try:
@@ -66,17 +102,9 @@ def create_request(user_id: str, data: dict) -> tuple[bool, str, dict]:
     if req_type == "personal_advance":
         from services.user_service import get_staff
         staff = get_staff(user_id)
-        salary_type = staff.get("salary_type", "weekly") if staff else "weekly"
-        if salary_type == "monthly":
-            # For monthly staff, cap at monthly salary
-            monthly_salary = float(staff.get("monthly_salary", 0)) if staff else 0
-            if monthly_salary > 0 and amount > monthly_salary:
-                return False, f"Advance amount (INR {amount:.0f}) exceeds monthly salary (INR {monthly_salary:.0f}).", {}
-        else:
-            # For weekly staff, cap at weekly salary
-            weekly_salary = float(staff.get("weekly_salary", 0)) if staff else 0
-            if weekly_salary > 0 and amount > weekly_salary:
-                return False, f"Advance amount (INR {amount:.0f}) exceeds weekly salary (INR {weekly_salary:.0f}).", {}
+        weekly_salary = float(staff.get("weekly_salary", 0)) if staff else 0
+        if weekly_salary > 0 and amount > weekly_salary:
+            return False, f"Advance amount (INR {amount:.0f}) exceeds weekly salary (INR {weekly_salary:.0f}).", {}
 
     request_id = str(uuid.uuid4())
     notes_val = str(data.get("notes", "")).strip()
@@ -89,12 +117,16 @@ def create_request(user_id: str, data: dict) -> tuple[bool, str, dict]:
         "category": category,
         "amount": amount,
         # Store only the GCS path, not a signed URL
-        "receipt_gcs_path": str(data.get("gcs_path", "")).strip(),
+        "receipt_gcs_path": gcs_path,
         "notes": notes_val,
         "status": "pending",
         "admin_notes": "",
         "reviewed_by": None,
         "reviewed_at": None,
+        "reimbursement_status": "pending" if req_type == "shop_expense" else "not_applicable",
+        "reimbursed_by": None,
+        "reimbursed_at": None,
+        "reimbursement_notes": "",
         "created_at": ts,
         "updated_at": ts,
     }
@@ -116,7 +148,6 @@ def get_requests(filters: dict | None = None) -> list[dict]:
 
     Supported filters: status, user_id.
     """
-    from services.user_service import get_staff  # noqa: PLC0415
     safe_filters: dict = {}
     if filters:
         if filters.get("status") and filters["status"] in _VALID_STATUSES:
@@ -125,14 +156,20 @@ def get_requests(filters: dict | None = None) -> list[dict]:
             safe_filters["user_id"] = filters["user_id"]
         if filters.get("category"):
             safe_filters["category"] = filters["category"]
+        if filters.get("type") and filters["type"] in _VALID_TYPES:
+            safe_filters["type"] = filters["type"]
+        if filters.get("reimbursement_status") and filters["reimbursement_status"] in _VALID_REIMBURSEMENT_STATUSES:
+            safe_filters["reimbursement_status"] = filters["reimbursement_status"]
         if filters.get("start_date"):
             safe_filters["start_date"] = filters["start_date"]
         if filters.get("end_date"):
             safe_filters["end_date"] = filters["end_date"]
 
     docs = _repo().list_requests(safe_filters or None)
+    context_map = build_requester_context_map(d.get("user_id") for d in docs)
     result = []
     for data in docs:
+        data = _attach_requester_context(data, context_map)
         gcs_path = data.get("receipt_gcs_path")
         if gcs_path:
             try:
@@ -142,9 +179,6 @@ def get_requests(filters: dict | None = None) -> list[dict]:
                 data["receipt_url"] = None
         else:
             data["receipt_url"] = None
-        uid = data.get("user_id")
-        staff_profile = get_staff(uid) if uid else None
-        data["employee_name"] = staff_profile.get("full_name", "Unknown Staff") if staff_profile else "Unknown Staff"
         result.append(_sanitise(data))
     log.info("get_requests | filters=%s | count=%d", filters, len(result))
     return result
@@ -152,12 +186,13 @@ def get_requests(filters: dict | None = None) -> list[dict]:
 
 def get_request(request_id: str) -> dict | None:
     """Return a single financial request or None."""
-    from services.user_service import get_staff  # noqa: PLC0415
     data = _repo().get_by_id(request_id)
     if data is None:
         log.debug("get_request | request_id=%s | found=false", request_id)
         return None
     log.debug("get_request | request_id=%s | found=true", request_id)
+    context_map = build_requester_context_map([data.get("user_id")])
+    data = _attach_requester_context(data, context_map)
     gcs_path = data.get("receipt_gcs_path")
     if gcs_path:
         try:
@@ -167,9 +202,6 @@ def get_request(request_id: str) -> dict | None:
             data["receipt_url"] = None
     else:
         data["receipt_url"] = None
-    uid = data.get("user_id")
-    staff_profile = get_staff(uid) if uid else None
-    data["employee_name"] = staff_profile.get("full_name", "Unknown Staff") if staff_profile else "Unknown Staff"
     return _sanitise(data)
 
 
@@ -203,6 +235,32 @@ def reject_request(request_id: str, admin_id: str, notes: str = "") -> tuple[boo
     return True, ""
 
 
+def mark_reimbursed(request_id: str, admin_id: str, notes: str = "") -> tuple[bool, str]:
+    """Mark an approved shop expense as reimbursed (paid)."""
+    data = _repo().request_exists(request_id)
+    if data is None:
+        return False, "Request not found."
+    if data.get("type") != "shop_expense":
+        return False, "Only shop expense requests can be reimbursed."
+    if data.get("status") != "approved":
+        return False, "Only approved shop expenses can be reimbursed."
+    if data.get("reimbursement_status") == "paid":
+        return False, "Request is already marked as reimbursed."
+
+    ts = _db_timestamp()
+    _repo().update_reimbursement(
+        request_id,
+        reimbursement_status="paid",
+        reimbursed_by=admin_id,
+        reimbursement_notes=str(notes).strip(),
+        reimbursed_at=ts,
+        updated_at=ts,
+    )
+    log.info("Financial reimbursement marked paid | request_id=%s | admin_id=%s", request_id, admin_id)
+    audit_log(admin_id, "MARK_REIMBURSED_FINANCIAL_REQUEST", f"financial_requests/{request_id}")
+    return True, ""
+
+
 def get_week_to_date_earned(user_id: str) -> float | None:
     """
     Calculate how much salary the user has earned this week based on attendance.
@@ -220,16 +278,10 @@ def get_week_to_date_earned(user_id: str) -> float | None:
             return None
 
         salary_type = staff.get("salary_type", "weekly")
-        if salary_type == "monthly":
-            monthly_salary = float(staff.get("monthly_salary", 0))
-            if monthly_salary <= 0:
-                return 0.0
-            daily_salary = compute_daily_salary(monthly_salary, "monthly")
-        else:
-            weekly_salary = float(staff.get("weekly_salary", 0))
-            if weekly_salary <= 0:
-                return 0.0
-            daily_salary = compute_daily_salary(weekly_salary, "weekly")
+        weekly_salary = float(staff.get("weekly_salary", 0))
+        if weekly_salary <= 0:
+            return 0.0
+        daily_salary = compute_daily_salary(weekly_salary)
 
         start, end = period_range("weekly")
         records = get_attendance_history(user_id, start, end)
@@ -252,10 +304,10 @@ def get_approved_requests_for_period(user_id: str, start: date, end: date, req_t
 # -- Helper --------------------------------------------------------------------
 
 def _sanitise(data: dict) -> dict:
-    """Convert Firestore timestamps to ISO strings."""
+    """Convert timestamp fields to IST strings."""
     from utils.timezone_utils import format_ist
     out = dict(data)
-    for field in ("created_at", "updated_at", "reviewed_at"):
+    for field in ("created_at", "updated_at", "reviewed_at", "reimbursed_at"):
         val = out.get(field)
         if val is None:
             out[field] = None

@@ -29,9 +29,8 @@ from flask import (
     jsonify,
 )
 
-from middleware.auth_middleware import admin_required, login_required
+from middleware.auth_middleware import admin_required, login_required, manager_or_admin_required
 from services import user_service, auth_service
-from utils.firebase_client import get_firestore
 from utils.validators import (
     validate_staff_create,
     validate_staff_update,
@@ -50,13 +49,47 @@ users_bp = Blueprint("users", __name__)
 # ----------------------------------------------------------------------------
 
 @users_bp.get("/api/users/staff")
-@admin_required
+@manager_or_admin_required
 def api_list_staff():
+    role = session.get("role")
     status_filter = request.args.get("status")
-    log.info("Listing staff | admin_id=%s | status_filter=%s", session["user_id"], status_filter)
-    staff = user_service.list_staff(status_filter=status_filter)
+    page_str = str(request.args.get("page", "1")).strip()
+    page_size_str = str(request.args.get("page_size", "100")).strip()
+
+    try:
+        page = max(int(page_str), 1)
+        page_size = max(1, min(int(page_size_str), 500))
+    except ValueError:
+        return jsonify({"success": False, "error": "page and page_size must be integers."}), 400
+
+    log.info(
+        "Listing staff | admin_id=%s | status_filter=%s | page=%d | page_size=%d",
+        session["user_id"],
+        status_filter,
+        page,
+        page_size,
+    )
+    paged = user_service.list_staff_page(status_filter=status_filter, page=page, page_size=page_size)
+    staff = paged["items"]
+    if role == "manager":
+        for row in staff:
+            row.pop("weekly_salary", None)
+            row.pop("monthly_salary", None)
+            row.pop("salary_type", None)
+            row.pop("settlement_cycle", None)
     log.info("Listed staff | count=%d", len(staff))
-    return jsonify({"success": True, "staff": staff})
+    return jsonify(
+        {
+            "success": True,
+            "staff": staff,
+            "pagination": {
+                "page": paged["page"],
+                "page_size": paged["page_size"],
+                "total": paged["total"],
+                "has_more": paged["has_more"],
+            },
+        }
+    )
 
 
 @users_bp.post("/api/users/staff")
@@ -107,11 +140,8 @@ def api_create_staff():
             content_type=govt_proof_file.mimetype,
         )
         if not proof_success:
-            # Rollback staff creation to keep onboarding atomic.
-            db = get_firestore()
-            db.collection("staff").document(doc.get("user_id", "")).delete()
             log.error(
-                "Staff create rolled back due to govt proof upload failure | admin_id=%s | user_id=%s | error=%s",
+                "Govt proof upload failed after staff creation | admin_id=%s | user_id=%s | error=%s",
                 session["user_id"],
                 doc.get("user_id"),
                 proof_error,
@@ -128,18 +158,30 @@ def api_create_staff():
 @login_required
 def api_get_staff(uid: str):
     log.info("Fetching staff profile | admin_id=%s | staff_id=%s", session["user_id"], uid)
+    role = session.get("role")
+    if role not in {"admin", "manager"} and session.get("user_id") != uid:
+        return jsonify({"success": False, "error": "Access denied."}), 403
     staff = user_service.get_staff(uid)
     if not staff:
         log.warning("Staff not found | staff_id=%s", uid)
         return jsonify({"success": False, "error": "Staff member not found."}), 404
+    if role == "manager":
+        staff.pop("weekly_salary", None)
+        staff.pop("monthly_salary", None)
+        staff.pop("salary_type", None)
+        staff.pop("settlement_cycle", None)
     log.info("Staff profile retrieved | staff_id=%s", uid)
     return jsonify({"success": True, "staff": staff})
 
 
 @users_bp.put("/api/users/staff/<uid>")
-@admin_required
+@manager_or_admin_required
 def api_update_staff(uid: str):
     data = request.get_json(silent=True) or {}
+    if session.get("role") == "manager":
+        restricted = {"salary_type", "weekly_salary", "monthly_salary", "settlement_cycle", "role"}
+        if any(field in data for field in restricted):
+            return jsonify({"success": False, "error": "Managers cannot update compensation or role settings."}), 403
     log.info("Updating staff | admin_id=%s | staff_id=%s", session["user_id"], uid)
     errors = validate_staff_update(data)
     if errors:
@@ -157,7 +199,7 @@ def api_update_staff(uid: str):
 
 
 @users_bp.patch("/api/users/staff/<uid>/status")
-@admin_required
+@manager_or_admin_required
 def api_staff_status(uid: str):
     data = request.get_json(silent=True) or {}
     new_status = str(data.get("status", "")).strip()
@@ -172,7 +214,7 @@ def api_staff_status(uid: str):
 
 
 @users_bp.post("/api/users/staff/<uid>/reset-pin")
-@admin_required
+@manager_or_admin_required
 def api_reset_staff_pin(uid: str):
     log.info("Resetting staff PIN | admin_id=%s | staff_id=%s", session["user_id"], uid)
     data = request.get_json(silent=True) or {}
@@ -194,7 +236,7 @@ def api_reset_staff_pin(uid: str):
 # -- Skills --------------------------------------------------------------------
 
 @users_bp.post("/api/users/staff/<uid>/skills")
-@admin_required
+@manager_or_admin_required
 def api_add_skill(uid: str):
     data = request.get_json(silent=True) or {}
     skill = str(data.get("skill", "")).strip()
@@ -208,7 +250,7 @@ def api_add_skill(uid: str):
 
 
 @users_bp.delete("/api/users/staff/<uid>/skills")
-@admin_required
+@manager_or_admin_required
 def api_remove_skill(uid: str):
     data = request.get_json(silent=True) or {}
     skill = str(data.get("skill", "")).strip()
@@ -224,7 +266,7 @@ def api_remove_skill(uid: str):
 # -- Gallery -------------------------------------------------------------------
 
 @users_bp.get("/api/users/staff/<uid>/gallery")
-@admin_required
+@manager_or_admin_required
 def api_list_gallery(uid: str):
     log.info("Listing gallery | admin_id=%s | staff_id=%s", session["user_id"], uid)
     items = user_service.list_gallery(uid)
@@ -233,7 +275,7 @@ def api_list_gallery(uid: str):
 
 
 @users_bp.post("/api/users/staff/<uid>/gallery")
-@admin_required
+@manager_or_admin_required
 def api_upload_gallery(uid: str):
     log.info("Uploading gallery image | admin_id=%s | staff_id=%s", session["user_id"], uid)
     if "image" not in request.files:
@@ -263,7 +305,7 @@ def api_upload_gallery(uid: str):
 
 
 @users_bp.delete("/api/users/staff/<uid>/gallery/<gid>")
-@admin_required
+@manager_or_admin_required
 def api_delete_gallery(uid: str, gid: str):
     log.info("Deleting gallery image | admin_id=%s | staff_id=%s | gallery_id=%s", session["user_id"], uid, gid)
     success, error = user_service.delete_gallery_image(uid, gid, session["user_id"])
@@ -277,7 +319,7 @@ def api_delete_gallery(uid: str, gid: str):
 # -- Performance Logs ----------------------------------------------------------
 
 @users_bp.get("/api/users/staff/<uid>/performance")
-@admin_required
+@manager_or_admin_required
 def api_list_perf_logs(uid: str):
     log.info("Listing performance logs | admin_id=%s | staff_id=%s", session["user_id"], uid)
     logs = user_service.list_performance_logs(uid)
@@ -286,7 +328,7 @@ def api_list_perf_logs(uid: str):
 
 
 @users_bp.post("/api/users/staff/<uid>/performance")
-@admin_required
+@manager_or_admin_required
 def api_add_perf_log(uid: str):
     data = request.get_json(silent=True) or {}
     note = str(data.get("note", "")).strip()
@@ -304,7 +346,7 @@ def api_add_perf_log(uid: str):
 
 
 @users_bp.delete("/api/users/staff/<uid>/performance/<lid>")
-@admin_required
+@manager_or_admin_required
 def api_delete_perf_log(uid: str, lid: str):
     log.info("Deleting performance log | admin_id=%s | staff_id=%s | log_id=%s", session["user_id"], uid, lid)
     success, error = user_service.delete_performance_log(uid, lid, session["user_id"])

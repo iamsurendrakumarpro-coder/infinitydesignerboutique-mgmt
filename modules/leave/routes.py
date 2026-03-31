@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from flask import Blueprint, request, session, jsonify
 
-from middleware.auth_middleware import login_required, admin_required
+from middleware.auth_middleware import login_required, manager_or_admin_required
 from services import leave_service
 from utils.logger import get_logger
 
@@ -48,7 +48,7 @@ def api_list_leaves():
 
     Query params:
         status  : pending | approved | rejected | cancelled
-        user_id : Filter by user (admin only; staff sees own only)
+        user_id : Filter by user (admin/manager only; staff sees own only)
     """
     role = session.get("role")
     filters = {}
@@ -57,7 +57,7 @@ def api_list_leaves():
     if status_filter:
         filters["status"] = status_filter
 
-    if role == "admin":
+    if role in {"admin", "manager"}:
         uid = request.args.get("user_id")
         if uid:
             filters["user_id"] = uid
@@ -78,14 +78,14 @@ def api_get_leave(request_id: str):
         return jsonify({"success": False, "error": "Leave request not found."}), 404
 
     # Staff can only see their own
-    if session.get("role") != "admin" and doc.get("user_id") != session["user_id"]:
+    if session.get("role") not in {"admin", "manager"} and doc.get("user_id") != session["user_id"]:
         return jsonify({"success": False, "error": "Access denied."}), 403
 
     return jsonify({"success": True, "leave_request": doc})
 
 
 @leave_bp.patch("/api/leave/requests/<request_id>")
-@admin_required
+@manager_or_admin_required
 def api_review_leave(request_id: str):
     """Admin approve or reject a leave request."""
     body = request.get_json(silent=True) or {}
@@ -117,7 +117,7 @@ def api_cancel_leave(request_id: str):
 
 
 @leave_bp.get("/api/leave/today")
-@admin_required
+@manager_or_admin_required
 def api_leaves_today():
     """Get staff on leave today (for dashboard)."""
     leaves = leave_service.get_leaves_for_date()
@@ -125,7 +125,7 @@ def api_leaves_today():
 
 
 @leave_bp.get("/api/leave/pending-count")
-@admin_required
+@manager_or_admin_required
 def api_pending_leave_count():
     """Get count of pending leave requests (for badge)."""
     count = leave_service.get_pending_leave_count()

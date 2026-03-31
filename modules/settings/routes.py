@@ -23,6 +23,7 @@ VALID_CONFIG_TYPES = ["app_config", "designations", "staff_statuses", "salary_co
 
 
 @settings_bp.get("/api/settings")
+@settings_bp.get("/api/v1/settings")
 @login_required
 def api_get_all_settings():
     """Get all settings for all config types."""
@@ -32,6 +33,7 @@ def api_get_all_settings():
 
 
 @settings_bp.get("/api/settings/<config_type>")
+@settings_bp.get("/api/v1/settings/<config_type>")
 @login_required
 def api_get_settings(config_type: str):
     """Get settings for a specific config type."""
@@ -44,6 +46,7 @@ def api_get_settings(config_type: str):
 
 
 @settings_bp.patch("/api/settings/<config_type>")
+@settings_bp.patch("/api/v1/settings/<config_type>")
 @admin_required
 def api_update_settings(config_type: str):
     """Admin update settings for a config type."""
@@ -70,6 +73,7 @@ def api_update_settings(config_type: str):
 
 
 @settings_bp.post("/api/settings/<config_type>/invalidate-cache")
+@settings_bp.post("/api/v1/settings/<config_type>/invalidate-cache")
 @admin_required
 def api_invalidate_cache(config_type: str):
     """Admin invalidate settings cache for a config type."""
@@ -91,6 +95,7 @@ def api_invalidate_cache(config_type: str):
 
 
 @settings_bp.post("/api/settings/designations/add")
+@settings_bp.post("/api/v1/settings/designations/add")
 @admin_required
 def api_add_designation():
     """Admin add a new designation."""
@@ -129,6 +134,7 @@ def api_add_designation():
 
 
 @settings_bp.delete("/api/settings/designations/<key>")
+@settings_bp.delete("/api/v1/settings/designations/<key>")
 @admin_required
 def api_remove_designation(key: str):
     """Admin remove a designation."""
@@ -159,7 +165,28 @@ def api_remove_designation(key: str):
     return jsonify({"success": True})
 
 
+@settings_bp.get("/api/settings/designations/<key>/staff-count")
+@settings_bp.get("/api/v1/settings/designations/<key>/staff-count")
+@admin_required
+def api_designation_staff_count(key: str):
+    """Return the number of active/inactive staff with this designation."""
+    from utils.db.postgres_client import get_postgres_connection
+    conn = get_postgres_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT COUNT(*) FROM staff WHERE designation = %s AND status != 'deactivated'",
+                (key,)
+            )
+            row = cur.fetchone()
+            count = int(row[0]) if row else 0
+    finally:
+        conn.close()
+    return jsonify({"success": True, "count": count})
+
+
 @settings_bp.patch("/api/settings/designations/<key>")
+@settings_bp.patch("/api/v1/settings/designations/<key>")
 @admin_required
 def api_update_designation(key: str):
     """Admin update a designation label."""

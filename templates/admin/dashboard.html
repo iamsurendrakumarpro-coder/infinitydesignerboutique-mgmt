@@ -6,95 +6,105 @@
 <div x-data="adminDashboard()" x-init="loadAll()" x-cloak>
 
   <!-- Header -->
-  <div class="mb-3 flex items-center justify-between">
-    <div>
-      <h1 class="text-sm font-semibold text-gray-800">Dashboard</h1>
-      <p class="text-[11px] text-gray-400" x-text="currentDateTime"></p>
+  <div class="mb-4 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600"
+           x-html="renderIcon('chart-bar', 'h-5 w-5')"></div>
+      <div>
+        <h1 class="text-base font-semibold text-gray-900">Dashboard</h1>
+        <p class="text-xs text-gray-500 mt-0.5" x-text="currentDateTime"></p>
+      </div>
     </div>
-    <button @click="loadAll()" :disabled="refreshing"
-            class="inline-flex items-center gap-1 rounded-lg bg-white px-2.5 py-1.5 text-[11px] font-medium text-gray-500 shadow-sm hover:bg-gray-50 disabled:opacity-50">
-      <svg class="h-3.5 w-3.5" :class="refreshing && 'animate-spin'" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182M2.985 19.644l3.181-3.182"/>
-      </svg>
-      <span x-text="refreshing ? 'Loading...' : 'Refresh'"></span>
-    </button>
+
   </div>
 
-  <!-- ── Attendance Table ──────────────────────────────────────────────── -->
-  <div class="mb-3 rounded-lg bg-white ring-1 ring-gray-100">
-    <!-- Header + Period Tabs -->
-    <div class="flex items-center justify-between border-b border-gray-100 px-3 py-2">
-      <h2 class="text-xs font-semibold text-gray-800">Attendance Dashboard</h2>
-      <div class="flex items-center gap-0.5 rounded-md bg-gray-50 p-0.5">
-        <template x-for="p in ['daily','weekly','monthly']" :key="p">
-          <button @click="attendancePeriod = p"
-                  class="rounded px-2 py-0.5 text-[10px] font-medium capitalize transition-all"
-                  :class="attendancePeriod === p ? 'bg-brand-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-600'"
-                  x-text="p"></button>
-        </template>
+  <!-- ── Attendance Section ─────────────────────────────────────────────── -->
+  <div class="mb-4 rounded-lg bg-white border border-gray-200 overflow-hidden">
+    <!-- Header -->
+    <div class="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+      <div class="flex items-center gap-2">
+        <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-green-50 text-green-600" x-html="renderIcon('users', 'h-4 w-4')"></div>
+          <h2 class="text-sm font-semibold text-gray-900">Today's Attendance</h2>
       </div>
     </div>
 
     <!-- Daily status summary -->
-    <div class="grid grid-cols-2 gap-2 border-b border-gray-50 px-3 py-2 lg:grid-cols-4" x-show="attendancePeriod === 'daily'">
-      <div class="rounded-md bg-gray-50 px-2.5 py-2">
-        <p class="text-[10px] text-gray-400">Present</p>
-        <p class="mt-0.5 text-sm font-semibold text-gray-800" x-text="summary.punched_in ?? 0"></p>
-      </div>
-      <div class="rounded-md bg-gray-50 px-2.5 py-2">
-        <p class="text-[10px] text-gray-400">Absent</p>
-        <p class="mt-0.5 text-sm font-semibold text-gray-800" x-text="summary.absent ?? 0"></p>
-      </div>
-      <div class="rounded-md bg-gray-50 px-2.5 py-2">
-        <p class="text-[10px] text-gray-400">Working</p>
-        <p class="mt-0.5 text-sm font-semibold text-gray-800" x-text="summary.still_working ?? 0"></p>
-      </div>
-      <div class="rounded-md bg-gray-50 px-2.5 py-2">
-        <p class="text-[10px] text-gray-400">Logged Out</p>
-        <p class="mt-0.5 text-sm font-semibold text-gray-800" x-text="summary.punched_out ?? 0"></p>
-      </div>
+    <div class="grid grid-cols-2 gap-px bg-gray-100 lg:grid-cols-4">
+      <button @click="selectedAttendanceTile = 'present'" class="bg-white px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+              :class="selectedAttendanceTile === 'present' ? 'ring-1 ring-inset ring-green-200 bg-green-50/40' : ''">
+        <div class="flex items-center justify-between">
+          <p class="text-xs text-gray-500">Present</p>
+          <span class="flex h-6 w-6 items-center justify-center rounded-full bg-green-50 text-green-600" x-html="renderIcon('users', 'h-3.5 w-3.5')"></span>
+        </div>
+        <p class="mt-1 text-lg font-semibold text-gray-900" x-text="summary.punched_in ?? 0"></p>
+      </button>
+      <button @click="selectedAttendanceTile = 'absent'" class="bg-white px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+              :class="selectedAttendanceTile === 'absent' ? 'ring-1 ring-inset ring-red-200 bg-red-50/40' : ''">
+        <div class="flex items-center justify-between">
+          <p class="text-xs text-gray-500">Absent</p>
+          <span class="flex h-6 w-6 items-center justify-center rounded-full bg-red-50 text-red-500" x-html="renderIcon('x-circle', 'h-3.5 w-3.5')"></span>
+        </div>
+        <p class="mt-1 text-lg font-semibold text-gray-900" x-text="summary.absent ?? 0"></p>
+      </button>
+      <button @click="selectedAttendanceTile = 'working'" class="bg-white px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+              :class="selectedAttendanceTile === 'working' ? 'ring-1 ring-inset ring-amber-200 bg-amber-50/40' : ''">
+        <div class="flex items-center justify-between">
+          <p class="text-xs text-gray-500">Working</p>
+          <span class="flex h-6 w-6 items-center justify-center rounded-full bg-amber-50 text-amber-600" x-html="renderIcon('clock', 'h-3.5 w-3.5')"></span>
+        </div>
+        <p class="mt-1 text-lg font-semibold text-gray-900" x-text="summary.still_working ?? 0"></p>
+      </button>
+      <button @click="selectedAttendanceTile = 'logged_out'" class="bg-white px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+              :class="selectedAttendanceTile === 'logged_out' ? 'ring-1 ring-inset ring-gray-300 bg-gray-50/70' : ''">
+        <div class="flex items-center justify-between">
+          <p class="text-xs text-gray-500">Logged Out</p>
+          <span class="flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 text-gray-500" x-html="renderIcon('arrow-right-on-rectangle', 'h-3.5 w-3.5')"></span>
+        </div>
+        <p class="mt-1 text-lg font-semibold text-gray-900" x-text="summary.punched_out ?? 0"></p>
+      </button>
     </div>
 
     <!-- Daily: staff-level table -->
-    <div x-show="attendancePeriod === 'daily'">
-      <div x-show="attendanceLoading" class="py-8 text-center">
+    <div>
+      <div x-show="attendanceLoading" class="py-10 text-center">
         <div class="spinner spinner-sm mx-auto"></div>
       </div>
-      <div x-show="!attendanceLoading && attendance.length === 0" class="py-6 text-center">
-        <p class="text-xs text-gray-400">No attendance records for today</p>
+      <div x-show="!attendanceLoading && selectedAttendanceRows().length === 0" class="py-8 text-center">
+        <p class="text-sm text-gray-500" x-text="emptyStateMessage()"></p>
       </div>
-      <div x-show="!attendanceLoading && attendance.length > 0" class="overflow-x-auto">
-        <table class="w-full text-[11px]">
+      <div x-show="!attendanceLoading && selectedAttendanceRows().length > 0" class="overflow-x-auto">
+        <table class="w-full text-sm">
           <thead>
-            <tr class="border-b border-gray-100 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-              <th class="px-3 py-1.5">Name</th>
-              <th class="px-2 py-1.5">Login</th>
-              <th class="px-2 py-1.5">Logout</th>
-              <th class="px-2 py-1.5">Hours</th>
-              <th class="px-2 py-1.5">Extra / OT</th>
-              <th class="px-2 py-1.5 text-right">Status</th>
+            <tr class="border-b border-gray-200 text-left">
+              <th class="px-4 py-2.5 text-xs font-semibold text-gray-500">Name</th>
+              <th class="px-3 py-2.5 text-xs font-semibold text-gray-500">Login</th>
+              <th class="px-3 py-2.5 text-xs font-semibold text-gray-500">Logout</th>
+              <th class="px-3 py-2.5 text-xs font-semibold text-gray-500">Hours</th>
+              <th class="px-3 py-2.5 text-xs font-semibold text-gray-500">Extra / OT</th>
+              <th class="px-3 py-2.5 text-xs font-semibold text-gray-500 text-right">Status</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-gray-50">
-            <template x-for="row in attendance" :key="row.staff_id || row.user_id">
-              <tr class="hover:bg-gray-50/50">
-                <td class="px-3 py-1.5">
-                  <span class="font-medium text-gray-700 truncate max-w-[120px]" x-text="row.staff_name || row.full_name || row.employee_name || '-'"></span>
+          <tbody class="divide-y divide-gray-100">
+            <template x-for="row in selectedAttendanceRows()" :key="row.staff_id || row.user_id || row.full_name">
+              <tr class="hover:bg-gray-50">
+                <td class="px-4 py-2.5">
+                  <span class="font-medium text-gray-900 truncate max-w-[140px]" x-text="row.staff_name || row.full_name || row.employee_name || '-'"></span>
                 </td>
-                <td class="px-2 py-1.5 text-gray-500" x-text="formatTime(row.punch_in_time || row.punch_in || row.login_time) || '-'"></td>
-                <td class="px-2 py-1.5 text-gray-500" x-text="formatTime(row.punch_out_time || row.punch_out) || '-'"></td>
-                <td class="px-2 py-1.5">
+                <td class="px-3 py-2.5 text-gray-600" x-text="formatTime(row.punch_in_time || row.punch_in || row.login_time) || '-'"></td>
+                <td class="px-3 py-2.5 text-gray-600" x-text="formatTime(row.punch_out_time || row.punch_out) || '-'"></td>
+                <td class="px-3 py-2.5">
                   <span :class="getHoursClass(row)"
                         x-text="row.duration_minutes ? formatDuration(row.duration_minutes) : calculateHours(row.punch_in_time, row.punch_out_time)"></span>
                 </td>
-                <td class="px-2 py-1.5 text-purple-600"
-                    x-text="calculateOT(row.punch_in_time, row.punch_out_time, row.standard_login_time, row.standard_logout_time)"></td>
-                <td class="px-2 py-1.5 text-right">
-                  <span class="inline-flex rounded-md px-1.5 py-0.5 text-[10px] font-semibold"
+                <td class="px-3 py-2.5 text-purple-600"
+                  x-text="calculateOTLabelFromRow(row)"></td>
+                <td class="px-3 py-2.5 text-right">
+                  <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
                         :class="{
                           'bg-green-50 text-green-700': row.status === 'in' || row.status === 'present',
-                          'bg-gray-100 text-gray-500': row.status === 'out' || row.status === 'completed',
+                          'bg-gray-100 text-gray-600': row.status === 'out' || row.status === 'completed',
                           'bg-red-50 text-red-600': row.status === 'absent',
+                          'bg-blue-50 text-blue-700': row.status === 'on_leave',
                         }"
                         x-text="formatStatus(row.status)"></span>
                 </td>
@@ -104,88 +114,98 @@
         </table>
       </div>
     </div>
-
-    <!-- Weekly summary -->
-    <div x-show="attendancePeriod === 'weekly'" class="p-3">
-      <div class="grid grid-cols-3 gap-2">
-        <div class="rounded-lg bg-green-50 p-2">
-          <p class="text-sm font-bold text-green-700" x-text="weeklyStats.avgPresent">-</p>
-          <p class="text-[10px] text-green-600">Avg Present/Day</p>
-        </div>
-        <div class="rounded-lg bg-red-50 p-2">
-          <p class="text-sm font-bold text-red-700" x-text="weeklyStats.totalAbsent">-</p>
-          <p class="text-[10px] text-red-600">Total Absent</p>
-        </div>
-        <div class="rounded-lg bg-purple-50 p-2">
-          <p class="text-sm font-bold text-purple-700" x-text="weeklyStats.totalOTHours">-</p>
-          <p class="text-[10px] text-purple-600">OT Hours</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Monthly summary -->
-    <div x-show="attendancePeriod === 'monthly'" class="p-3">
-      <div class="grid grid-cols-3 gap-2">
-        <div class="rounded-lg bg-green-50 p-2">
-          <p class="text-sm font-bold text-green-700" x-text="monthlyStats.avgPresent">-</p>
-          <p class="text-[10px] text-green-600">Avg Present/Day</p>
-        </div>
-        <div class="rounded-lg bg-orange-50 p-2">
-          <p class="text-sm font-bold text-orange-700" x-text="monthlyStats.lateArrivals">-</p>
-          <p class="text-[10px] text-orange-600">Late Arrivals</p>
-        </div>
-        <div class="rounded-lg bg-blue-50 p-2">
-          <p class="text-sm font-bold text-blue-700" x-text="monthlyStats.avgHours">-</p>
-          <p class="text-[10px] text-blue-600">Avg Hours/Day</p>
-        </div>
-      </div>
-    </div>
   </div>
 
   <!-- ── Financial Summary Card ────────────────────────────────────────── -->
-  <div class="mb-3 rounded-lg bg-white ring-1 ring-gray-100 overflow-hidden">
-    <div class="flex items-center justify-between border-b border-gray-100 px-3 py-2">
-      <h2 class="text-xs font-semibold text-gray-800 flex items-center gap-1">
-        <span class="text-brand-600" x-html="renderIcon('banknotes', 'h-3 w-3')"></span>
+  <div x-show="isAdmin" class="mb-4 rounded-lg bg-white border border-gray-200 overflow-hidden">
+    <div class="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+      <h2 class="text-sm font-semibold text-gray-900 flex items-center gap-2">
+        <span class="text-brand-600" x-html="renderIcon('banknotes', 'h-4 w-4')"></span>
         Financial Summary
       </h2>
-      <span class="text-[10px] text-gray-400">This Month</span>
+      <span class="text-xs text-gray-500">This Month</span>
     </div>
-    <div class="grid grid-cols-2 gap-px bg-gray-100 lg:grid-cols-4">
-      <div class="bg-white p-2.5 text-center">
-        <p class="text-[9px] font-medium uppercase text-gray-400">Expenses</p>
-        <p class="text-xs font-bold text-amber-600">&#8377;<span x-text="financialSummary.totalExpenses">0</span></p>
+    <div class="grid grid-cols-2 gap-px bg-gray-100 lg:grid-cols-6">
+      <div class="bg-white px-4 py-3">
+        <div class="flex items-center justify-between">
+          <p class="text-xs text-gray-500">Expenses</p>
+          <span class="flex h-6 w-6 items-center justify-center rounded-full bg-amber-50 text-amber-600" x-html="renderIcon('shopping-bag', 'h-3.5 w-3.5')"></span>
+        </div>
+        <p class="mt-1 text-sm font-semibold text-amber-600">&#8377;<span x-text="financialSummary.totalExpenses">0</span></p>
       </div>
-      <div class="bg-white p-2.5 text-center">
-        <p class="text-[9px] font-medium uppercase text-gray-400">Advances</p>
-        <p class="text-xs font-bold text-blue-600">&#8377;<span x-text="financialSummary.totalAdvances">0</span></p>
+      <div class="bg-white px-4 py-3">
+        <div class="flex items-center justify-between">
+          <p class="text-xs text-gray-500">Advances</p>
+          <span class="flex h-6 w-6 items-center justify-center rounded-full bg-blue-50 text-blue-600" x-html="renderIcon('credit-card', 'h-3.5 w-3.5')"></span>
+        </div>
+        <p class="mt-1 text-sm font-semibold text-blue-600">&#8377;<span x-text="financialSummary.totalAdvances">0</span></p>
       </div>
-      <div class="bg-white p-2.5 text-center">
-        <p class="text-[9px] font-medium uppercase text-gray-400">Approved</p>
-        <p class="text-xs font-bold text-green-600" x-text="financialSummary.approvedCount">0</p>
+      <div class="bg-white px-4 py-3">
+        <div class="flex items-center justify-between">
+          <p class="text-xs text-gray-500">Approved</p>
+          <span class="flex h-6 w-6 items-center justify-center rounded-full bg-green-50 text-green-600" x-html="renderIcon('check-circle', 'h-3.5 w-3.5')"></span>
+        </div>
+        <p class="mt-1 text-sm font-semibold text-green-600" x-text="financialSummary.approvedCount">0</p>
       </div>
-      <div class="bg-white p-2.5 text-center">
-        <p class="text-[9px] font-medium uppercase text-gray-400">Pending</p>
-        <p class="text-xs font-bold text-gray-600" x-text="financialSummary.pendingCount">0</p>
+      <div class="bg-white px-4 py-3">
+        <div class="flex items-center justify-between">
+          <p class="text-xs text-gray-500">Pending</p>
+          <span class="flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 text-gray-500" x-html="renderIcon('clock', 'h-3.5 w-3.5')"></span>
+        </div>
+        <p class="mt-1 text-sm font-semibold text-gray-700" x-text="financialSummary.pendingCount">0</p>
+      </div>
+      <div class="bg-white px-4 py-3">
+        <div class="flex items-center justify-between">
+          <p class="text-xs text-gray-500">Reimb Pending</p>
+          <span class="flex h-6 w-6 items-center justify-center rounded-full bg-amber-50 text-amber-600" x-html="renderIcon('inbox-stack', 'h-3.5 w-3.5')"></span>
+        </div>
+        <p class="mt-1 text-sm font-semibold text-amber-700" x-text="financialSummary.reimbursementPendingCount">0</p>
+      </div>
+      <div class="bg-white px-4 py-3">
+        <div class="flex items-center justify-between">
+          <p class="text-xs text-gray-500">Reimb Amount</p>
+          <span class="flex h-6 w-6 items-center justify-center rounded-full bg-amber-50 text-amber-600" x-html="renderIcon('banknotes', 'h-3.5 w-3.5')"></span>
+        </div>
+        <p class="mt-1 text-sm font-semibold text-amber-700">&#8377;<span x-text="financialSummary.reimbursementPendingAmount">0</span></p>
       </div>
     </div>
   </div>
 
   <!-- ── Charts ────────────────────────────────────────────────────────── -->
-  <div class="mb-3 grid gap-2 lg:grid-cols-3">
-    <div class="lg:col-span-2 rounded-lg bg-white p-3 ring-1 ring-gray-100">
-      <div class="flex items-center justify-between mb-2">
-        <h3 class="text-[11px] font-semibold text-gray-800">Attendance Trend</h3>
-        <span class="text-[10px] text-gray-400">Last 7 days</span>
+  <div class="mb-4 grid gap-4" :class="isAdmin ? 'lg:grid-cols-3' : 'lg:grid-cols-1'">
+    <div class="rounded-lg bg-white border border-gray-200 p-4" :class="isAdmin ? 'lg:col-span-2' : 'lg:col-span-1'">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600" x-html="renderIcon('chart-bar', 'h-4 w-4')"></div>
+          <h3 class="text-sm font-semibold text-gray-900">Attendance Trend</h3>
+        </div>
+        <span class="text-xs text-gray-500">Last 7 days</span>
       </div>
-      <div class="h-40"><canvas id="attendanceChart"></canvas></div>
+      <div class="h-44"><canvas id="attendanceChart"></canvas></div>
     </div>
-    <div class="rounded-lg bg-white p-3 ring-1 ring-gray-100">
-      <div class="flex items-center justify-between mb-2">
-        <h3 class="text-[11px] font-semibold text-gray-800">Financial Breakdown</h3>
-        <span class="text-[10px] text-gray-400">This Month</span>
+    <div x-show="isAdmin" class="rounded-lg bg-white border border-gray-200 p-4">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600" x-html="renderIcon('banknotes', 'h-4 w-4')"></div>
+          <h3 class="text-sm font-semibold text-gray-900">Financial Breakdown</h3>
+        </div>
+        <span class="text-xs text-gray-500">This Month</span>
       </div>
       <div class="h-40 flex items-center justify-center"><canvas id="financialChart"></canvas></div>
+      <div class="mt-3 space-y-2">
+        <template x-for="item in financialBreakdown" :key="item.label">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="h-3 w-3 rounded-full shrink-0" :style="'background-color:' + item.color"></span>
+              <span class="text-xs text-gray-600 truncate" x-text="item.label"></span>
+            </div>
+            <div class="text-right">
+              <p class="text-xs font-semibold text-gray-900" x-text="item.amountLabel"></p>
+              <p class="text-xs text-gray-400" x-text="item.percentLabel"></p>
+            </div>
+          </div>
+        </template>
+      </div>
     </div>
   </div>
 
@@ -197,7 +217,8 @@
   /* ── Helper functions ─────────────────────────────────────────────────── */
   function formatStatus(s) {
     if (!s) return '-';
-    return s.charAt(0).toUpperCase() + s.slice(1);
+    var labels = { 'in': 'Working', 'out': 'Logged Out', 'present': 'Present', 'absent': 'Absent', 'on_leave': 'On Leave', 'completed': 'Logged Out' };
+    return labels[s.toLowerCase()] || (s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, ' '));
   }
 
   function formatTime(utc) {
@@ -223,7 +244,7 @@
     } catch { return '-'; }
   }
 
-  function calculateOT(punchIn, punchOut, stdIn, stdOut) {
+  function calculateOT(punchIn, punchOut, stdIn, stdOut, graceMinutes) {
     if (!punchIn || !punchOut || !stdIn || !stdOut) return '-';
     try {
       var today = new Date();
@@ -232,7 +253,7 @@
       var stdMs = new Date(today.getFullYear(), today.getMonth(), today.getDate(), soh, som)
                 - new Date(today.getFullYear(), today.getMonth(), today.getDate(), sih, sim);
       var workMs = new Date(punchOut) - new Date(punchIn);
-      var extra = (workMs - stdMs) / 60000;
+      var extra = (workMs - stdMs - (Number(graceMinutes || 0) * 60000)) / 60000;
       if (isNaN(extra) || extra <= 0) return '-';
       return Math.floor(extra / 60) + 'h ' + Math.floor(extra % 60) + 'm';
     } catch (e) { return '-'; }
@@ -241,23 +262,35 @@
   /* ── Main Alpine component ────────────────────────────────────────────── */
   function adminDashboard() {
     return {
+      isAdmin: '{{ user.role|default("admin") }}' === 'admin',
       refreshing: false,
       attendanceLoading: true,
       analyticsLoading: true,
       currentDateTime: '',
-      attendancePeriod: 'daily',
+      selectedAttendanceTile: 'present',
       summary: {},
       attendance: [],
-      financialSummary: { totalExpenses: '0', totalAdvances: '0', approvedCount: 0, pendingCount: 0 },
-      weeklyStats: { avgPresent: '-', totalAbsent: '-', totalOTHours: '-' },
-      monthlyStats: { avgPresent: '-', lateArrivals: '-', avgHours: '-' },
+      financialSummary: { totalExpenses: '0', totalAdvances: '0', approvedCount: 0, pendingCount: 0, reimbursementPendingCount: 0, reimbursementPendingAmount: '0' },
+      financialBreakdown: [],
       charts: { attendance: null, financial: null },
+      standardHoursPerDay: 8,
+      overtimeGraceMinutes: 30,
+
+      formatMoney(value) {
+        return '\u20b9' + Number(value || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+      },
 
       async loadAll() {
         this.refreshing = true;
         this.updateDateTime();
         await Promise.all([this.fetchDashboard(), this.fetchAnalytics()]);
         this.refreshing = false;
+        if (!this._visibilityBound) {
+          this._visibilityBound = true;
+          document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') this.loadAll();
+          });
+        }
       },
 
       updateDateTime() {
@@ -276,21 +309,11 @@
             var s = data.summary || {};
             this.summary = s;
             this.attendance = s.today_attendance || s.attendance || [];
-            this.monthlyStats.lateArrivals = s.late_count || 0;
-            this.monthlyStats.avgHours = this.calculateAverageHours();
+            this.standardHoursPerDay = Number(s.standard_hours_per_day || 8);
+            this.overtimeGraceMinutes = Number(s.overtime_grace_minutes || 30);
           }
         } catch (e) { console.error('Dashboard error:', e); }
         finally { this.attendanceLoading = false; }
-      },
-
-      calculateAverageHours() {
-        if (!this.attendance || this.attendance.length === 0) return '-';
-        var totalMinutes = this.attendance.reduce(function(sum, row) {
-          return sum + Number(row.duration_minutes || 0);
-        }, 0);
-        var avg = totalMinutes / this.attendance.length;
-        if (!isFinite(avg) || avg <= 0) return '-';
-        return (avg / 60).toFixed(1) + 'h';
       },
 
       getHoursClass(row) {
@@ -299,6 +322,55 @@
         if (mins >= 240) return 'font-medium text-amber-600';
         if (mins > 0) return 'font-medium text-red-600';
         return 'text-gray-600';
+      },
+
+      calculateOTMinutesFromRow(row) {
+        var mins = Number(row.duration_minutes || 0);
+        if (!isFinite(mins) || mins <= 0) return 0;
+        var standardMinutes = Math.max(0, Number(this.standardHoursPerDay || 8) * 60);
+        var graceMinutes = Math.max(0, Number(this.overtimeGraceMinutes || 0));
+        var threshold = standardMinutes + graceMinutes;
+        if (mins <= threshold) return 0;
+        return Math.max(0, mins - standardMinutes);
+      },
+
+      calculateOTLabelFromRow(row) {
+        var otMinutes = this.calculateOTMinutesFromRow(row);
+        return otMinutes > 0 ? formatDuration(otMinutes) : '-';
+      },
+
+      selectedAttendanceRows() {
+        if (this.selectedAttendanceTile === 'present') {
+          return this.attendance;
+        }
+        if (this.selectedAttendanceTile === 'working') {
+          return this.attendance.filter(function(row) { return (row.status || '').toLowerCase() === 'in'; });
+        }
+        if (this.selectedAttendanceTile === 'logged_out') {
+          return this.attendance.filter(function(row) { return (row.status || '').toLowerCase() === 'out'; });
+        }
+        if (this.selectedAttendanceTile === 'absent') {
+          var noRecord = (this.summary.absent_staff || []).map(function(row) {
+            return Object.assign({}, row, { status: 'absent' });
+          });
+          var onLeave = (this.summary.on_leave_details || []).map(function(row) {
+            return {
+              user_id: row.user_id,
+              full_name: row.staff_name || row.full_name || '-',
+              designation: row.designation || '',
+              status: 'on_leave',
+            };
+          });
+          return noRecord.concat(onLeave);
+        }
+        return this.attendance;
+      },
+
+      emptyStateMessage() {
+        if (this.selectedAttendanceTile === 'working') return 'No staff currently working';
+        if (this.selectedAttendanceTile === 'logged_out') return 'No logged out records for today';
+        if (this.selectedAttendanceTile === 'absent') return 'No absent staff for today';
+        return 'No attendance records for today';
       },
 
       async fetchAnalytics() {
@@ -310,35 +382,48 @@
             var a = data.analytics || {};
             this.renderCharts(a);
 
-            // Populate financial summary from analytics
-            var fo = a.financial_overview || {};
-            this.financialSummary = {
-              totalExpenses: Number(fo.total_expenses || 0).toLocaleString('en-IN'),
-              totalAdvances: Number(fo.total_advances || 0).toLocaleString('en-IN'),
-              approvedCount: fo.approved_count || 0,
-              pendingCount: fo.pending_count || 0,
-            };
+            if (this.isAdmin) {
+              // Populate financial summary for admin only.
+              var fo = a.financial_overview || {};
+              this.financialSummary = {
+                totalExpenses: Number(fo.total_expenses || 0).toLocaleString('en-IN'),
+                totalAdvances: Number(fo.total_advances || 0).toLocaleString('en-IN'),
+                approvedCount: fo.approved_count || 0,
+                pendingCount: fo.pending_count || 0,
+                reimbursementPendingCount: fo.reimbursement_pending_count || 0,
+                reimbursementPendingAmount: Number(fo.reimbursement_pending_amount || 0).toLocaleString('en-IN'),
+              };
 
-            var trend = a.attendance_trend || [];
-            if (trend.length > 0) {
-              var totalPresent = trend.reduce(function(sum, d) { return sum + Number(d.present || 0); }, 0);
-              var totalAbsent = trend.reduce(function(sum, d) { return sum + Number(d.absent || 0); }, 0);
-              var totalDays = trend.length;
-              this.weeklyStats.avgPresent = (totalPresent / totalDays).toFixed(1);
-              this.weeklyStats.totalAbsent = totalAbsent;
+              var approvedExpenses = Number(fo.approved_expenses || 0);
+              var approvedAdvances = Number(fo.approved_advances || 0);
+              var totalRequested = Number(fo.total_expenses || 0) + Number(fo.total_advances || 0);
+              var approvedTotal = approvedExpenses + approvedAdvances;
+              var unapprovedAmount = Math.max(0, totalRequested - approvedTotal);
+              var breakdownTotal = approvedTotal + unapprovedAmount;
 
-              var avgAttendanceRate = trend.reduce(function(sum, d) {
-                if (!d.total) return sum;
-                return sum + (Number(d.present || 0) / Number(d.total || 1));
-              }, 0) / totalDays;
-              this.monthlyStats.avgPresent = Math.round(avgAttendanceRate * 100) + '%';
+              this.financialBreakdown = [
+                {
+                  label: 'Approved Expenses',
+                  color: '#f59e0b',
+                  amountLabel: this.formatMoney(approvedExpenses),
+                  percentLabel: breakdownTotal > 0 ? ((approvedExpenses * 100) / breakdownTotal).toFixed(1) + '%' : '0.0%',
+                },
+                {
+                  label: 'Approved Advances',
+                  color: '#3b82f6',
+                  amountLabel: this.formatMoney(approvedAdvances),
+                  percentLabel: breakdownTotal > 0 ? ((approvedAdvances * 100) / breakdownTotal).toFixed(1) + '%' : '0.0%',
+                },
+                {
+                  label: 'Unapproved Amount',
+                  color: '#9ca3af',
+                  amountLabel: this.formatMoney(unapprovedAmount),
+                  percentLabel: breakdownTotal > 0 ? ((unapprovedAmount * 100) / breakdownTotal).toFixed(1) + '%' : '0.0%',
+                },
+              ];
             }
 
-            var totalOTMinutesToday = this.attendance.reduce(function(sum, row) {
-              var mins = Number(row.duration_minutes || 0);
-              return mins > 480 ? sum + (mins - 480) : sum;
-            }, 0);
-            this.weeklyStats.totalOTHours = (totalOTMinutesToday / 60).toFixed(1);
+            // Analytics charts remain active; attendance card intentionally stays daily-only.
           }
         } catch (e) { console.error('Analytics error:', e); }
         finally { this.analyticsLoading = false; }
@@ -376,17 +461,35 @@
 
         // Financial Doughnut
         var finCtx = document.getElementById('financialChart');
-        if (finCtx && analytics.financial_overview) {
+        if (this.isAdmin && finCtx && analytics.financial_overview) {
           var f = analytics.financial_overview;
+          var approvedExpenses = Number(f.approved_expenses || 0);
+          var approvedAdvances = Number(f.approved_advances || 0);
+          var totalRequested = Number(f.total_expenses || 0) + Number(f.total_advances || 0);
+          var unapprovedAmount = Math.max(0, totalRequested - (approvedExpenses + approvedAdvances));
+          var amountData = [approvedExpenses, approvedAdvances, unapprovedAmount];
+          var totalAmount = amountData.reduce(function(sum, v) { return sum + Number(v || 0); }, 0);
+
           this.charts.financial = new Chart(finCtx, {
             type: 'doughnut',
             data: {
-              labels: ['Expenses', 'Advances', 'Pending'],
-              datasets: [{ data: [f.approved_expenses || 0, f.approved_advances || 0, (f.pending_count || 0) * 100], backgroundColor: ['#f59e0b', '#3b82f6', '#d1d5db'], borderWidth: 0 }],
+              labels: ['Approved Expenses', 'Approved Advances', 'Unapproved Amount'],
+              datasets: [{ data: amountData, backgroundColor: ['#f59e0b', '#3b82f6', '#9ca3af'], borderWidth: 0 }],
             },
             options: {
               responsive: true, maintainAspectRatio: false, cutout: '65%',
-              plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, padding: 10, font: { size: 10, family: chartFont.family } } } },
+              plugins: {
+                legend: { position: 'bottom', labels: { usePointStyle: true, padding: 10, font: { size: 10, family: chartFont.family } } },
+                tooltip: {
+                  callbacks: {
+                    label: function(context) {
+                      var value = Number(context.raw || 0);
+                      var pct = totalAmount > 0 ? ((value * 100) / totalAmount).toFixed(1) : '0.0';
+                      return context.label + ': \u20b9' + value.toLocaleString('en-IN', { maximumFractionDigits: 0 }) + ' (' + pct + '%)';
+                    },
+                  },
+                },
+              },
             },
           });
         }

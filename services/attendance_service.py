@@ -1,9 +1,9 @@
 """
 services/attendance_service.py - Attendance business logic.
 
-Firestore structure
--------------------
-attendance/{user_id}/records/{YYYYMMDD}
+Persistence model
+-----------------
+attendance_logs table (one record per user per IST date)
 
 Record document::
 
@@ -26,10 +26,7 @@ Rules
 """
 from __future__ import annotations
 
-import os
 from datetime import date
-
-from google.cloud.firestore_v1 import SERVER_TIMESTAMP
 
 from services.repositories.attendance_repository import get_attendance_repository
 from utils.logger import get_logger, audit_log
@@ -52,10 +49,7 @@ def _repo():
 
 
 def _db_timestamp():
-    provider = os.getenv("APP_DB_PROVIDER", "firebase").strip().lower()
-    if provider == "postgres":
-        return now_utc()
-    return SERVER_TIMESTAMP
+    return now_utc()
 
 
 # -- Punch operations ----------------------------------------------------------
@@ -222,7 +216,7 @@ def get_all_staff_analytics(period: str) -> list[dict]:
 
 def _sanitise_record(data: dict) -> dict:
     """
-    Convert Firestore timestamps to ISO strings so the dict is JSON-serialisable.
+    Convert timestamp fields to IST strings so the dict is JSON-serialisable.
     """
     out = dict(data)
 
@@ -235,7 +229,7 @@ def _sanitise_record(data: dict) -> dict:
             out[ts_field] = format_ist(val)
         else:
             try:
-                # Firestore DatetimeWithNanoseconds
+                # Datetime-like fallback from adapter layers
                 out[ts_field] = format_ist(val)
             except Exception:  # noqa: BLE001
                 out[ts_field] = str(val)

@@ -1,6 +1,6 @@
 # Infinity Designer Boutique – Management System
 
-Enterprise-grade boutique management system featuring a **Progressive Web App (PWA)** frontend built with **plain HTML/CSS/JS + Tailwind CSS + Alpine.js** and a **Python Flask REST API** backend, powered by **Firebase Firestore**. Handles staff lifecycle, attendance, finances, overtime, weekly settlements, and real-time dashboards — all under a single, role-based platform.
+Enterprise-grade boutique management system featuring a **Progressive Web App (PWA)** frontend built with **plain HTML/CSS/JS + Tailwind CSS + Alpine.js** and a **Python Flask REST API** backend, powered by **PostgreSQL + AWS S3**. Handles staff lifecycle, attendance, finances, overtime, weekly settlements, and real-time dashboards under a single, role-based platform.
 
 ---
 
@@ -10,7 +10,8 @@ Enterprise-grade boutique management system featuring a **Progressive Web App (P
 |-------|------------|
 | **Frontend** | PWA · Tailwind CSS v4 (pre-compiled) · Alpine.js · Vanilla JS |
 | **Backend** | Python Flask 3.1 · Jinja2 Templates · Service-Oriented Architecture |
-| **Database** | Firebase Firestore (NoSQL, real-time) · Firebase Storage |
+| **Database** | PostgreSQL |
+| **File Storage** | AWS S3 |
 | **Auth** | Session-based · Bcrypt PIN hashing (12 rounds) · RBAC |
 | **Timezone** | All timestamps locked to **IST (Asia/Kolkata)** |
 
@@ -26,9 +27,6 @@ infinitydesignerboutique-mgmt/
 ├── config.py                       # Centralised configuration (env-driven)
 ├── requirements.txt                # Python dependencies
 ├── setup_root_admin.py             # One-time root admin seeding script
-├── firebase.json                   # Firebase project configuration
-├── firestore.indexes.json          # Firestore composite indexes
-├── firestore.rules                 # Firestore security rules
 │
 ├── modules/                        # Flask Blueprints (route handlers)
 │   ├── auth/routes.py              # Authentication endpoints
@@ -53,7 +51,7 @@ infinitydesignerboutique-mgmt/
 │   └── auth_middleware.py          # RBAC decorators (@login_required, @admin_required, @staff_required)
 │
 ├── utils/
-│   ├── firebase_client.py          # Firebase Admin SDK initialisation (singleton)
+│   ├── db/postgres_client.py       # PostgreSQL connection helper
 │   ├── logger.py                   # IST-stamped rotating file logger + audit log
 │   ├── timezone_utils.py           # UTC↔IST conversion, period range calculations
 │   └── validators.py               # Input validation (phone, PIN, amounts)
@@ -105,7 +103,7 @@ infinitydesignerboutique-mgmt/
 - Dynamic staff creation forms with designation-based fields
 - Six designations: `cutting_master`, `tailor`, `embroidery_artist`, `handwork_expert`, `designer`, `helper`
 - Auto-calculated daily salary derived from weekly salary
-- Skill tags, work gallery (Firebase Storage), and performance notes
+- Skill tags, work gallery (AWS S3), and performance notes
 - Soft deletion via status transitions: `active` → `inactive` → `deactivated`
 - Immutable phone numbers to preserve audit trail integrity
 
@@ -242,7 +240,8 @@ infinitydesignerboutique-mgmt/
 
 - Python 3.10+
 - Node.js 18+
-- Firebase project with Firestore and Storage enabled
+- PostgreSQL database (local or AWS RDS)
+- AWS S3 bucket for file storage
 
 ### Backend Setup
 
@@ -255,7 +254,7 @@ pip install -r requirements.txt
 
 # Configure environment
 cp .env.example .env
-# Edit .env with your Firebase credentials and secrets
+# Edit .env with your PostgreSQL and AWS S3 credentials
 
 # Seed the root admin account
 python setup_root_admin.py
@@ -279,7 +278,7 @@ gunicorn -w 4 -b 0.0.0.0:8000 "app:create_app()"
 
 ## Database Schema
 
-### Firestore Collections
+### Core Data Model
 
 ```
 admins/{user_id}
@@ -313,7 +312,7 @@ staff/{user_id}
   └── updated_at       (timestamp) IST
 
 staff/{user_id}/work_gallery/{image_id}
-  ├── image_url        (string)    Firebase Storage URL
+  ├── image_url        (string)    AWS S3 URL
   ├── storage_path     (string)
   ├── caption          (string)
   ├── uploaded_at      (timestamp) IST
@@ -378,7 +377,6 @@ phone_index/{phone_number}
 - **Role-Based Access Control** — `@admin_required`, `@staff_required`, `@login_required` decorators enforced server-side
 - **Immutable Phone Numbers** — Cannot be changed after creation to preserve audit trail
 - **Root Admin Protection** — Hidden from all listings, cannot be modified or deleted
-- **Firestore Rules** — Deny all direct client access; all operations flow through the API
 - **Audit Logging** — All sensitive operations (login, PIN change, approvals) logged with user context
 - **First-Login Enforcement** — New and PIN-reset users must change their PIN before accessing features
 - **CORS Configuration** — Origin whitelist configurable per environment

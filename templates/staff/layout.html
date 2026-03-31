@@ -1,37 +1,49 @@
 {% extends "base.html" %}
 
-{% block title %}{% block page_title %}Staff{% endblock %} - Infinity Designer Boutique{% endblock %}
+{% block title %}{% block page_title %}Staff{% endblock %} - {{ boutique_name }}{% endblock %}
 
 {% block content %}
 <div class="flex min-h-screen flex-col" x-data="staffLayout()" x-cloak>
 
-  <!-- -- Mobile Header (glass) ----------------------------------------- -->
+  <!-- -- Mobile Header -------------------------------------------------- -->
   <header class="mobile-header sticky top-0 z-30">
-    <div class="mx-auto flex max-w-lg items-center justify-between px-4 py-2.5">
-      <div class="flex items-center gap-2.5">
-        <div class="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-600 text-white text-sm">✂️</div>
+    <div class="mx-auto flex max-w-lg items-center justify-between px-4 py-3">
+      <div class="flex items-center gap-3">
+        <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-white text-sm">✂️</div>
         <div class="min-w-0">
-          <p class="text-sm font-bold text-gray-900 truncate leading-tight">Infinity</p>
-          <p class="text-[10px] text-gray-400 truncate -mt-0.5">Hi, <span class="text-brand-600 font-medium">{{ user.full_name|default("Staff") }}</span></p>
+          <p class="text-sm font-semibold text-gray-900 truncate">{{ boutique_name }}</p>
+          <p class="text-xs text-gray-500 truncate">Hi, <span class="text-brand-600 font-medium">{{ user.full_name|default("Staff") }}</span></p>
         </div>
       </div>
       <div class="flex items-center gap-2">
         <span x-show="!online" x-transition
-              class="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-1 text-[10px] font-semibold text-red-600">
-          <span class="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse"></span> Offline
+              class="inline-flex items-center gap-1.5 rounded-full bg-red-50 border border-red-200 px-2.5 py-1 text-xs font-medium text-red-600">
+          <span class="h-2 w-2 rounded-full bg-red-500 animate-pulse"></span> Offline
         </span>
         <span x-show="online" x-transition
-              class="inline-flex h-2.5 w-2.5 rounded-full bg-green-400"></span>
+              class="inline-flex h-2.5 w-2.5 rounded-full bg-green-500"></span>
+        <button @click="doLogout()"
+                :disabled="loggingOut"
+                title="Logout"
+                class="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 disabled:opacity-50">
+          <svg x-show="!loggingOut" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9"/>
+          </svg>
+          <svg x-show="loggingOut" class="h-5 w-5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+          </svg>
+        </button>
       </div>
     </div>
   </header>
 
   <!-- -- Page Content --------------------------------------------------- -->
-  <main class="mx-auto w-full max-w-lg flex-1 px-4 pb-24 pt-3">
+  <main class="mx-auto w-full max-w-lg flex-1 px-4 pb-nav-safe pt-4">
     {% block page_content %}{% endblock %}
   </main>
 
-  <!-- -- Floating Bottom Navigation ------------------------------------- -->
+  <!-- -- Bottom Navigation ---------------------------------------------- -->
   <nav class="floating-nav">
     <template x-for="item in navItems" :key="item.href">
       <a :href="item.href"
@@ -50,6 +62,7 @@
   function staffLayout() {
     return {
       online: navigator.onLine,
+      loggingOut: false,
 
       navItems: [
         { href: '/staff/duty',    icon: 'clock',     label: 'Duty Station' },
@@ -67,6 +80,17 @@
         const path = window.location.pathname;
         if (href === '/staff/duty') return path === '/staff/duty' || path === '/staff' || path === '/staff/';
         return path.startsWith(href);
+      },
+
+      async doLogout() {
+        if (this.loggingOut) return;
+        this.loggingOut = true;
+        try {
+          await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+        } catch (e) {
+          // proceed even on error
+        }
+        window.location.href = '/login';
       },
     };
   }

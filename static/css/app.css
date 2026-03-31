@@ -1,6 +1,6 @@
 /* ── Infinity Designer Boutique – App Stylesheet ────────────────────────────
+   LinkedIn-inspired clean enterprise design system.
    Supplement to Tailwind CSS utility classes.
-   Keep this file minimal; prefer Tailwind utilities in templates.
    ────────────────────────────────────────────────────────────────────────── */
 
 /* ── Web-font preload ─────────────────────────────────────────────────────── */
@@ -29,24 +29,34 @@
   --color-danger: #dc2626;
   --color-info: #0284c7;
   --transition-fast: 150ms ease;
-  --transition-base: 250ms ease;
+  --transition-base: 200ms ease;
   --transition-slow: 350ms ease;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
   --boutique-gold: #c9956b;
-  --boutique-bg: #faf8f6;
+  --boutique-bg: #f3f2ef;
+
+  /* LinkedIn-inspired surfaces */
+  --card-bg: #ffffff;
+  --card-border: #e8e6e1;
+  --card-radius: 8px;
+  --card-padding: 16px;
+  --divider: #ebebeb;
+  --text-primary: #191919;
+  --text-secondary: #666666;
+  --text-tertiary: #999999;
 }
 
-/* ── Mobile-first compact sizing ──────────────────────────────────────────── */
-/* Tighter text sizes for mobile-dominant usage */
+/* ── Typography ───────────────────────────────────────────────────────────── */
 h1, h2, h3, h4, h5, h6 {
   font-weight: 600;
   letter-spacing: -0.01em;
+  color: var(--text-primary);
 }
 
-/* Compact inputs for mobile */
+/* ── Form elements ────────────────────────────────────────────────────────── */
 input[type="text"],
 input[type="tel"],
 input[type="email"],
@@ -57,36 +67,32 @@ input[type="search"],
 select,
 textarea {
   font-family: inherit;
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 1.4;
 }
 
-/* Refined button baseline */
 button {
   font-family: inherit;
   cursor: pointer;
 }
 
-/* Compact table cells */
+/* ── Tables ───────────────────────────────────────────────────────────────── */
 table {
-  font-size: 12px;
+  font-size: 13px;
 }
 
 table th {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  font-size: 10px;
+  font-size: 11px;
 }
 
-/* Modern card surfaces */
-.modern-card {
-  background: #ffffff;
-  border-radius: 16px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.03), 0 4px 16px rgba(0,0,0,0.02);
-}
-
-.modern-card:hover {
-  box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+/* ── LinkedIn-style card surfaces ─────────────────────────────────────────── */
+.ln-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--card-radius);
 }
 
 /* ── Base resets ──────────────────────────────────────────────────────────── */
@@ -103,7 +109,8 @@ body {
   overscroll-behavior-y: none;
   font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
   background-color: var(--boutique-bg);
-  font-size: 15px;
+  color: var(--text-primary);
+  font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -173,18 +180,18 @@ textarea,
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(225, 29, 72, 0.15);
+  background: rgba(0, 0, 0, 0.12);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(225, 29, 72, 0.3);
+  background: rgba(0, 0, 0, 0.2);
 }
 
 /* Firefox scrollbar */
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(225, 29, 72, 0.15) transparent;
+  scrollbar-color: rgba(0, 0, 0, 0.12) transparent;
 }
 
 /* ── Focus-visible outline (a11y) ─────────────────────────────────────────── */
@@ -336,44 +343,26 @@ textarea,
   transition: transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 
-.punch-btn::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: inherit;
-  animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  z-index: -1;
-}
-
 .punch-btn:hover {
-  transform: scale(1.03);
-  box-shadow: 0 8px 30px rgba(225, 29, 72, 0.3);
+  transform: scale(1.02);
+  box-shadow: 0 4px 16px rgba(225, 29, 72, 0.2);
 }
 
 .punch-btn:active {
-  transform: scale(0.97);
-  box-shadow: 0 2px 8px rgba(225, 29, 72, 0.2);
-}
-
-.punch-btn:active::before {
-  animation: none;
+  transform: scale(0.98);
 }
 
 /* ── Card hover effects ───────────────────────────────────────────────────── */
 .card-hover {
-  transition: transform var(--transition-base),
-              box-shadow var(--transition-base);
+  transition: box-shadow var(--transition-base);
 }
 
 .card-hover:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(136, 19, 55, 0.07), 0 2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
 }
 
 .card-hover:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: none;
 }
 
 /* ── Bottom navigation active state ───────────────────────────────────────── */
@@ -534,6 +523,8 @@ textarea,
 /* These classes are used in templates but missing from the pre-compiled
    tailwind.css. The lg breakpoint triggers at 64rem (1024px).              */
 @media (min-width: 64rem) {
+  .lg\:hidden     { display: none !important; }
+  .lg\:flex       { display: flex !important; }
   .lg\:py-3       { padding-top: calc(var(--spacing) * 3); padding-bottom: calc(var(--spacing) * 3); }
   .lg\:grid       { display: grid; }
   .lg\:col-span-2 { grid-column: span 2 / span 2; }
@@ -556,33 +547,26 @@ textarea,
 
 /* ── Boutique Premium Surfaces ────────────────────────────────────────── */
 .boutique-sidebar {
-  background: linear-gradient(180deg, #fffcfc 0%, #faf8f6 100%);
-  border-right: 1px solid rgba(225, 29, 72, 0.06);
+  background: #ffffff;
+  border-right: 1px solid var(--card-border);
 }
 
 .boutique-header {
-  background: rgba(250, 248, 246, 0.85);
-  backdrop-filter: saturate(180%) blur(20px);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  background: rgba(255, 255, 255, 0.97);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--card-border);
 }
 
 .boutique-bottomnav {
-  background: rgba(255, 255, 255, 0.88);
-  backdrop-filter: saturate(180%) blur(20px);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
-  border-top: 1px solid rgba(0, 0, 0, 0.04);
+  background: #ffffff;
+  border-top: 1px solid var(--card-border);
 }
 
 .boutique-card {
-  background: #ffffff;
-  border-radius: 16px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03), 0 6px 24px rgba(0, 0, 0, 0.02);
-  transition: box-shadow var(--transition-base), transform var(--transition-base);
-}
-
-.boutique-card:hover {
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
-  transform: translateY(-1px);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--card-radius);
 }
 
 .gold-accent { color: var(--boutique-gold); }
@@ -594,56 +578,60 @@ textarea,
 /* ── Floating Bottom Navigation (mobile) ──────────────────────────────── */
 .floating-nav {
   position: fixed;
-  bottom: calc(12px + var(--safe-bottom));
-  left: 12px;
-  right: 12px;
+  bottom: 0;
+  left: 0;
+  right: 0;
   z-index: 40;
   display: flex;
   align-items: center;
   justify-content: space-around;
-  padding: 6px 4px;
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: saturate(180%) blur(24px);
-  -webkit-backdrop-filter: saturate(180%) blur(24px);
-  border-radius: 24px;
-  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.07), 0 1px 3px rgba(0, 0, 0, 0.04);
+  padding: 4px 0;
+  padding-bottom: calc(4px + var(--safe-bottom));
+  background: #ffffff;
+  border-top: 1px solid var(--card-border);
+}
+
+/* Enough bottom padding so content never hides under the floating nav,
+   including devices with a home-indicator safe area (iPhone, Android). */
+.pb-nav-safe {
+  padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
 }
 
 .floating-nav a {
   position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  padding: 8px 10px;
-  border-radius: 16px;
-  color: #9ca3af;
+  gap: 2px;
+  padding: 6px 12px;
+  border-radius: 0;
+  color: var(--text-tertiary);
   text-decoration: none;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: color var(--transition-fast);
+  min-width: 56px;
 }
 
 .floating-nav a.fnav-active {
   color: var(--color-primary);
-  background: var(--color-brand-50);
-  padding: 8px 14px;
 }
 
 .floating-nav .fnav-label {
   font-size: 10px;
-  font-weight: 600;
-  display: none;
+  font-weight: 500;
+  display: block;
 }
 
 .floating-nav a.fnav-active .fnav-label {
-  display: inline;
+  font-weight: 600;
 }
 
 .floating-nav .fnav-badge {
   position: absolute;
-  top: 2px;
-  right: 2px;
-  min-width: 15px;
-  height: 15px;
+  top: 0;
+  right: 4px;
+  min-width: 16px;
+  height: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -651,16 +639,15 @@ textarea,
   border-radius: 8px;
   background: #ef4444;
   color: white;
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 700;
   line-height: 1;
 }
 
-/* ── Mobile Header (glassmorphism) ────────────────────────────────────── */
+/* ── Mobile Header ────────────────────────────────────────────────────── */
 .mobile-header {
-  background: rgba(250, 248, 246, 0.85);
-  backdrop-filter: saturate(180%) blur(20px);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  background: #ffffff;
+  border-bottom: 1px solid var(--card-border);
 }
 
 /* ── Slide-up animation ───────────────────────────────────────────────── */

@@ -1,4 +1,4 @@
-{% extends "admin/layout.html" %}
+﻿{% extends "admin/layout.html" %}
 
 {% block page_title %}Settings{% endblock %}
 
@@ -6,9 +6,13 @@
 <div x-data="settingsPage()" x-init="init()" x-cloak>
 
   <!-- Header -->
-  <div class="mb-2">
-    <h1 class="text-xs font-semibold text-gray-800">Settings</h1>
-    <p class="text-[10px] text-gray-400">Configure application settings and preferences</p>
+  <div class="mb-4 flex items-center gap-3">
+    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sky-50 text-sky-600"
+         x-html="renderIcon('cog-6-tooth', 'h-5 w-5')"></div>
+    <div>
+      <h1 class="text-base font-semibold text-gray-900">Settings</h1>
+      <p class="text-xs text-gray-500 mt-0.5">Configure application settings and preferences</p>
+    </div>
   </div>
 
   <!-- Loading -->
@@ -24,34 +28,20 @@
   <div x-show="!loading" class="space-y-4">
 
     <!-- Tab Navigation -->
-    <div class="flex items-center gap-1 rounded-md bg-gray-50 p-0.5 overflow-x-auto">
+    <div class="flex items-center gap-1 rounded-lg bg-gray-100 p-0.5 overflow-x-auto">
       <button @click="activeTab = 'general'"
-              class="flex-1 min-w-max rounded-md px-2 py-1 text-[10px] font-semibold transition-all whitespace-nowrap"
+              class="flex-1 min-w-max rounded-md px-3 py-2 text-xs font-medium transition-colors whitespace-nowrap"
               :class="activeTab === 'general'
-                ? 'bg-white text-gray-800 shadow-sm'
+                ? 'bg-white text-gray-900 shadow-sm'
                 : 'text-gray-500 hover:text-gray-700'">
         General
       </button>
-      <button @click="activeTab = 'schedule'"
-              class="flex-1 min-w-max rounded-md px-2 py-1 text-[10px] font-semibold transition-all whitespace-nowrap"
-              :class="activeTab === 'schedule'
-                ? 'bg-white text-gray-800 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'">
-        Work Schedule
-      </button>
       <button @click="activeTab = 'designations'"
-              class="flex-1 min-w-max rounded-md px-2 py-1 text-[10px] font-semibold transition-all whitespace-nowrap"
+              class="flex-1 min-w-max rounded-md px-3 py-2 text-xs font-medium transition-colors whitespace-nowrap"
               :class="activeTab === 'designations'
-                ? 'bg-white text-gray-800 shadow-sm'
+                ? 'bg-white text-gray-900 shadow-sm'
                 : 'text-gray-500 hover:text-gray-700'">
         Designations
-      </button>
-      <button @click="activeTab = 'salary'"
-              class="flex-1 min-w-max rounded-md px-2 py-1 text-[10px] font-semibold transition-all whitespace-nowrap"
-              :class="activeTab === 'salary'
-                ? 'bg-white text-gray-800 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'">
-        Salary Config
       </button>
     </div>
 
@@ -59,24 +49,24 @@
     <!-- General Tab -->
     <!-- ============================================================= -->
     <div x-show="activeTab === 'general'" x-transition class="space-y-3">
-      <div class="rounded-lg bg-white p-3 ring-1 ring-gray-100 sm:p-4">
-        <h2 class="mb-3 text-[9px] font-semibold uppercase tracking-wider text-gray-400">
+      <div class="rounded-lg bg-white p-3 border border-gray-200 sm:p-4">
+        <h2 class="mb-3 text-xs font-semibold text-gray-500">
           Business Information
         </h2>
 
         <div class="space-y-3">
           <!-- Boutique Name -->
           <div>
-            <label class="mb-0.5 block text-[11px] font-medium text-gray-700">Boutique Name</label>
+            <label class="mb-0.5 block text-sm font-medium text-gray-700">Boutique Name</label>
             <input type="text" x-model="appConfig.boutique_name"
-                   placeholder="e.g. Infinity Designer Boutique"
+                   placeholder="Enter business name"
                    class="w-full rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
-            <p class="mt-0.5 text-[10px] text-gray-400">This appears in headers and reports</p>
+            <p class="mt-0.5 text-xs text-gray-400">This appears in headers and reports</p>
           </div>
 
           <!-- Timezone -->
           <div>
-            <label class="mb-0.5 block text-[11px] font-medium text-gray-700">Timezone</label>
+            <label class="mb-0.5 block text-sm font-medium text-gray-700">Timezone</label>
             <select x-model="appConfig.timezone"
                     class="w-full rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
               <option value="Asia/Kolkata">Asia/Kolkata (IST)</option>
@@ -85,13 +75,13 @@
               <option value="Europe/London">Europe/London (GMT)</option>
               <option value="America/New_York">America/New_York (EST)</option>
             </select>
-            <p class="mt-0.5 text-[10px] text-gray-400">Used for attendance timestamps and reports</p>
+            <p class="mt-0.5 text-xs text-gray-400">Used for attendance timestamps and reports</p>
           </div>
 
           <!-- Save Button -->
           <div class="flex justify-end pt-2">
             <button @click="saveAppConfig()" :disabled="saving"
-                    class="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-[11px] font-semibold text-white transition-all hover:bg-brand-700 active:scale-95 disabled:opacity-50">
+                    class="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white transition-all hover:bg-brand-700 active:scale-95 disabled:opacity-50">
               <svg x-show="saving" class="h-3.5 w-3.5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
@@ -104,105 +94,19 @@
     </div>
 
     <!-- ============================================================= -->
-    <!-- Work Schedule Tab -->
-    <!-- ============================================================= -->
-    <div x-show="activeTab === 'schedule'" x-transition class="space-y-3">
-      <div class="rounded-lg bg-white p-3 ring-1 ring-gray-100 sm:p-4">
-        <h2 class="mb-3 text-[9px] font-semibold uppercase tracking-wider text-gray-400">
-          Working Hours
-        </h2>
-
-        <div class="grid gap-3 lg:grid-cols-2">
-          <!-- Standard Hours Per Day -->
-          <div>
-            <label class="mb-0.5 block text-[11px] font-medium text-gray-700">Standard Hours Per Day</label>
-            <div class="relative">
-              <input type="number" x-model.number="appConfig.standard_hours_per_day" min="1" max="24"
-                     class="w-full rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1.5 pr-12 text-xs text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
-              <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">hours</span>
-            </div>
-            <p class="mt-0.5 text-[10px] text-gray-400">Base pay calculation (e.g. 8 hours)</p>
-          </div>
-
-          <!-- Overtime Grace Minutes -->
-          <div>
-            <label class="mb-0.5 block text-[11px] font-medium text-gray-700">Overtime Grace Period</label>
-            <div class="relative">
-              <input type="number" x-model.number="appConfig.overtime_grace_minutes" min="0" max="120"
-                     class="w-full rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1.5 pr-12 text-xs text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
-              <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">min</span>
-            </div>
-            <p class="mt-0.5 text-[10px] text-gray-400">Extra time before OT is triggered</p>
-          </div>
-
-          <!-- Working Days Per Week -->
-          <div>
-            <label class="mb-0.5 block text-[11px] font-medium text-gray-700">Working Days Per Week</label>
-            <input type="number" x-model.number="appConfig.working_days_per_week" min="1" max="7"
-                   class="w-full rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
-            <p class="mt-0.5 text-[10px] text-gray-400">For weekly salary daily rate</p>
-          </div>
-
-          <!-- Monthly Working Days -->
-          <div>
-            <label class="mb-0.5 block text-[11px] font-medium text-gray-700">Monthly Working Days</label>
-            <input type="number" x-model.number="appConfig.monthly_working_days" min="1" max="31"
-                   class="w-full rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
-            <p class="mt-0.5 text-[10px] text-gray-400">For monthly salary daily rate</p>
-          </div>
-        </div>
-
-        <hr class="my-3 border-gray-100">
-
-        <h2 class="mb-3 text-[9px] font-semibold uppercase tracking-wider text-gray-400">
-          Default Shift Times
-        </h2>
-
-        <div class="grid gap-3 lg:grid-cols-2">
-          <!-- Default Login Time -->
-          <div>
-            <label class="mb-0.5 block text-[11px] font-medium text-gray-700">Default Login Time</label>
-            <input type="time" x-model="appConfig.default_login_time"
-                   class="w-full rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
-            <p class="mt-0.5 text-[10px] text-gray-400">Default for new staff</p>
-          </div>
-
-          <!-- Default Logout Time -->
-          <div>
-            <label class="mb-0.5 block text-[11px] font-medium text-gray-700">Default Logout Time</label>
-            <input type="time" x-model="appConfig.default_logout_time"
-                   class="w-full rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
-          </div>
-        </div>
-
-        <!-- Save Button -->
-        <div class="flex justify-end pt-3">
-          <button @click="saveAppConfig()" :disabled="saving"
-                  class="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-[11px] font-semibold text-white transition-all hover:bg-brand-700 active:scale-95 disabled:opacity-50">
-            <svg x-show="saving" class="h-3.5 w-3.5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-            </svg>
-            <span x-text="saving ? 'Saving...' : 'Save Changes'"></span>
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ============================================================= -->
     <!-- Designations Tab -->
     <!-- ============================================================= -->
     <div x-show="activeTab === 'designations'" x-transition class="space-y-3">
-      <div class="rounded-lg bg-white p-3 ring-1 ring-gray-100 sm:p-4">
-        <h2 class="mb-3 text-[9px] font-semibold uppercase tracking-wider text-gray-400">
+      <div class="rounded-lg bg-white p-3 border border-gray-200 sm:p-4">
+        <h2 class="mb-3 text-xs font-semibold text-gray-500">
           Staff Designations
         </h2>
-        <p class="mb-3 text-[10px] text-gray-500">Manage the list of available designations for staff members.</p>
+        <p class="mb-3 text-xs text-gray-500">Manage the list of available designations for staff members.</p>
 
         <!-- Current Designations -->
         <div class="mb-3 flex flex-wrap gap-1">
           <template x-for="key in designations.list" :key="key">
-            <div class="group relative inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-medium text-brand-700 ring-1 ring-brand-100">
+            <div class="group relative inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700 ring-1 ring-brand-100">
               <span x-text="designations.labels[key] || key"></span>
               <button @click="editDesignation(key)"
                       class="rounded-full p-0.5 transition-colors hover:bg-brand-100"
@@ -223,18 +127,18 @@
         </div>
 
         <!-- Add New Designation -->
-        <div class="rounded-md bg-gray-50 p-3 ring-1 ring-gray-100">
-          <p class="mb-2 text-[9px] font-medium uppercase tracking-wider text-gray-400">Add New Designation</p>
+        <div class="rounded-md bg-gray-50 p-3 border border-gray-200">
+          <p class="mb-2 text-xs font-medium text-gray-500">Add New Designation</p>
           <div class="grid gap-2 sm:grid-cols-2">
             <div>
-              <label class="mb-0.5 block text-[10px] text-gray-500">Key (internal)</label>
+              <label class="mb-0.5 block text-xs text-gray-500">Key (internal)</label>
               <input type="text" x-model="newDesignation.key"
                      @input="newDesignation.key = newDesignation.key.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')"
                      placeholder="e.g. store_manager"
                      class="w-full rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-xs text-gray-800 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
             </div>
             <div>
-              <label class="mb-0.5 block text-[10px] text-gray-500">Label (display)</label>
+              <label class="mb-0.5 block text-xs text-gray-500">Label (display)</label>
               <input type="text" x-model="newDesignation.label"
                      @keydown.enter.prevent="addDesignation()"
                      placeholder="e.g. Store Manager"
@@ -243,7 +147,7 @@
           </div>
           <div class="mt-2 flex justify-end">
             <button @click="addDesignation()" :disabled="!newDesignation.key || !newDesignation.label"
-                    class="inline-flex items-center gap-1 rounded-md bg-brand-600 px-3 py-1.5 text-[11px] font-semibold text-white transition-all hover:bg-brand-700 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+                    class="inline-flex items-center gap-1 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white transition-all hover:bg-brand-700 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
               <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
               </svg>
@@ -251,77 +155,6 @@
             </button>
           </div>
         </div>
-      </div>
-    </div>
-
-    <!-- ============================================================= -->
-    <!-- Salary Config Tab -->
-    <!-- ============================================================= -->
-    <div x-show="activeTab === 'salary'" x-transition class="space-y-3">
-      <div class="rounded-lg bg-white p-3 ring-1 ring-gray-100 sm:p-4">
-        <h2 class="mb-3 text-[9px] font-semibold uppercase tracking-wider text-gray-400">
-          Salary Configuration
-        </h2>
-
-        <!-- Salary Types -->
-        <div class="mb-4">
-          <label class="mb-1.5 block text-[11px] font-medium text-gray-700">Salary Types</label>
-          <div class="flex flex-wrap gap-1.5">
-            <template x-for="(type, idx) in salaryConfig.salary_types" :key="idx">
-              <span class="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-medium text-green-700 ring-1 ring-green-100">
-                <span x-text="type.charAt(0).toUpperCase() + type.slice(1)"></span>
-              </span>
-            </template>
-          </div>
-          <p class="mt-1 text-[10px] text-gray-400">Currently supported: Weekly and Monthly salary types</p>
-        </div>
-
-        <!-- Settlement Cycles -->
-        <div class="mb-4">
-          <label class="mb-1.5 block text-[11px] font-medium text-gray-700">Settlement Cycles</label>
-          <div class="flex flex-wrap gap-1.5">
-            <template x-for="(cycle, idx) in salaryConfig.settlement_cycles" :key="idx">
-              <span class="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700 ring-1 ring-blue-100">
-                <span x-text="cycle.charAt(0).toUpperCase() + cycle.slice(1)"></span>
-              </span>
-            </template>
-          </div>
-          <p class="mt-1 text-[10px] text-gray-400">When settlements are generated for staff</p>
-        </div>
-
-        <!-- Info Box -->
-        <div class="rounded-md bg-amber-50 p-2.5 ring-1 ring-amber-100">
-          <div class="flex gap-1.5">
-            <div class="shrink-0 text-[11px]">💡</div>
-            <div>
-              <p class="text-[10px] font-medium text-amber-800">Configuration Note</p>
-              <p class="mt-0.5 text-[9px] text-amber-600">
-                Salary types and settlement cycles are core to the system and cannot be modified through this interface.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Staff Statuses -->
-      <div class="rounded-lg bg-white p-3 ring-1 ring-gray-100 sm:p-4">
-        <h2 class="mb-3 text-[9px] font-semibold uppercase tracking-wider text-gray-400">
-          Staff Statuses
-        </h2>
-
-        <div class="flex flex-wrap gap-1.5">
-          <template x-for="(status, idx) in staffStatuses.list" :key="idx">
-            <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ring-1"
-                  :class="{
-                    'bg-green-50 text-green-700 ring-green-100': status === 'active',
-                    'bg-gray-50 text-gray-600 ring-gray-200': status === 'inactive',
-                    'bg-red-50 text-red-700 ring-red-100': status === 'deactivated',
-                  }">
-              <span x-text="status.charAt(0).toUpperCase() + status.slice(1)"></span>
-            </span>
-          </template>
-        </div>
-        <p class="mt-2 text-[10px] text-gray-400">Available staff statuses for the system</p>
       </div>
     </div>
 
@@ -341,13 +174,13 @@
       <h3 class="mb-2 text-xs font-bold text-gray-800">Edit Designation</h3>
 
       <div class="mb-3">
-        <label class="mb-0.5 block text-[11px] font-medium text-gray-700">Key</label>
+        <label class="mb-0.5 block text-sm font-medium text-gray-700">Key</label>
         <input type="text" :value="editModal.key" disabled
                class="w-full rounded-md border border-gray-200 bg-gray-100 px-2.5 py-1.5 text-xs text-gray-500">
       </div>
 
       <div class="mb-3">
-        <label class="mb-0.5 block text-[11px] font-medium text-gray-700">Label</label>
+        <label class="mb-0.5 block text-sm font-medium text-gray-700">Label</label>
         <input type="text" x-model="editModal.label"
                @keydown.enter.prevent="saveDesignationEdit()"
                class="w-full rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs text-gray-800 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
@@ -355,18 +188,99 @@
 
       <div class="flex justify-end gap-1.5">
         <button @click="editModal.open = false"
-                class="rounded-md border border-gray-200 px-2.5 py-1 text-[10px] font-medium text-gray-600 hover:bg-gray-50">
+                class="rounded-md border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50">
           Cancel
         </button>
         <button @click="saveDesignationEdit()"
-                class="rounded-md bg-brand-600 px-2.5 py-1 text-[10px] font-semibold text-white hover:bg-brand-700">
+                class="rounded-md bg-brand-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-brand-700">
           Save
         </button>
       </div>
     </div>
   </div>
 
+  <!-- Delete Designation Confirm Modal -->
+  <div x-show="deleteModal.open" x-transition.opacity
+       class="fixed inset-0 z-50 flex items-center justify-center p-4"
+       style="background: rgba(0,0,0,0.4)"
+       @click.self="deleteModal.open = false">
+    <div x-show="deleteModal.open"
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0 scale-95"
+         x-transition:enter-end="opacity-100 scale-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100 scale-100"
+         x-transition:leave-end="opacity-0 scale-95"
+         class="w-full max-w-sm rounded-xl bg-white shadow-xl border border-gray-200">
+
+      <!-- Header -->
+      <div class="flex items-center gap-3 px-5 py-4 border-b border-gray-100">
+        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-50">
+          <svg class="h-4 w-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>
+          </svg>
+        </div>
+        <div>
+          <p class="text-sm font-bold text-gray-900">Remove Designation</p>
+          <p class="text-xs text-gray-400" x-text='"&quot;" + (deleteModal.label || deleteModal.key) + "&quot;"'></p>
+        </div>
+      </div>
+
+      <!-- Body -->
+      <div class="px-5 py-4 space-y-3">
+        <!-- Loading state -->
+        <div x-show="deleteModal.checking" class="flex items-center gap-2 text-xs text-gray-500">
+          <svg class="h-3.5 w-3.5 animate-spin text-gray-400" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+          </svg>
+          Checking staff usage...
+        </div>
+
+        <!-- Warning: staff assigned -->
+        <div x-show="!deleteModal.checking && deleteModal.staffCount > 0"
+             class="flex items-start gap-2.5 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5">
+          <svg class="mt-0.5 h-4 w-4 shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
+          </svg>
+          <div>
+            <p class="text-xs font-semibold text-amber-800">
+              <span x-text="deleteModal.staffCount"></span> staff member<span x-show="deleteModal.staffCount > 1">s</span> currently assigned
+            </p>
+            <p class="mt-0.5 text-xs text-amber-700">
+              Removing this designation won't affect existing staff records, but this option will no longer be available when editing profiles.
+            </p>
+          </div>
+        </div>
+
+        <!-- Safe to remove -->
+        <div x-show="!deleteModal.checking && deleteModal.staffCount === 0"
+             class="text-xs text-gray-600">
+          No staff are currently assigned this designation. Safe to remove.
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="flex justify-end gap-2 px-5 py-3 border-t border-gray-100">
+        <button @click="deleteModal.open = false"
+                class="rounded-lg border border-gray-200 px-3.5 py-1.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-50">
+          Cancel
+        </button>
+        <button @click="confirmRemoveDesignation()"
+                :disabled="deleteModal.removing || deleteModal.checking"
+                class="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50">
+          <svg x-show="deleteModal.removing" class="h-3 w-3 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+          </svg>
+          <span x-text="deleteModal.removing ? 'Removing...' : 'Yes, Remove'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
 </div>
+
 {% endblock %}
 
 {% block page_scripts %}
@@ -384,9 +298,8 @@
         default_login_time: '10:00',
         default_logout_time: '19:00',
         standard_hours_per_day: 8,
-        overtime_grace_minutes: 60,
+        overtime_grace_minutes: 30,
         working_days_per_week: 6,
-        monthly_working_days: 26,
       },
       designations: {
         list: [],
@@ -395,16 +308,15 @@
       staffStatuses: {
         list: [],
       },
-      salaryConfig: {
-        salary_types: [],
-        settlement_cycles: [],
-      },
 
       // New designation form
       newDesignation: { key: '', label: '' },
 
       // Edit modal
       editModal: { open: false, key: '', label: '' },
+
+      // Delete confirm modal
+      deleteModal: { open: false, key: '', label: '', staffCount: 0, checking: false, removing: false },
 
       async init() {
         await this.fetchSettings();
@@ -438,13 +350,6 @@
               };
             }
 
-            // Populate salary_config
-            if (settings.salary_config) {
-              this.salaryConfig = {
-                salary_types: settings.salary_config.salary_types || [],
-                settlement_cycles: settings.salary_config.settlement_cycles || [],
-              };
-            }
           } else {
             dispatchToast('error', 'Error', 'Failed to load settings');
           }
@@ -504,8 +409,30 @@
       },
 
       async removeDesignation(key) {
-        if (!confirm(`Are you sure you want to remove "${this.designations.labels[key] || key}"?`)) return;
+        this.deleteModal = {
+          open: true,
+          key: key,
+          label: this.designations.labels[key] || key,
+          staffCount: 0,
+          checking: true,
+          removing: false,
+        };
+        try {
+          const res = await fetch(`/api/settings/designations/${key}/staff-count`, { credentials: 'include' });
+          if (res.ok) {
+            const data = await res.json();
+            this.deleteModal.staffCount = data.count || 0;
+          }
+        } catch (e) {
+          console.error('Failed to fetch staff count:', e);
+        } finally {
+          this.deleteModal.checking = false;
+        }
+      },
 
+      async confirmRemoveDesignation() {
+        const key = this.deleteModal.key;
+        this.deleteModal.removing = true;
         try {
           const res = await fetch(`/api/settings/designations/${key}`, {
             method: 'DELETE',
@@ -515,6 +442,7 @@
           if (res.ok) {
             this.designations.list = this.designations.list.filter(k => k !== key);
             delete this.designations.labels[key];
+            this.deleteModal.open = false;
             dispatchToast('info', 'Removed', 'Designation has been removed');
           } else {
             const err = await res.json().catch(() => ({}));
@@ -522,6 +450,8 @@
           }
         } catch (e) {
           dispatchToast('error', 'Network Error', 'Could not reach the server');
+        } finally {
+          this.deleteModal.removing = false;
         }
       },
 

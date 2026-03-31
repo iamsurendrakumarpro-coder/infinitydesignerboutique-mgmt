@@ -18,6 +18,9 @@ from flask_cors import CORS
 
 from config import get_config, Config
 from utils.logger import init_logging, get_logger
+from utils.db.postgres_client import get_postgres_connection
+from utils.db.indexes import ensure_postgres_indexes
+from utils.db.financial_schema import ensure_financial_request_reimbursement_columns
 
 # -- Module imports ------------------------------------------------------------
 from modules.auth.routes import auth_bp
@@ -30,6 +33,28 @@ from modules.dashboard.routes import dashboard_bp
 from modules.settings.routes import settings_bp
 from modules.leave.routes import leave_bp
 from modules.pages.routes import pages_bp
+from services.settings_service import get_app_config
+
+
+def _repair_mojibake_html(content: str) -> str:
+    """Attempt to repair UTF-8 text that was mis-decoded as Latin-1/CP1252."""
+    if not content:
+        return content
+
+    markers = ("Ã", "Â", "â", "ð")
+    if not any(m in content for m in markers):
+        return content
+
+    try:
+        repaired = content.encode("latin-1").decode("utf-8")
+    except UnicodeError:
+        return content
+
+    # Keep original if repair produced more replacement glyphs.
+    if repaired.count("\ufffd") > content.count("\ufffd"):
+        return content
+
+    return repaired
 
 
 def create_app(config: Config | None = None) -> Flask:
@@ -86,18 +111,34 @@ def create_app(config: Config | None = None) -> Flask:
     )
     log.info("CORS origins: %s", cfg.CORS_ORIGINS)
 
-    # -- Initialise DB provider (firebase by default) --------------------------
-    db_provider = os.getenv("APP_DB_PROVIDER", "firebase").strip().lower()
-    if db_provider == "firebase":
-        try:
-            from utils.firebase_client import get_firestore
-            get_firestore()
-            log.info("Firebase / Firestore connected successfully.")
-        except Exception as exc:  # noqa: BLE001
-            log.error("Firebase initialisation failed: %s", exc)
-            log.warning("App will start, but DB operations will fail until Firebase is configured.")
-    else:
-        log.info("DB provider selected: %s (firebase eager init skipped)", db_provider)
+    # -- Initialise PostgreSQL -------------------------------------------------
+    try:
+        conn = get_postgres_connection()
+        conn.close()
+        log.info("PostgreSQL connected successfully.")
+
+        reimbursement_schema_result = ensure_financial_request_reimbursement_columns()
+        log.info(
+            "Financial reimbursement schema ensured | created=%d | skipped=%d | failed=%d",
+            len(reimbursement_schema_result["created"]),
+            len(reimbursement_schema_result["skipped"]),
+            len(reimbursement_schema_result["failed"]),
+        )
+        if reimbursement_schema_result["failed"]:
+            log.warning("Financial schema ensure failures: %s", ", ".join(reimbursement_schema_result["failed"]))
+
+        index_result = ensure_postgres_indexes()
+        log.info(
+            "PostgreSQL indexes ensured | created=%d | skipped_missing_table=%d | failed=%d",
+            len(index_result["created"]),
+            len(index_result["skipped_missing_table"]),
+            len(index_result["failed"]),
+        )
+        if index_result["failed"]:
+            log.warning("Index creation failures: %s", ", ".join(index_result["failed"]))
+    except Exception as exc:  # noqa: BLE001
+        log.error("PostgreSQL initialisation failed: %s", exc)
+        log.warning("App will start, but DB operations will fail until PostgreSQL is configured.")
 
     # -- Register API blueprints -----------------------------------------------
     app.register_blueprint(auth_bp)
@@ -119,6 +160,18 @@ def create_app(config: Config | None = None) -> Flask:
         "overtime, settlements, dashboard, settings, leave, pages"
     )
 
+    @app.context_processor
+    def inject_boutique_name():
+        """Expose boutique_name globally for all Jinja templates."""
+        try:
+            app_config = get_app_config()
+            boutique_name = str(app_config.get("boutique_name") or "").strip()
+        except Exception:  # noqa: BLE001
+            boutique_name = ""
+        if not boutique_name:
+            boutique_name = cfg.BOUTIQUE_NAME
+        return {"boutique_name": boutique_name}
+
     # -- Request / response logging --------------------------------------------
     @app.before_request
     def log_incoming_request():
@@ -134,6 +187,15 @@ def create_app(config: Config | None = None) -> Flask:
 
     @app.after_request
     def log_outgoing_response(response):
+        if response.mimetype == "text/html" and not response.direct_passthrough:
+            html = response.get_data(as_text=True)
+            fixed_html = _repair_mojibake_html(html)
+            if fixed_html != html:
+                response.set_data(fixed_html)
+
+            # Always serve rendered HTML as UTF-8.
+            response.headers["Content-Type"] = "text/html; charset=utf-8"
+
         if request.path == "/api/health" or request.path.startswith("/static"):
             return response
         log.info(

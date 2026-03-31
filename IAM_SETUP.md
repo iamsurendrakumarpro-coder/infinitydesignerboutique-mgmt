@@ -21,13 +21,13 @@
 
 ```bash
 cd infinitydesignerboutique-mgmt
-python scripts/setup_iam_user.py --username infinity-app-user --region ap-south-1
+python scripts/aws_manage.py iam --use-default-credentials --region ap-south-1
 ```
 
 **Expected Output:**
 ```
-✓ IAM user created: infinity-app-user
-✓ Policy attached to infinity-app-user: InfinityAppPolicy
+✓ IAM user ready: infinity-app-user
+✓ IAM user ready: infinity-provisioner-user
 
 ===========================================================
 ✓ IAM USER SETUP COMPLETE
@@ -35,6 +35,11 @@ python scripts/setup_iam_user.py --username infinity-app-user --region ap-south-
 
 📋 CREDENTIALS (save these securely):
 
+  Profile:           infinity-app
+  Access Key ID:     AKIAIOSFODNN7EXAMPLE
+  Secret Access Key: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+
+  Profile:           infinity-provisioner
   Access Key ID:     AKIAIOSFODNN7EXAMPLE
   Secret Access Key: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
 
@@ -44,16 +49,11 @@ python scripts/setup_iam_user.py --username infinity-app-user --region ap-south-
 ### Step 3: Configure AWS CLI with Service Account
 
 ```bash
-aws configure --profile infinity-app
+aws sts get-caller-identity --profile infinity-app
+aws sts get-caller-identity --profile infinity-provisioner
 ```
 
-When prompted:
-```
-AWS Access Key ID [None]: AKIAIOSFODNN7EXAMPLE
-AWS Secret Access Key [None]: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
-Default region name [None]: ap-south-1
-Default output format [None]: json
-```
+The IAM bootstrap writes both local profiles unless you pass `--skip-write-profiles`.
 
 #### Verify Setup
 
@@ -173,8 +173,6 @@ After `aws configure --profile infinity-app`, update `.env`:
 # .env
 AWS_PROFILE=infinity-app
 AWS_REGION=ap-south-1
-APP_DB_PROVIDER=postgres
-APP_STORAGE_PROVIDER=s3
 ```
 
 Then run app:
@@ -192,8 +190,6 @@ Update `.env` with access keys:
 AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
 AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
 AWS_REGION=ap-south-1
-APP_DB_PROVIDER=postgres
-APP_STORAGE_PROVIDER=s3
 ```
 
 ### Option C: Environment Variables
@@ -212,16 +208,14 @@ python app.py
 With your service account credentials configured, run the main setup:
 
 ```bash
-aws configure --profile infinity-app  # Already done above
-
 # Create AWS resources (RDS, S3, security groups)
-python scripts/aws_setup.py \
+python scripts/aws_manage.py setup \
   --project-name infinity-boutique \
   --region ap-south-1 \
-  --profile infinity-app
+  --aws-profile infinity-provisioner
 ```
 
-This will use your service account instead of root.
+This uses the provisioning IAM user instead of root.
 
 ---
 
@@ -239,10 +233,10 @@ This will use your service account instead of root.
 ## Next Steps
 
 1. ✅ Complete this IAM setup
-2. Run `python scripts/aws_setup.py` to create RDS + S3 (5 min)
+2. Run `python scripts/aws_manage.py setup` to create RDS + S3 (5 min)
 3. Wait for RDS initialization (5-10 min)
-4. Run `python scripts/aws_check.py` to verify resources
-5. Deploy app with `APP_DB_PROVIDER=postgres`
+4. Run `python scripts/aws_manage.py check` to verify resources
+5. Deploy app with `python app.py`
 
 ---
 
@@ -267,11 +261,11 @@ This will use your service account instead of root.
 1. Update the inline policy with broader permissions
 2. Or create a new user by deleting and rerunning setup script
 
-### "InvalidUserID.NotFound" in aws_setup.py
+### "InvalidUserID.NotFound" during setup
 
 **Problem**: Using root credentials but script expects service account
 
-**Solution**: Run IAM setup first (this guide), then aws_setup.py will work
+**Solution**: Run IAM setup first (this guide), then `aws_manage.py setup` will work
 
 ### Can't see Secret Access Key again
 

@@ -1,4 +1,4 @@
-{% extends "staff/layout.html" %}
+﻿{% extends "staff/layout.html" %}
 
 {% block page_title %}Leaves{% endblock %}
 
@@ -6,16 +6,22 @@
 <div x-data="staffLeavePage()" x-init="init()" x-cloak>
 
   <div class="mb-3">
-    <h1 class="text-sm font-semibold text-gray-800">Leave Management</h1>
-    <p class="text-[11px] text-gray-400">Apply and track leave requests</p>
+    <div class="flex items-center gap-2">
+      <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600" x-html="renderIcon('calendar-days', 'h-4 w-4')"></div>
+      <h1 class="text-base font-semibold text-gray-900">Leave Management</h1>
+    </div>
+    <p class="mt-0.5 text-xs text-gray-500">Apply and track leave requests</p>
   </div>
 
-  <div class="mb-3 rounded-lg bg-white p-3 ring-1 ring-gray-100">
-    <h2 class="mb-2 text-xs font-semibold text-gray-800">Apply for Leave</h2>
+  <div class="mb-3 rounded-lg bg-white p-3 border border-gray-200">
+    <div class="mb-2 flex items-center gap-2">
+      <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600" x-html="renderIcon('calendar-days', 'h-3.5 w-3.5')"></div>
+      <h2 class="text-xs font-semibold text-gray-800">Apply for Leave</h2>
+    </div>
 
     <div class="grid grid-cols-2 gap-2">
       <div class="col-span-2">
-        <label class="mb-1 block text-[10px] font-medium uppercase text-gray-400">Leave Type</label>
+        <label class="mb-1 block text-xs font-medium text-gray-500">Leave Type</label>
         <select x-model="leaveType"
                 class="w-full rounded-md border border-gray-200 bg-white px-2.5 py-2 text-xs text-gray-700 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
           <option value="full_day">Full Day</option>
@@ -25,19 +31,19 @@
       </div>
 
       <div>
-        <label class="mb-1 block text-[10px] font-medium uppercase text-gray-400">Start Date</label>
+        <label class="mb-1 block text-xs font-medium text-gray-500">Start Date</label>
         <input type="date" x-model="startDate" :min="todayDate"
                class="w-full rounded-md border border-gray-200 bg-white px-2.5 py-2 text-xs text-gray-700 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
       </div>
 
       <div x-show="leaveType === 'multiple_days'">
-        <label class="mb-1 block text-[10px] font-medium uppercase text-gray-400">End Date</label>
+        <label class="mb-1 block text-xs font-medium text-gray-500">End Date</label>
         <input type="date" x-model="endDate" :min="startDate || todayDate"
                class="w-full rounded-md border border-gray-200 bg-white px-2.5 py-2 text-xs text-gray-700 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
       </div>
 
       <div x-show="leaveType === 'half_day'">
-        <label class="mb-1 block text-[10px] font-medium uppercase text-gray-400">Half Day Slot</label>
+        <label class="mb-1 block text-xs font-medium text-gray-500">Half Day Slot</label>
         <select x-model="halfDayPeriod"
                 class="w-full rounded-md border border-gray-200 bg-white px-2.5 py-2 text-xs text-gray-700 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
           <option value="morning">Morning</option>
@@ -46,31 +52,34 @@
       </div>
 
       <div class="col-span-2">
-        <label class="mb-1 block text-[10px] font-medium uppercase text-gray-400">Reason</label>
-        <textarea x-model="reason" rows="3" maxlength="500" placeholder="Enter reason for leave"
+        <label class="mb-1 block text-xs font-medium text-gray-500">Reason <span class="text-gray-400 text-xs">(optional)</span></label>
+        <textarea x-model="reason" rows="3" maxlength="500" placeholder="Enter reason for leave (optional)"
                   class="w-full rounded-md border border-gray-200 bg-white px-2.5 py-2 text-xs text-gray-700 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20"></textarea>
-        <p class="mt-1 text-[10px] text-gray-400"><span x-text="reason.length"></span>/500</p>
+        <p class="mt-1 text-xs text-gray-400"><span x-text="reason.length"></span>/500</p>
       </div>
     </div>
 
     <div class="mt-2.5 flex items-center justify-between rounded-md bg-gray-50 px-2.5 py-2">
       <div>
-        <p class="text-[10px] text-gray-400">Duration</p>
+        <p class="text-xs text-gray-400">Duration</p>
         <p class="text-xs font-semibold text-gray-700" x-text="leaveDurationLabel()"></p>
       </div>
       <button @click="submitLeave()" :disabled="submitting"
-              class="inline-flex items-center gap-1 rounded-md bg-brand-600 px-3 py-1.5 text-[11px] font-semibold text-white transition-all hover:bg-brand-700 disabled:opacity-60">
+              class="inline-flex items-center gap-1 rounded-md bg-brand-600 px-3 py-2 text-xs font-semibold text-white transition-all hover:bg-brand-700 disabled:opacity-60">
         <span x-show="!submitting">Submit Request</span>
         <span x-show="submitting">Submitting...</span>
       </button>
     </div>
   </div>
 
-  <div class="rounded-lg bg-white ring-1 ring-gray-100 overflow-hidden">
+  <div class="rounded-lg bg-white border border-gray-200 overflow-hidden">
     <div class="flex items-center justify-between border-b border-gray-100 px-3 py-2">
-      <h2 class="text-xs font-semibold text-gray-800">Leave History</h2>
+      <div class="flex items-center gap-2">
+        <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600" x-html="renderIcon('clipboard-document-list', 'h-3.5 w-3.5')"></div>
+        <h2 class="text-xs font-semibold text-gray-800">Leave History</h2>
+      </div>
       <select x-model="statusFilter"
-              class="rounded-md border border-gray-200 bg-white px-2 py-1 text-[10px] text-gray-600 focus:border-brand-300 focus:outline-none">
+              class="rounded-md border border-gray-200 bg-white px-2 py-1 text-xs text-gray-600 focus:border-brand-300 focus:outline-none">
         <option value="">All</option>
         <option value="pending">Pending</option>
         <option value="approved">Approved</option>
@@ -85,7 +94,7 @@
 
     <div x-show="!loading && filteredRequests.length === 0" class="py-8 text-center">
       <p class="text-xs font-medium text-gray-500">No leave requests found</p>
-      <p class="mt-1 text-[11px] text-gray-400">Your requests will appear here</p>
+      <p class="mt-1 text-xs text-gray-400">Your requests will appear here</p>
     </div>
 
     <div x-show="!loading && filteredRequests.length > 0" class="divide-y divide-gray-50">
@@ -95,26 +104,26 @@
             <div>
               <div class="flex items-center gap-1.5">
                 <p class="text-xs font-semibold text-gray-800" x-text="formatLeaveType(req)"></p>
-                <span class="inline-flex rounded-md px-1.5 py-0.5 text-[9px] font-semibold"
+                <span class="inline-flex rounded-md px-1.5 py-0.5 text-xs font-semibold"
                       :class="statusClass(req.status)"
                       x-text="(req.status || '').toUpperCase()"></span>
               </div>
-              <p class="mt-0.5 text-[11px] text-gray-500" x-text="formatDateRange(req)"></p>
+              <p class="mt-0.5 text-xs text-gray-500" x-text="formatDateRange(req)"></p>
             </div>
             <button x-show="req.status === 'pending'" @click="cancelLeave(req)"
-                    class="rounded-md bg-red-50 px-2 py-1 text-[10px] font-medium text-red-600 transition-all hover:bg-red-100">
+                    class="rounded-md bg-red-50 px-2 py-1 text-xs font-medium text-red-600 transition-all hover:bg-red-100">
               Cancel
             </button>
           </div>
 
-          <p class="mt-1.5 text-[11px] text-gray-700" x-text="req.reason || '-'" style="white-space: pre-wrap;"></p>
+          <p class="mt-1.5 text-xs text-gray-700" x-text="req.reason || '-'" style="white-space: pre-wrap;"></p>
 
-          <p x-show="req.admin_notes" class="mt-1.5 rounded-md bg-gray-50 px-2 py-1.5 text-[10px] text-gray-600">
+          <p x-show="req.admin_notes" class="mt-1.5 rounded-md bg-gray-50 px-2 py-1.5 text-xs text-gray-600">
             <span class="font-semibold text-gray-500">Admin Notes:</span>
             <span x-text="req.admin_notes"></span>
           </p>
 
-          <p class="mt-1 text-[10px] text-gray-400">
+          <p class="mt-1 text-xs text-gray-400">
             Requested: <span x-text="formatDateTime(req.created_at)"></span>
           </p>
         </div>
@@ -208,10 +217,7 @@
           dispatchToast('error', 'Validation', 'Start date is required');
           return;
         }
-        if (!reason) {
-          dispatchToast('error', 'Validation', 'Reason is required');
-          return;
-        }
+          // Reason is optional now; no client-side validation required.
         if (this.leaveType === 'multiple_days') {
           if (!this.endDate) {
             dispatchToast('error', 'Validation', 'End date is required for multiple days leave');
@@ -265,7 +271,8 @@
 
       async cancelLeave(req) {
         if (!req || req.status !== 'pending') return;
-        if (!confirm('Cancel this pending leave request?')) return;
+        const ok = await window.showConfirm('Cancel this pending leave request?', 'Cancel Leave');
+        if (!ok) return;
 
         const id = req.id || req.request_id;
         if (!id) return;

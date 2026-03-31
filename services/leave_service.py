@@ -1,9 +1,9 @@
 """
 services/leave_service.py - Leave management business logic.
 
-Firestore structure
--------------------
-leave_requests/{request_id}
+Persistence model
+-----------------
+leave_requests table
 
 Document schema::
 
@@ -33,11 +33,11 @@ Rules
 """
 from __future__ import annotations
 
-import os
 import uuid
 from datetime import date, datetime, timedelta
 
 from services.repositories.leave_repository import get_leave_repository
+from services.requester_context import build_requester_context_map
 from utils.logger import get_logger, audit_log
 from utils.timezone_utils import today_ist, now_utc
 
@@ -54,6 +54,37 @@ def _repo():
 
 def _db_timestamp():
     return now_utc()
+
+
+def _attach_requester_context(data: dict, context_map: dict[str, dict] | None = None) -> dict:
+    """Attach requester profile fields used by admin approval cards."""
+    out = dict(data)
+    uid = out.get("user_id")
+
+    requester_name = "Unknown Staff"
+    requester_phone = ""
+    requester_role = "staff"
+    requester_designation = ""
+
+    if uid and context_map:
+        ctx = context_map.get(str(uid))
+        if ctx:
+            requester_name = ctx.get("requester_name") or requester_name
+            requester_phone = ctx.get("requester_phone") or ""
+            requester_role = ctx.get("requester_role") or "staff"
+            requester_designation = ctx.get("requester_designation") or ""
+
+    out["requester_user_id"] = uid
+    out["requester_name"] = requester_name
+    out["requester_phone"] = requester_phone
+    out["requester_role"] = requester_role
+    out["requester_designation"] = requester_designation
+
+    # Backward-compatible aliases used by templates.
+    out["staff_name"] = requester_name
+    out["full_name"] = requester_name
+
+    return out
 
 
 def create_leave_request(user_id: str, data: dict) -> tuple[bool, str, dict]:
@@ -107,9 +138,7 @@ def create_leave_request(user_id: str, data: dict) -> tuple[bool, str, dict]:
         if half_day_period not in _VALID_PERIODS:
             return False, f"Half day period must be 'morning' or 'afternoon'.", {}
 
-    reason = data.get("reason", "").strip()
-    if not reason:
-        return False, "Reason is required.", {}
+    reason = (data.get("reason", "") or "").strip()
     if len(reason) > 500:
         return False, "Reason must be 500 characters or less.", {}
 
@@ -151,9 +180,11 @@ def get_leave_requests(filters: dict | None = None) -> list[dict]:
 
     Supported filters: user_id, status.
     """
+    rows = _repo().list_requests(filters)
+    context_map = build_requester_context_map(d.get("user_id") for d in rows)
     results = []
-    for data in _repo().list_requests(filters):
-        results.append(_enrich_leave(data))
+    for data in rows:
+        results.append(_enrich_leave(data, context_map))
     results.sort(key=lambda x: x.get("created_at", ""), reverse=True)
     log.debug("get_leave_requests | filters=%s | count=%d", filters, len(results))
     return results
@@ -164,7 +195,8 @@ def get_leave_request(request_id: str) -> dict | None:
     data = _repo().get_by_id(request_id)
     if data is None:
         return None
-    return _enrich_leave(data)
+    context_map = build_requester_context_map([data.get("user_id")])
+    return _enrich_leave(data, context_map)
 
 
 def review_leave(request_id: str, action: str, admin_id: str, admin_notes: str = "") -> tuple[bool, str, dict]:
@@ -227,9 +259,11 @@ def get_leaves_for_date(target_date: date | None = None) -> list[dict]:
     """
     if target_date is None:
         target_date = today_ist()
+    rows = _repo().get_approved_for_date(target_date)
+    context_map = build_requester_context_map(d.get("user_id") for d in rows)
     results = []
-    for data in _repo().get_approved_for_date(target_date):
-        results.append(_enrich_leave(data))
+    for data in rows:
+        results.append(_enrich_leave(data, context_map))
     log.debug("get_leaves_for_date | date=%s | count=%d", target_date, len(results))
     return results
 
@@ -239,18 +273,11 @@ def get_pending_leave_count() -> int:
     return _repo().count_pending()
 
 
-def _enrich_leave(data: dict) -> dict:
-    """Add staff name/designation to leave request from staff collection."""
-    try:
-        from services.user_service import get_staff  # noqa: PLC0415
-        uid = data.get("user_id")
-        if uid:
-            staff = get_staff(uid)
-            if staff:
-                data["staff_name"] = staff.get("full_name", "")
-                data["designation"] = staff.get("designation", "")
-    except Exception:
-        pass
+def _enrich_leave(data: dict, context_map: dict[str, dict] | None = None) -> dict:
+    """Add requester identity details for leave approval context."""
+    data = _attach_requester_context(data, context_map)
+    if not data.get("designation"):
+        data["designation"] = data.get("requester_designation", "")
 
     # Serialise timestamps
     for key in ("created_at", "updated_at", "reviewed_at"):

@@ -33,7 +33,7 @@ def index():
             return redirect(url_for("pages.login"))
         if session.get("is_first_login"):
             return redirect(url_for("pages.change_pin"))
-        if role == "admin":
+        if role in {"admin", "manager"}:
             return redirect(url_for("pages.admin_dashboard"))
         return redirect(url_for("pages.duty_station"))
     return redirect(url_for("pages.login"))
@@ -67,7 +67,7 @@ def change_pin():
 @pages_bp.get("/admin/dashboard")
 def admin_dashboard():
     """Admin dashboard overview."""
-    if not _is_admin():
+    if not _is_admin_or_manager():
         return redirect(url_for("pages.login"))
     return render_template("admin/dashboard.html", user=_session_user())
 
@@ -75,7 +75,7 @@ def admin_dashboard():
 @pages_bp.get("/admin/staff")
 def admin_staff_directory():
     """Staff directory listing."""
-    if not _is_admin():
+    if not _is_admin_or_manager():
         return redirect(url_for("pages.login"))
     return render_template("admin/staff_directory.html", user=_session_user())
 
@@ -84,6 +84,8 @@ def admin_staff_directory():
 def admin_staff_create():
     """Staff creation form."""
     if not _is_admin():
+        if _is_admin_or_manager():
+            return redirect(url_for("pages.admin_staff_directory"))
         return redirect(url_for("pages.login"))
     return render_template(
         "admin/staff_form.html", user=_session_user(), mode="create"
@@ -93,7 +95,7 @@ def admin_staff_create():
 @pages_bp.get("/admin/staff/<staff_id>/edit")
 def admin_staff_edit(staff_id: str):
     """Staff edit form."""
-    if not _is_admin():
+    if not _is_admin_or_manager():
         return redirect(url_for("pages.login"))
     return render_template(
         "admin/staff_form.html",
@@ -106,7 +108,7 @@ def admin_staff_edit(staff_id: str):
 @pages_bp.get("/admin/approvals")
 def admin_approvals():
     """Pending approvals page."""
-    if not _is_admin():
+    if not _is_admin_or_manager():
         return redirect(url_for("pages.login"))
     return render_template("admin/approvals.html", user=_session_user())
 
@@ -114,6 +116,8 @@ def admin_approvals():
 @pages_bp.get("/admin/settlements")
 def admin_settlements():
     """Settlement management page."""
+    if _is_admin_or_manager() and not _is_admin():
+        return redirect(url_for("pages.admin_dashboard"))
     if not _is_admin():
         return redirect(url_for("pages.login"))
     return render_template("admin/settlements.html", user=_session_user())
@@ -122,9 +126,21 @@ def admin_settlements():
 @pages_bp.get("/admin/settings")
 def admin_settings():
     """Application settings page."""
+    if _is_admin_or_manager() and not _is_admin():
+        return redirect(url_for("pages.admin_dashboard"))
     if not _is_admin():
         return redirect(url_for("pages.login"))
     return render_template("admin/settings.html", user=_session_user())
+
+
+@pages_bp.get("/admin/reimbursements")
+def admin_reimbursements():
+    """Legacy reimbursements route; redirects to unified settlements workspace."""
+    if _is_admin_or_manager() and not _is_admin():
+        return redirect(url_for("pages.admin_dashboard"))
+    if not _is_admin():
+        return redirect(url_for("pages.login"))
+    return redirect("/admin/settlements?view=reimbursements")
 
 
 # -- Staff pages ---------------------------------------------------------------
@@ -134,7 +150,7 @@ def admin_settings():
 def duty_station():
     """Duty station - daily task view."""
     if not _is_staff():
-        if _is_admin():
+        if _is_admin_or_manager():
             return redirect(url_for("pages.admin_dashboard"))
         return redirect(url_for("pages.login"))
     if session.get("is_first_login"):
@@ -146,7 +162,7 @@ def duty_station():
 def my_money():
     """Staff earnings / money overview."""
     if not _is_staff():
-        if _is_admin():
+        if _is_admin_or_manager():
             return redirect(url_for("pages.admin_dashboard"))
         return redirect(url_for("pages.login"))
     if session.get("is_first_login"):
@@ -158,7 +174,7 @@ def my_money():
 def staff_leave():
     """Staff leave application and history page."""
     if not _is_staff():
-        if _is_admin():
+        if _is_admin_or_manager():
             return redirect(url_for("pages.admin_dashboard"))
         return redirect(url_for("pages.login"))
     if session.get("is_first_login"):
@@ -170,7 +186,7 @@ def staff_leave():
 def staff_profile():
     """Staff profile page."""
     if not _is_staff():
-        if _is_admin():
+        if _is_admin_or_manager():
             return redirect(url_for("pages.admin_dashboard"))
         return redirect(url_for("pages.login"))
     if session.get("is_first_login"):
@@ -197,6 +213,11 @@ def _is_admin() -> bool:
     return "user_id" in session and session.get("role") == "admin"
 
 
+def _is_admin_or_manager() -> bool:
+    """Return True when the session belongs to an admin or manager user."""
+    return "user_id" in session and session.get("role") in {"admin", "manager"}
+
+
 def _is_staff() -> bool:
-    """Return True when the session belongs to a staff user."""
+    """Return True when the session belongs to a staff-like user."""
     return "user_id" in session and session.get("role") == "staff"

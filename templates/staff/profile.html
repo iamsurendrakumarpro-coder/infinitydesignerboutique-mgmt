@@ -1,4 +1,4 @@
-{% extends "staff/layout.html" %}
+﻿{% extends "staff/layout.html" %}
 
 {% block page_title %}Profile{% endblock %}
 
@@ -8,40 +8,41 @@
   <!-- -- Profile Header ------------------------------------------------- -->
   <div class="mb-3 flex flex-col items-center text-center animate-fade-in">
     <!-- Avatar -->
-    <div class="flex h-12 w-12 items-center justify-center rounded-full bg-brand-600 text-white shadow-sm"
-         x-html="renderIcon('user', 'h-5 w-5')"></div>
+    <div class="flex h-12 w-12 items-center justify-center rounded-full bg-brand-100 text-lg font-bold text-brand-600">
+         {{ user.full_name|default("S")|first|upper }}</div>
     <h1 class="mt-2 text-sm font-bold text-gray-900" x-text="profile.full_name || '{{ user.full_name|default("Staff") }}'"></h1>
-    <p class="mt-0.5 text-[11px] text-gray-400" x-text="profile.phone_number || '{{ user.phone_number|default("") }}'"></p>
-    <div class="mt-1 inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 ring-1 ring-brand-100">
+    <p class="mt-0.5 text-xs text-gray-400" x-text="formatPhone(profile.phone_number || '{{ user.phone_number|default("") }}')"></p>
+    <div class="mt-1 inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 border border-brand-200">
       <span class="h-1.5 w-1.5 rounded-full bg-green-400"></span>
-      <span class="text-[10px] font-semibold text-brand-700" x-text="formatRole(profile.role || '{{ user.role|default("staff") }}')"></span>
+      <span class="text-xs font-semibold text-brand-700" x-text="formatRole(profile.role || '{{ user.role|default("staff") }}')"></span>
     </div>
   </div>
 
   <!-- -- Quick Info Cards ----------------------------------------------- -->
-  <div class="mb-3 grid grid-cols-2 gap-1.5">
-    <div class="rounded-lg bg-white p-2.5 text-center ring-1 ring-gray-100">
-      <p class="text-base">📅</p>
-      <p class="mt-0.5 text-[10px] font-medium text-gray-400">Joined</p>
-      <p class="mt-0.5 text-[11px] font-bold text-gray-800" x-text="profile.joining_date || '—'"></p>
+    <div class="mb-3 grid grid-cols-2 gap-2">
+    <div class="rounded-lg bg-white p-3 text-center border border-gray-200">
+      <p class="text-xs font-medium text-gray-500">Joined</p>
+      <p class="mt-0.5 text-xs font-bold text-gray-800" x-text="profile.joining_date || '-'"></p>
     </div>
-    <div class="rounded-lg bg-white p-2.5 text-center ring-1 ring-gray-100">
-      <p class="text-base">💰</p>
-      <p class="mt-0.5 text-[10px] font-medium text-gray-400" x-text="profile.salary_type === 'monthly' ? 'Monthly Salary' : 'Weekly Salary'"></p>
+    <div class="rounded-lg bg-white p-3 text-center border border-gray-200">
+      <p class="text-xs font-medium text-gray-500" x-text="profile.salary_type === 'monthly' ? 'Monthly Salary' : 'Weekly Salary'"></p>
       <template x-if="profile.salary_type === 'monthly'">
-        <p class="mt-0.5 text-xs font-bold text-gray-800" x-text="profile.monthly_salary ? '₹' + Number(profile.monthly_salary).toLocaleString('en-IN') : '—'"></p>
+        <p class="mt-0.5 text-xs font-bold text-gray-800" x-text="profile.monthly_salary ? 'Rs ' + Number(profile.monthly_salary).toLocaleString('en-IN') : '-'"></p>
       </template>
       <template x-if="profile.salary_type !== 'monthly'">
-        <p class="mt-0.5 text-xs font-bold text-gray-800" x-text="profile.weekly_salary ? '₹' + Number(profile.weekly_salary).toLocaleString('en-IN') : '—'"></p>
+        <p class="mt-0.5 text-xs font-bold text-gray-800" x-text="profile.weekly_salary ? 'Rs ' + Number(profile.weekly_salary).toLocaleString('en-IN') : '-'"></p>
       </template>
     </div>
   </div>
 
   <!-- -- Recent Attendance (Last 7 Days) -------------------------------- -->
-  <div class="mb-4 rounded-xl bg-white ring-1 ring-gray-100">
+  <div class="mb-4 rounded-lg bg-white border border-gray-200">
     <div class="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-      <h2 class="text-xs font-semibold text-gray-900">📅 Last 7 Days</h2>
-      <span class="rounded-full bg-gray-100 px-2 py-0.5 text-[9px] font-medium text-gray-500"
+      <div class="flex items-center gap-2">
+        <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600" x-html="renderIcon('chart-bar', 'h-3.5 w-3.5')"></div>
+        <h2 class="text-xs font-semibold text-gray-900">Last 7 Days</h2>
+      </div>
+      <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500"
             x-text="attendanceDays.length + ' days'"></span>
     </div>
 
@@ -69,24 +70,24 @@
                    'bg-red-50 text-red-500': day.status === 'absent',
                    'bg-gray-50 text-gray-400': !day.status || day.status === 'unknown',
                  }"
-                 x-text="day.status === 'present' || day.status === 'completed' || day.status === 'in' ? '✅' : day.status === 'absent' ? '❌' : '➖'"></div>
+                 x-text="day.status === 'present' || day.status === 'completed' || day.status === 'in' ? 'P' : day.status === 'absent' ? 'A' : '-'"></div>
             <div>
               <p class="text-xs font-medium text-gray-800" x-text="formatDayDate(day.date)"></p>
-              <p class="text-[9px] text-gray-400" x-text="(day.punch_in || day.login_time || '—') + ' → ' + (day.punch_out || day.logout_time || '—')"></p>
+              <p class="text-xs text-gray-400" x-text="(day.punch_in || day.login_time || '-') + ' to ' + (day.punch_out || day.logout_time || '-')"></p>
             </div>
           </div>
-          <span class="text-[10px] font-semibold text-gray-500" x-text="day.duration || day.total_hours || '—'"></span>
+          <span class="text-xs font-semibold text-gray-500" x-text="day.duration || day.total_hours || '-'"></span>
         </div>
       </template>
     </div>
   </div>
 
   <!-- -- Change PIN ----------------------------------------------------- -->
-  <div class="mb-4 rounded-xl bg-white ring-1 ring-gray-100">
+  <div class="mb-4 rounded-lg bg-white border border-gray-200">
     <button @click="pinOpen = !pinOpen"
             class="flex w-full items-center justify-between px-4 py-3">
       <div class="flex items-center gap-2.5">
-        <span class="text-lg">🔐</span>
+        <span class="text-lg">🔒</span>
         <span class="text-xs font-semibold text-gray-900">Change PIN</span>
       </div>
       <svg class="h-4 w-4 text-gray-400 transition-transform" :class="pinOpen && 'rotate-180'"
@@ -99,32 +100,32 @@
       <div class="space-y-2.5">
         <!-- Current PIN -->
         <div>
-          <label class="mb-1 block text-[10px] font-medium text-gray-500">Current PIN</label>
+          <label class="mb-1 block text-xs font-medium text-gray-500">Current PIN</label>
           <input type="password"
                  x-model="pin.current"
                  inputmode="numeric"
                  maxlength="6"
-                 placeholder="••••"
+                 placeholder="****"
                  class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-center text-sm font-bold tracking-[0.5em] text-gray-800 transition-colors focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-100">
         </div>
         <!-- New PIN -->
         <div>
-          <label class="mb-1 block text-[10px] font-medium text-gray-500">New PIN</label>
+          <label class="mb-1 block text-xs font-medium text-gray-500">New PIN</label>
           <input type="password"
                  x-model="pin.new_pin"
                  inputmode="numeric"
                  maxlength="6"
-                 placeholder="••••"
+                 placeholder="****"
                  class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-center text-sm font-bold tracking-[0.5em] text-gray-800 transition-colors focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-100">
         </div>
         <!-- Confirm PIN -->
         <div>
-          <label class="mb-1 block text-[10px] font-medium text-gray-500">Confirm New PIN</label>
+          <label class="mb-1 block text-xs font-medium text-gray-500">Confirm New PIN</label>
           <input type="password"
                  x-model="pin.confirm"
                  inputmode="numeric"
                  maxlength="6"
-                 placeholder="••••"
+                 placeholder="****"
                  class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-center text-sm font-bold tracking-[0.5em] text-gray-800 transition-colors focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-100"
                  @keydown.enter="changePin()">
         </div>
@@ -145,22 +146,8 @@
     </div>
   </div>
 
-  <!-- -- Logout --------------------------------------------------------- -->
-  <button @click="doLogout()"
-          :disabled="loggingOut"
-          class="w-full rounded-lg border-2 border-red-200 bg-red-50 py-2.5 text-xs font-bold text-red-600 transition-all hover:bg-red-100 hover:border-red-300 active:scale-[0.98] disabled:opacity-50">
-    <span x-show="!loggingOut" class="inline-flex items-center gap-2">🚪 Logout</span>
-    <span x-show="loggingOut" class="inline-flex items-center gap-2">
-      <svg class="h-5 w-5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-      </svg>
-      Logging out...
-    </span>
-  </button>
-
   <div class="mt-4 pb-4 text-center">
-    <p class="text-[10px] text-gray-300">Infinity Designer Boutique · Staff Portal</p>
+    <p class="text-xs text-gray-400">{{ boutique_name }} - Staff Portal</p>
   </div>
 
 </div>
@@ -184,7 +171,6 @@
       pinOpen: false,
       pin: { current: '', new_pin: '', confirm: '' },
       pinChanging: false,
-      loggingOut: false,
       attendanceDays: [],
       attendanceLoading: false,
 
@@ -204,6 +190,17 @@
           manager: 'Manager',
         };
         return map[role] || role || 'Staff';
+      },
+
+      formatPhone(phone) {
+        const digits = String(phone || '').replace(/\D/g, '');
+        if (!digits) return '';
+        // If 10 digits, assume Indian number and prefix +91
+        if (digits.length === 10) return `+91 ${digits}`;
+        // If starts with 91 and length 12, format as +91 XXXXXXXXXX
+        if (digits.length === 12 && digits.startsWith('91')) return `+91 ${digits.slice(2)}`;
+        // Otherwise, prefix with + and raw digits
+        return `+${digits}`;
       },
 
       async fetchProfile() {
@@ -226,7 +223,7 @@
             this.profile.full_name = u.full_name || this.profile.full_name || 'Staff';
             this.profile.phone_number = u.phone_number || this.profile.phone_number || '';
             this.profile.role = u.role || u.designation || this.profile.role || 'staff';
-            this.profile.joining_date = u.joining_date || u.joined || u.created_at || '—';
+            this.profile.joining_date = u.joining_date || u.joined || u.created_at || '-';
             this.profile.salary_type = u.salary_type || 'weekly';
             this.profile.weekly_salary = typeof u.weekly_salary !== 'undefined' ? u.weekly_salary : null;
             this.profile.monthly_salary = typeof u.monthly_salary !== 'undefined' ? u.monthly_salary : null;
@@ -245,10 +242,10 @@
             this.profile.skills = Array.isArray(u.skills) ? u.skills : (Array.isArray(u.specializations) ? u.specializations : []);
 
             // Defensive: ensure all fields are set
-            if (!this.profile.joining_date) this.profile.joining_date = '—';
+            if (!this.profile.joining_date) this.profile.joining_date = '-';
             if (!this.profile.skills) this.profile.skills = [];
 
-            if (this.profile.joining_date && this.profile.joining_date !== '—') {
+            if (this.profile.joining_date && this.profile.joining_date !== '-') {
               try {
                 const d = new Date(this.profile.joining_date);
                 if (!isNaN(d.getTime())) {
@@ -311,7 +308,7 @@
             return;
           }
 
-          dispatchToast('success', 'PIN Updated! 🔐', 'Your PIN has been changed successfully');
+          dispatchToast('success', 'PIN Updated', 'Your PIN has been changed successfully');
           this.pin = { current: '', new_pin: '', confirm: '' };
           this.pinOpen = false;
         } catch (e) {
@@ -321,19 +318,8 @@
         }
       },
 
-      async doLogout() {
-        if (this.loggingOut) return;
-        this.loggingOut = true;
-        try {
-          await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
-        } catch (e) {
-          // proceed even on error
-        }
-        window.location.href = '/login';
-      },
-
       formatDayDate(dateStr) {
-        if (!dateStr) return '—';
+        if (!dateStr) return '-';
         try {
           const d = new Date(dateStr);
           if (isNaN(d.getTime())) return dateStr;

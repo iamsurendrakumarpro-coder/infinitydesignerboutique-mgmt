@@ -1,0 +1,364 @@
+﻿{% extends "admin/layout.html" %}
+
+{% block page_title %}Approvals{% endblock %}
+
+{% block page_content %}
+<div x-data="approvalsDesk()" x-init="loadAll()" x-cloak class="admin-page-shell">
+  <section class="admin-page-header">
+    <div class="admin-page-header-main">
+      <div class="admin-page-header-icon flex items-center justify-center bg-amber-100 text-amber-600"
+           x-html="renderIcon('clipboard-document-list', 'h-5 w-5')"></div>
+      <div class="admin-page-header-meta">
+        <h1 class="admin-page-title">Approvals Desk</h1>
+        <p class="admin-page-subtitle">Review pending financial requests and overtime submissions with one consistent workflow.</p>
+      </div>
+    </div>
+    <span class="admin-badge admin-badge-warning" x-text="`${financialRequests.length + overtimeRecords.length} pending`"></span>
+  </section>
+
+  <section class="admin-panel">
+    <div class="admin-panel-header">
+      <div>
+        <h2 class="admin-panel-title">Pending Items</h2>
+        <p class="admin-panel-subtitle">Financial and overtime approvals share the same compact review pattern.</p>
+      </div>
+      <div class="admin-tabbar">
+        <button @click="activeTab = 'financial'" class="admin-tab" :class="activeTab === 'financial' ? 'is-active' : ''">
+          Financial <span class="ml-1 text-[11px]" x-text="financialRequests.length"></span>
+        </button>
+        <button @click="activeTab = 'overtime'" class="admin-tab" :class="activeTab === 'overtime' ? 'is-active' : ''">
+          Overtime <span class="ml-1 text-[11px]" x-text="overtimeRecords.length"></span>
+        </button>
+      </div>
+    </div>
+
+    <div class="p-4 admin-stack">
+      <div x-show="activeTab === 'financial'" class="admin-stack">
+        <div x-show="financialLoading" class="admin-empty">
+          <div class="spinner spinner-sm mx-auto"></div>
+          <p class="admin-empty-copy mt-3">Loading financial requests...</p>
+        </div>
+
+        <div x-show="!financialLoading && financialRequests.length === 0" class="admin-empty border border-dashed border-slate-200 rounded-lg">
+          <p class="admin-empty-title">No pending financial requests</p>
+          <p class="admin-empty-copy">Approved and rejected items are already cleared from the queue.</p>
+        </div>
+
+        <div x-show="!financialLoading && financialRequests.length > 0" class="admin-card-list">
+          <template x-for="req in financialRequests" :key="req.id || req.request_id">
+            <article class="admin-request-card" :class="req._processing ? 'opacity-60' : ''">
+              <div class="admin-toolbar-spread">
+                <div>
+                  <div class="flex items-center gap-2">
+                    <h3 class="text-sm font-semibold text-slate-900" x-text="req.staff_name || req.full_name || 'Staff'"></h3>
+                    <span class="admin-badge admin-badge-warning">Pending</span>
+                  </div>
+                  <p class="mt-1 text-xs text-slate-500">
+                    <span x-text="formatType(req.type)"></span>
+                    <span class="mx-1">•</span>
+                    <span x-text="formatDate(req.created_at || req.date)"></span>
+                  </p>
+                </div>
+                <div class="text-right">
+                  <p class="text-lg font-semibold text-slate-900" x-text="currency(req.amount)"></p>
+                  <p class="text-xs text-slate-500">Requested amount</p>
+                </div>
+              </div>
+
+              <div class="mt-3 admin-request-grid">
+                <div class="admin-section-muted p-3">
+                  <p class="admin-metric-label">Reason</p>
+                  <p class="mt-1 text-sm text-slate-700" x-text="req.notes || req.reason || req.description || 'No reason shared'"></p>
+                </div>
+                <template x-if="(req.type === 'personal_advance' || req.type === 'advance') && req.week_earned != null">
+                  <div class="admin-section-muted p-3">
+                    <p class="admin-metric-label">Week Earned</p>
+                    <p class="mt-1 text-sm font-semibold text-slate-900" x-text="currency(req.week_earned)"></p>
+                  </div>
+                </template>
+                <template x-if="req.receipt_url">
+                  <div class="admin-section-muted p-3">
+                    <p class="admin-metric-label">Receipt</p>
+                    <a :href="req.receipt_url" target="_blank" class="admin-btn admin-btn-secondary mt-2 inline-flex">View Receipt</a>
+                  </div>
+                </template>
+              </div>
+
+              <div class="mt-3" x-data="{ notes: '' }">
+                <label class="admin-field-label">Admin Note</label>
+                <textarea x-model="notes" rows="2" class="admin-input" placeholder="Optional internal note for this decision"></textarea>
+                <div class="mt-3 admin-toolbar justify-end">
+                  <button @click="rejectFinancial(req, notes)" :disabled="req._processing" class="admin-btn admin-btn-danger">
+                    Reject
+                  </button>
+                  <button @click="approveFinancial(req, notes)" :disabled="req._processing" class="admin-btn admin-btn-primary">
+                    Approve
+                  </button>
+                </div>
+              </div>
+            </article>
+          </template>
+        </div>
+      </div>
+
+      <div x-show="activeTab === 'overtime'" class="admin-stack">
+        <div x-show="overtimeLoading" class="admin-empty">
+          <div class="spinner spinner-sm mx-auto"></div>
+          <p class="admin-empty-copy mt-3">Loading overtime requests...</p>
+        </div>
+
+        <div x-show="!overtimeLoading && overtimeRecords.length === 0" class="admin-empty border border-dashed border-slate-200 rounded-lg">
+          <p class="admin-empty-title">No pending overtime approvals</p>
+          <p class="admin-empty-copy">New overtime submissions will appear here automatically.</p>
+        </div>
+
+        <div x-show="!overtimeLoading && overtimeRecords.length > 0" class="admin-card-list">
+          <template x-for="ot in overtimeRecords" :key="ot.id">
+            <article class="admin-request-card" :class="ot._processing ? 'opacity-60' : ''">
+              <div class="admin-toolbar-spread">
+                <div>
+                  <div class="flex items-center gap-2">
+                    <h3 class="text-sm font-semibold text-slate-900" x-text="ot.staff_name"></h3>
+                    <span class="admin-badge admin-badge-warning">Pending</span>
+                  </div>
+                  <p class="mt-1 text-xs text-slate-500" x-text="formatDate(ot.date)"></p>
+                </div>
+                <div class="text-right">
+                  <p class="text-lg font-semibold text-slate-900" x-text="ot.minutesLabel"></p>
+                  <p class="text-xs text-emerald-700" x-text="currency(ot.payout)"></p>
+                </div>
+              </div>
+
+              <div class="mt-3 admin-request-grid">
+                <div class="admin-section-muted p-3">
+                  <p class="admin-metric-label">Worked Extra</p>
+                  <p class="mt-1 text-sm font-semibold text-slate-900" x-text="ot.minutesLabel"></p>
+                </div>
+                <div class="admin-section-muted p-3">
+                  <p class="admin-metric-label">Calculated Payout</p>
+                  <p class="mt-1 text-sm font-semibold text-slate-900" x-text="currency(ot.payout)"></p>
+                </div>
+                <div class="admin-section-muted p-3">
+                  <p class="admin-metric-label">Notes</p>
+                  <p class="mt-1 text-sm text-slate-700" x-text="ot.notes || 'No note provided'"></p>
+                </div>
+              </div>
+
+              <div class="mt-3 admin-toolbar justify-end">
+                <button @click="rejectOvertime(ot)" :disabled="ot._processing" class="admin-btn admin-btn-danger">Reject</button>
+                <button @click="approveOvertime(ot)" :disabled="ot._processing" class="admin-btn admin-btn-primary">Approve OT</button>
+              </div>
+            </article>
+          </template>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+  function approvalsDesk() {
+    return {
+      activeTab: 'financial',
+      financialLoading: true,
+      overtimeLoading: true,
+      financialRequests: [],
+      overtimeRecords: [],
+
+      async loadAll() {
+        await Promise.all([this.fetchFinancial(), this.fetchOvertime()]);
+      },
+
+      async fetchFinancial() {
+        this.financialLoading = true;
+        try {
+          const res = await fetch('/api/v1/financial/requests?status=pending', { credentials: 'include' });
+          if (res.ok) {
+            const data = await res.json();
+            this.financialRequests = (data.requests || data.data || []).map((request) => ({ ...request, _processing: false }));
+          }
+        } catch (error) {
+          dispatchToast('error', 'Error', 'Failed to load financial requests');
+        } finally {
+          this.financialLoading = false;
+        }
+      },
+
+      async fetchOvertime() {
+        this.overtimeLoading = true;
+        try {
+          const res = await fetch('/api/v1/overtime/pending', { credentials: 'include' });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            this.overtimeRecords = (data.records || [])
+              .map((record) => this.normalizeOvertime(record))
+              .filter(Boolean);
+          } else {
+            dispatchToast('error', 'Error', data.error || 'Failed to load overtime records');
+          }
+        } catch (error) {
+          console.error('OT fetch error:', error);
+          dispatchToast('error', 'Network Error', 'Could not reach the server');
+        } finally {
+          this.overtimeLoading = false;
+        }
+      },
+
+      normalizeOvertime(record) {
+        const id = record.id || record.record_id || record.overtime_id;
+        if (!id) return null;
+        const minutes = Number(
+          record.overtime_minutes ??
+          record.ot_minutes ??
+          record.minutes ??
+          record.duration_minutes ??
+          record.overtime ??
+          0
+        );
+        const payout = Number(
+          record.calculated_payout ??
+          record.overtime_payout ??
+          record.payout ??
+          0
+        );
+        return {
+          ...record,
+          id,
+          staff_name: record.staff_name || record.full_name || record.employee_name || 'Staff',
+          date: record.date || record.attendance_date || record.created_at || '',
+          notes: record.notes || record.reason || record.description || '',
+          overtime_minutes: minutes,
+          payout,
+          minutesLabel: this.minutesToLabel(minutes),
+          _processing: false,
+        };
+      },
+
+      async approveFinancial(req, notes) {
+        req._processing = true;
+        try {
+          const id = req.id || req.request_id;
+          const res = await fetch(`/api/v1/financial/requests/${id}`, {
+            method: 'PATCH',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'approve', admin_notes: notes || '' }),
+          });
+          if (res.ok) {
+            this.financialRequests = this.financialRequests.filter((item) => (item.id || item.request_id) !== id);
+            dispatchToast('success', 'Approved', `${this.currency(req.amount)} request approved`);
+          } else {
+            const err = await res.json().catch(() => ({}));
+            dispatchToast('error', 'Error', err.error || 'Failed to approve');
+            req._processing = false;
+          }
+        } catch (error) {
+          dispatchToast('error', 'Network Error', 'Could not reach the server');
+          req._processing = false;
+        }
+      },
+
+      async rejectFinancial(req, notes) {
+        req._processing = true;
+        try {
+          const id = req.id || req.request_id;
+          const res = await fetch(`/api/v1/financial/requests/${id}`, {
+            method: 'PATCH',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'reject', admin_notes: notes || '' }),
+          });
+          if (res.ok) {
+            this.financialRequests = this.financialRequests.filter((item) => (item.id || item.request_id) !== id);
+            dispatchToast('info', 'Rejected', 'Financial request rejected');
+          } else {
+            const err = await res.json().catch(() => ({}));
+            dispatchToast('error', 'Error', err.error || 'Failed to reject');
+            req._processing = false;
+          }
+        } catch (error) {
+          dispatchToast('error', 'Network Error', 'Could not reach the server');
+          req._processing = false;
+        }
+      },
+
+      async approveOvertime(ot) {
+        ot._processing = true;
+        try {
+          const res = await fetch(`/api/v1/overtime/${ot.id}/approve`, {
+            method: 'PATCH',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+          });
+          if (res.ok) {
+            this.overtimeRecords = this.overtimeRecords.filter((item) => item.id !== ot.id);
+            dispatchToast('success', 'OT Approved', `${ot.minutesLabel} approved for ${ot.staff_name}`);
+          } else {
+            const err = await res.json().catch(() => ({}));
+            dispatchToast('error', 'Error', err.error || 'Failed to approve overtime');
+            ot._processing = false;
+          }
+        } catch (error) {
+          dispatchToast('error', 'Network Error', 'Could not reach the server');
+          ot._processing = false;
+        }
+      },
+
+      async rejectOvertime(ot) {
+        ot._processing = true;
+        try {
+          const res = await fetch(`/api/v1/overtime/${ot.id}/reject`, {
+            method: 'PATCH',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+          });
+          if (res.ok) {
+            this.overtimeRecords = this.overtimeRecords.filter((item) => item.id !== ot.id);
+            dispatchToast('info', 'OT Rejected', 'Overtime record rejected');
+          } else {
+            const err = await res.json().catch(() => ({}));
+            dispatchToast('error', 'Error', err.error || 'Failed to reject overtime');
+            ot._processing = false;
+          }
+        } catch (error) {
+          dispatchToast('error', 'Network Error', 'Could not reach the server');
+          ot._processing = false;
+        }
+      },
+
+      formatType(type) {
+        const map = {
+          personal_advance: 'Personal Advance',
+          advance: 'Personal Advance',
+          shop_expense: 'Shop Expense',
+          expense: 'Shop Expense',
+        };
+        return map[type] || type || 'Request';
+      },
+
+      formatDate(dateStr) {
+        if (!dateStr) return '-';
+        const date = new Date(dateStr);
+        if (Number.isNaN(date.getTime())) return dateStr;
+        return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+      },
+
+      minutesToLabel(minutes) {
+        const value = Number(minutes || 0);
+        const hrs = Math.floor(value / 60);
+        const mins = value % 60;
+        if (hrs && mins) return `${hrs}h ${mins}m`;
+        if (hrs) return `${hrs}h`;
+        return `${mins}m`;
+      },
+
+      currency(value) {
+        return `\u20B9${Number(value || 0).toLocaleString('en-IN')}`;
+      },
+    };
+  }
+</script>
+{% endblock %}
+

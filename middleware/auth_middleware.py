@@ -6,12 +6,13 @@ Decorators
 login_required(f)       - Any logged-in user.
 admin_required(f)       - Admin role only.
 staff_required(f)       - Staff role only.
+manager_or_admin_required(f) - Manager or admin roles.
 first_login_check(f)    - Forces PIN change when is_first_login is True.
 
 Session shape (stored server-side)
 ------------------------------------
 session["user_id"]       : str
-session["role"]          : "admin" | "staff"
+session["role"]          : "admin" | "manager" | "staff"
 session["is_first_login"]: bool
 session["full_name"]     : str
 session["phone_number"]  : str
@@ -61,11 +62,11 @@ def admin_required(f: Callable) -> Callable:
 
 
 def staff_required(f: Callable) -> Callable:
-    """Decorator: allow only staff-role users. Returns JSON 403."""
+    """Decorator: allow staff-like users (staff, manager). Returns JSON 403."""
     @wraps(f)
     @login_required
     def decorated(*args: Any, **kwargs: Any) -> Any:
-        if session.get("role") != "staff":
+        if session.get("role") not in {"staff", "manager"}:
             log.warning(
                 "Forbidden staff access | user_id=%s | role=%s | path=%s",
                 session.get("user_id"),
@@ -73,6 +74,23 @@ def staff_required(f: Callable) -> Callable:
                 request.path,
             )
             return jsonify({"success": False, "error": "Staff access required."}), 403
+        return f(*args, **kwargs)
+    return decorated
+
+
+def manager_or_admin_required(f: Callable) -> Callable:
+    """Decorator: allow manager or admin roles. Returns JSON 403."""
+    @wraps(f)
+    @login_required
+    def decorated(*args: Any, **kwargs: Any) -> Any:
+        if session.get("role") not in {"admin", "manager"}:
+            log.warning(
+                "Forbidden manager/admin access | user_id=%s | role=%s | path=%s",
+                session.get("user_id"),
+                session.get("role"),
+                request.path,
+            )
+            return jsonify({"success": False, "error": "Manager or admin access required."}), 403
         return f(*args, **kwargs)
     return decorated
 

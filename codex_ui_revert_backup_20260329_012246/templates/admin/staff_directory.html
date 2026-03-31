@@ -1,0 +1,255 @@
+﻿{% extends "admin/layout.html" %}
+
+{% block page_title %}Staff Directory{% endblock %}
+
+{% block page_content %}
+<div x-data="staffDirectory()" x-init="init()" x-cloak class="admin-page-shell">
+  <section class="admin-page-header">
+    <div class="admin-page-header-main">
+      <div class="admin-page-header-icon flex items-center justify-center bg-indigo-100 text-indigo-600"
+           x-html="renderIcon('users', 'h-5 w-5')"></div>
+      <div class="admin-page-header-meta">
+        <h1 class="admin-page-title">Staff Directory</h1>
+        <p class="admin-page-subtitle" x-text="`Showing ${filteredStaff.length} of ${staff.length} staff members`"></p>
+      </div>
+    </div>
+    <a href="/admin/staff/create" class="admin-btn admin-btn-primary">Add Staff</a>
+  </section>
+
+  <section class="admin-panel">
+    <div class="p-4 admin-stack">
+      <div class="admin-toolbar-spread">
+        <div class="relative flex-1 max-w-xl">
+          <svg class="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35m1.85-5.15a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+          <input x-model="search" type="text" class="admin-input pl-9" placeholder="Search by name, phone, or designation">
+        </div>
+        <div class="admin-tabbar">
+          <template x-for="tab in ['all', 'active', 'inactive']" :key="tab">
+            <button @click="setStatusFilter(tab)" class="admin-tab capitalize" :class="statusFilter === tab ? 'is-active' : ''" x-text="tab"></button>
+          </template>
+        </div>
+      </div>
+
+      <div x-show="loading" class="admin-empty">
+        <div class="spinner spinner-sm mx-auto"></div>
+        <p class="admin-empty-copy mt-3">Loading staff directory...</p>
+      </div>
+
+      <div x-show="!loading && filteredStaff.length === 0" class="admin-empty border border-dashed border-slate-200 rounded-lg">
+        <p class="admin-empty-title">No staff matched this view</p>
+        <p class="admin-empty-copy">Try a different search term or status filter.</p>
+      </div>
+
+      <div x-show="!loading && filteredStaff.length > 0" class="admin-table-shell">
+        <div class="admin-table-scroll">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Staff</th>
+                <th>Phone</th>
+                <th>Role</th>
+                <th>Compensation</th>
+                <th>Status</th>
+                <th class="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="member in filteredStaff" :key="member.user_id || member.id">
+                <tr>
+                  <td>
+                    <div class="flex items-center gap-3">
+                      <div class="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-50 text-[11px] font-semibold text-indigo-700"
+                           x-text="getInitials(member.full_name)"></div>
+                      <div>
+                        <p class="font-medium text-slate-900" x-text="member.full_name || 'Staff'"></p>
+                        <p class="text-xs text-slate-500" x-text="member.joining_date || 'No joining date'"></p>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="text-slate-700" x-text="member.phone_number || '-' "></td>
+                  <td>
+                    <p class="text-slate-900" x-text="formatDesignation(member.designation)"></p>
+                    <p class="text-xs text-slate-500" x-text="(member.skills || []).slice(0, 2).join(', ') || 'No skills listed'"></p>
+                  </td>
+                  <td>
+                    <p class="text-slate-900" x-text="salarySummary(member)"></p>
+                    <p class="text-xs text-slate-500" x-text="settlementSummary(member)"></p>
+                  </td>
+                  <td>
+                    <span class="admin-badge" :class="member.status === 'active' ? 'admin-badge-success' : 'admin-badge-neutral'" x-text="capitalize(member.status || 'inactive')"></span>
+                  </td>
+                  <td>
+                    <div class="admin-toolbar justify-end">
+                      <a :href="`/admin/staff/${member.user_id || member.id}/edit`" class="admin-btn admin-btn-secondary">Edit</a>
+                      <button @click="confirmToggle(member)"
+                              class="admin-btn"
+                              :class="member.status === 'active' ? 'admin-btn-danger' : 'admin-btn-positive'"
+                              x-text="member.status === 'active' ? 'Deactivate' : 'Activate'"></button>
+                    </div>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div x-show="confirmDialog.open" x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" @click.self="confirmDialog.open = false">
+    <div class="w-full max-w-sm rounded-xl bg-white p-5 shadow-2xl">
+      <h3 class="text-base font-semibold text-slate-900" x-text="confirmDialog.newStatus === 'active' ? 'Activate staff member' : 'Deactivate staff member'"></h3>
+      <p class="mt-2 text-sm text-slate-600">
+        This will change the status for <span class="font-medium text-slate-900" x-text="confirmDialog.name"></span>.
+      </p>
+      <div class="mt-4 admin-toolbar justify-end">
+        <button @click="confirmDialog.open = false" class="admin-btn admin-btn-secondary">Cancel</button>
+        <button @click="toggleStatus()" :disabled="confirmDialog.processing" class="admin-btn" :class="confirmDialog.newStatus === 'active' ? 'admin-btn-primary' : 'admin-btn-danger'">
+          <span x-text="confirmDialog.processing ? 'Saving...' : 'Confirm'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <a href="/admin/staff/create" class="fab" aria-label="Add new staff member">
+    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+    </svg>
+  </a>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+  function staffDirectory() {
+    return {
+      loading: true,
+      staff: [],
+      search: '',
+      statusFilter: 'all',
+      confirmDialog: { open: false, member: null, name: '', newStatus: '', processing: false },
+
+      get filteredStaff() {
+        let list = [...this.staff];
+        if (this.statusFilter !== 'all') {
+          list = list.filter((item) => (item.status || 'inactive') === this.statusFilter);
+        }
+        if (this.search.trim()) {
+          const query = this.search.trim().toLowerCase();
+          list = list.filter((item) =>
+            (item.full_name || '').toLowerCase().includes(query) ||
+            (item.phone_number || '').includes(query) ||
+            (item.designation || '').toLowerCase().includes(query)
+          );
+        }
+        return list.sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+      },
+
+      async init() {
+        const params = new URLSearchParams(window.location.search);
+        const presetStatus = (params.get('status') || '').toLowerCase();
+        if (['all', 'active', 'inactive'].includes(presetStatus)) {
+          this.statusFilter = presetStatus;
+        }
+        await this.loadStaff();
+      },
+
+      async loadStaff() {
+        this.loading = true;
+        try {
+          const res = await fetch('/api/v1/users/staff', { credentials: 'include' });
+          if (res.ok) {
+            const data = await res.json();
+            this.staff = data.staff || data.data || data.users || [];
+          } else {
+            dispatchToast('error', 'Error', 'Failed to load staff directory');
+          }
+        } catch (error) {
+          dispatchToast('error', 'Network Error', 'Could not reach the server');
+        } finally {
+          this.loading = false;
+        }
+      },
+
+      setStatusFilter(value) {
+        this.statusFilter = value;
+        const url = new URL(window.location.href);
+        if (value === 'all') {
+          url.searchParams.delete('status');
+        } else {
+          url.searchParams.set('status', value);
+        }
+        window.history.replaceState({}, '', url);
+      },
+
+      confirmToggle(member) {
+        this.confirmDialog = {
+          open: true,
+          member,
+          name: member.full_name || 'Staff',
+          newStatus: member.status === 'active' ? 'inactive' : 'active',
+          processing: false,
+        };
+      },
+
+      async toggleStatus() {
+        const member = this.confirmDialog.member;
+        if (!member) return;
+        this.confirmDialog.processing = true;
+        try {
+          const id = member.user_id || member.id;
+          const res = await fetch(`/api/v1/users/staff/${id}/status`, {
+            method: 'PATCH',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: this.confirmDialog.newStatus }),
+          });
+          if (res.ok) {
+            member.status = this.confirmDialog.newStatus;
+            dispatchToast('success', 'Updated', `${member.full_name} is now ${this.confirmDialog.newStatus}`);
+            this.confirmDialog.open = false;
+          } else {
+            const err = await res.json().catch(() => ({}));
+            dispatchToast('error', 'Error', err.error || 'Failed to update status');
+          }
+        } catch (error) {
+          dispatchToast('error', 'Network Error', 'Could not reach the server');
+        } finally {
+          this.confirmDialog.processing = false;
+        }
+      },
+
+      salarySummary(member) {
+        if ((member.salary_type || 'weekly') === 'monthly') {
+          return `?${Number(member.monthly_salary || 0).toLocaleString('en-IN')} / month`;
+        }
+        return `?${Number(member.weekly_salary || 0).toLocaleString('en-IN')} / week`;
+      },
+
+      settlementSummary(member) {
+        const cycle = (member.settlement_cycle || member.salary_type || 'weekly');
+        return `${this.capitalize(cycle)} settlement`;
+      },
+
+      formatDesignation(designation) {
+        if (!designation) return 'Staff';
+        return designation.split('_').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
+      },
+
+      getInitials(name) {
+        if (!name) return '?';
+        const parts = name.trim().split(/\s+/);
+        if (parts.length >= 2) return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+        return parts[0].slice(0, 2).toUpperCase();
+      },
+
+      capitalize(value) {
+        return value ? value.charAt(0).toUpperCase() + value.slice(1) : '';
+      },
+    };
+  }
+</script>
+{% endblock %}
+

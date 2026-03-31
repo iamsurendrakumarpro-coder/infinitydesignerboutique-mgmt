@@ -11,8 +11,6 @@ import re
 from services.settings_service import (
     get_designations,
     get_staff_statuses,
-    get_salary_types,
-    get_settlement_cycles,
 )
 
 # -- Regex patterns -------------------------------------------------------------
@@ -151,6 +149,16 @@ def validate_status(status: str | None) -> tuple[bool, str]:
     return True, ""
 
 
+def validate_staff_role(role: str | None) -> tuple[bool, str]:
+    """Validate staff-role value for role-based access."""
+    if not role:
+        return True, ""
+    role = str(role).strip().lower()
+    if role not in {"staff", "manager"}:
+        return False, "Role must be either 'staff' or 'manager'."
+    return True, ""
+
+
 # -- Composite helpers ---------------------------------------------------------
 
 def validate_admin_create(data: dict) -> dict[str, str]:
@@ -200,6 +208,10 @@ def validate_staff_create(data: dict) -> dict[str, str]:
     if not ok:
         errors["emergency_contact"] = "Emergency contact: " + msg
 
+    ok, msg = validate_staff_role(data.get("role"))
+    if not ok:
+        errors["role"] = msg
+
     # salary_type is optional; default to "weekly" for backward compatibility
     salary_type = data.get("salary_type", "weekly")
     if salary_type and salary_type != "weekly":
@@ -221,6 +233,9 @@ def validate_staff_create(data: dict) -> dict[str, str]:
         ok, msg = validate_settlement_cycle(data.get("settlement_cycle"))
         if not ok:
             errors["settlement_cycle"] = msg
+    ok, msg = validate_salary(data.get("weekly_salary"))
+    if not ok:
+        errors["weekly_salary"] = msg
 
     ok, msg = validate_pin(data.get("temp_pin"))
     if not ok:
@@ -267,6 +282,11 @@ def validate_staff_update(data: dict) -> dict[str, str]:
         ok, msg = validate_salary_type(data.get("salary_type"))
         if not ok:
             errors["salary_type"] = msg
+
+    if "role" in data:
+        ok, msg = validate_staff_role(data.get("role"))
+        if not ok:
+            errors["role"] = msg
 
     if "weekly_salary" in data:
         ok, msg = validate_salary(data.get("weekly_salary"))

@@ -1,0 +1,301 @@
+﻿{% extends "admin/layout.html" %}
+
+{% block page_title %}Reimbursements{% endblock %}
+
+{% block page_content %}
+<div x-data="reimbursementsPage()" x-init="init()" x-cloak>
+
+  <div class="mb-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-purple-50 text-purple-600"
+           x-html="renderIcon('document-arrow-down', 'h-5 w-5')"></div>
+      <div>
+        <h1 class="text-sm font-semibold text-gray-800">Reimbursements</h1>
+        <p class="text-xs text-gray-500">Approved shop expenses paid outside salary settlements</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-1.5">
+      <a :href="exportCsvUrl()"
+         class="inline-flex items-center rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">
+        CSV
+      </a>
+      <a :href="exportPdfUrl()"
+         class="inline-flex items-center rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">
+        PDF
+      </a>
+    </div>
+  </div>
+
+  <div class="mb-3 flex items-center gap-1 rounded-lg bg-gray-100 p-0.5">
+    <button @click="switchTab('pending')"
+            class="relative flex-1 rounded-md py-2 text-center text-xs font-semibold transition-all"
+            :class="activeTab === 'pending' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'">
+      Pending
+      <span x-show="pendingCount > 0"
+            class="ml-0.5 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-amber-100 px-1 text-xs font-bold text-amber-700"
+            x-text="pendingCount"></span>
+    </button>
+    <button @click="switchTab('paid')"
+            class="relative flex-1 rounded-md py-2 text-center text-xs font-semibold transition-all"
+            :class="activeTab === 'paid' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'">
+      Paid
+      <span x-show="paidCount > 0"
+            class="ml-0.5 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-green-100 px-1 text-xs font-bold text-green-700"
+            x-text="paidCount"></span>
+    </button>
+  </div>
+
+  <div x-show="loading" class="py-12 text-center">
+    <svg class="mx-auto h-8 w-8 animate-spin text-brand-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+    </svg>
+  </div>
+
+  <div x-show="!loading" class="mb-3 flex items-center gap-2">
+    <div class="flex-1 rounded-lg bg-white border border-gray-200 p-3 text-center">
+      <p class="text-xs font-medium text-gray-500">Total Amount</p>
+      <p class="text-sm font-bold text-gray-900">&#8377;<span x-text="sumAmount().toLocaleString('en-IN')"></span></p>
+    </div>
+    <div x-show="activeTab === 'pending'" class="flex-1 rounded-lg bg-white border border-gray-200 p-3 text-center">
+      <p class="text-xs font-medium text-gray-500">Pending Bills</p>
+      <p class="text-sm font-bold text-amber-600" x-text="pendingCount"></p>
+    </div>
+    <div x-show="activeTab === 'paid'" class="flex-1 rounded-lg bg-white border border-gray-200 p-3 text-center">
+      <p class="text-xs font-medium text-gray-500">Paid Bills</p>
+      <p class="text-sm font-bold text-green-600" x-text="paidCount"></p>
+    </div>
+  </div>
+
+  <div x-show="!loading && rows.length === 0" class="py-10 text-center">
+    <p class="text-xs font-medium text-gray-500">No records found</p>
+    <p class="mt-1 text-xs text-gray-400" x-text="activeTab === 'pending' ? 'No pending reimbursements.' : 'No paid reimbursements yet.'"></p>
+  </div>
+
+  <div x-show="!loading && rows.length > 0" class="space-y-2">
+    <template x-for="req in rows" :key="req.request_id || req.id">
+      <div class="overflow-hidden rounded-lg bg-white border border-gray-200" :class="req._processing && 'opacity-60'">
+        <div class="px-4 py-3">
+
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0">
+              <h3 class="text-xs font-semibold text-gray-800" x-text="req.requester_name || req.staff_name || 'Staff'"></h3>
+              <p class="text-xs text-gray-400">
+                <span x-text="formatCategory(req.category)"></span>
+                <span class="mx-0.5">Â·</span>
+                <span x-text="formatDate(req.created_at)"></span>
+              </p>
+              <p class="text-xs text-gray-500" x-text="requesterMeta(req)"></p>
+            </div>
+            <div class="text-right shrink-0">
+              <p class="text-sm font-bold text-gray-800">&#8377;<span x-text="Number(req.amount || 0).toLocaleString('en-IN')"></span></p>
+              <span class="inline-flex rounded-md px-1.5 py-0.5 text-xs font-semibold"
+                    :class="(req.reimbursement_status || 'pending') === 'paid' ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'"
+                    x-text="(req.reimbursement_status || 'pending') === 'paid' ? 'Paid' : 'Pending'">
+              </span>
+            </div>
+          </div>
+
+          <div class="mt-2 border-t border-gray-100 pt-2">
+            <p class="text-xs font-medium text-gray-500">Reason</p>
+            <p class="mt-0.5 text-xs text-gray-700" x-text="req.notes || 'No reason provided'"></p>
+          </div>
+
+          <div class="mt-1.5 flex items-center justify-between gap-2">
+            <template x-if="req.receipt_url">
+              <a :href="req.receipt_url" target="_blank"
+                 class="inline-flex items-center gap-1 rounded-lg bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100">
+                <span x-html="renderIcon('document-text', 'h-3 w-3')"></span>
+                View Bill
+              </a>
+            </template>
+            <template x-if="!req.receipt_url">
+              <span class="text-xs text-gray-400">No bill link</span>
+            </template>
+
+            <template x-if="(req.reimbursement_status || 'pending') !== 'paid'">
+              <button @click="openMarkPaid(req)"
+                      :disabled="req._processing"
+                      class="inline-flex items-center gap-1 rounded-lg bg-green-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-50">
+                Mark Paid
+              </button>
+            </template>
+            <template x-if="(req.reimbursement_status || 'pending') === 'paid'">
+              <span class="text-xs text-gray-500">Paid on <span x-text="formatDate(req.reimbursed_at)"></span></span>
+            </template>
+          </div>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <div x-show="markPaidModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(0,0,0,0.3)" @keydown.escape.window="markPaidModalOpen = false">
+    <div class="bg-white rounded-lg border border-gray-200 shadow-lg w-full max-w-sm relative overflow-hidden" @click.outside="markPaidModalOpen = false">
+      <div class="px-5 py-3 flex items-center justify-between">
+        <div>
+          <h3 class="text-sm font-bold text-gray-900">Mark Reimbursed</h3>
+          <p class="text-xs text-gray-400" x-text="markPaidTargetName"></p>
+        </div>
+        <button @click="markPaidModalOpen = false" class="rounded-full p-1.5 text-gray-400 hover:bg-gray-100">
+          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="px-5 pb-6 space-y-3">
+        <div class="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600">
+          Amount: <span class="font-semibold text-gray-800">&#8377;<span x-text="Number(markPaidAmount || 0).toLocaleString('en-IN')"></span></span>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-500 mb-1">Reimbursement notes (optional)</label>
+          <textarea x-model="markPaidNotes" rows="3"
+                    placeholder="Payment mode, reference, remarks..."
+                    class="w-full rounded-lg border-0 bg-gray-50 px-3 py-2 text-xs text-gray-700 focus:bg-white focus:ring-2 focus:ring-brand-200 focus:outline-none"></textarea>
+        </div>
+        <button @click="markPaidConfirmed()" :disabled="markPaidSubmitting"
+                class="w-full rounded-lg bg-green-600 py-2.5 text-xs font-bold text-white hover:bg-green-700 disabled:opacity-50 shadow-sm">
+          <span x-show="!markPaidSubmitting">Confirm Mark Paid</span>
+          <span x-show="markPaidSubmitting">Saving...</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+  function reimbursementsPage() {
+    return {
+      activeTab: 'pending',
+      loading: true,
+      rows: [],
+      pendingCount: 0,
+      paidCount: 0,
+      markPaidModalOpen: false,
+      markPaidSubmitting: false,
+      markPaidTargetId: '',
+      markPaidTargetName: '',
+      markPaidAmount: 0,
+      markPaidNotes: '',
+
+      init() {
+        this.loadCounts();
+        this.loadRows();
+      },
+
+      switchTab(tab) {
+        if (this.activeTab === tab) return;
+        this.activeTab = tab;
+        this.loadRows();
+      },
+
+      exportCsvUrl() {
+        const status = this.activeTab === 'paid' ? 'paid' : 'pending';
+        return `/api/financial/reimbursements/export/csv?reimbursement_status=${status}`;
+      },
+
+      exportPdfUrl() {
+        const status = this.activeTab === 'paid' ? 'paid' : 'pending';
+        return `/api/financial/reimbursements/export/pdf?reimbursement_status=${status}`;
+      },
+
+      async loadCounts() {
+        try {
+          const [pendingRes, paidRes] = await Promise.all([
+            fetch('/api/financial/reimbursements?reimbursement_status=pending', { credentials: 'include' }),
+            fetch('/api/financial/reimbursements?reimbursement_status=paid', { credentials: 'include' }),
+          ]);
+          if (pendingRes.ok) {
+            const data = await pendingRes.json();
+            this.pendingCount = (data.reimbursements || []).length;
+          }
+          if (paidRes.ok) {
+            const data = await paidRes.json();
+            this.paidCount = (data.reimbursements || []).length;
+          }
+        } catch (e) {
+          // ignore count failures silently
+        }
+      },
+
+      async loadRows() {
+        this.loading = true;
+        try {
+          const status = this.activeTab === 'paid' ? 'paid' : 'pending';
+          const res = await fetch(`/api/financial/reimbursements?reimbursement_status=${status}`, { credentials: 'include' });
+          if (res.ok) {
+            const data = await res.json();
+            this.rows = (data.reimbursements || []).map(r => ({ ...r, _processing: false }));
+          } else {
+            this.rows = [];
+            dispatchToast('error', 'Error', 'Failed to load reimbursements');
+          }
+        } catch (e) {
+          this.rows = [];
+          dispatchToast('error', 'Network Error', 'Could not reach the server');
+        } finally {
+          this.loading = false;
+        }
+      },
+
+      openMarkPaid(req) {
+        this.markPaidTargetId = req.request_id || req.id || '';
+        this.markPaidTargetName = req.requester_name || req.staff_name || 'Staff';
+        this.markPaidAmount = Number(req.amount || 0);
+        this.markPaidNotes = '';
+        this.markPaidModalOpen = true;
+      },
+
+      async markPaidConfirmed() {
+        if (!this.markPaidTargetId || this.markPaidSubmitting) return;
+        this.markPaidSubmitting = true;
+        try {
+          const res = await fetch(`/api/financial/reimbursements/${this.markPaidTargetId}/mark-paid`, {
+            method: 'PATCH',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ notes: this.markPaidNotes || '' }),
+          });
+
+          if (res.ok) {
+            dispatchToast('success', 'Reimbursed', 'Expense marked as paid');
+            this.markPaidModalOpen = false;
+            await this.loadCounts();
+            await this.loadRows();
+          } else {
+            const err = await res.json().catch(() => ({}));
+            dispatchToast('error', 'Error', err.error || 'Failed to mark paid');
+          }
+        } catch (e) {
+          dispatchToast('error', 'Network Error', 'Could not reach the server');
+        } finally {
+          this.markPaidSubmitting = false;
+        }
+      },
+
+      sumAmount() {
+        return this.rows.reduce((sum, r) => sum + Number(r.amount || 0), 0);
+      },
+
+      formatDate(dateStr) {
+        if (!dateStr) return '-';
+        try {
+          return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+        } catch (e) { return dateStr; }
+      },
+
+      formatCategory(category) {
+        if (!category) return 'Shop Expense';
+        return String(category).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+      },
+
+      requesterMeta(req) {
+        const designation = req.requester_designation || '';
+        const role = req.requester_role || '';
+        if (designation && role) return designation + ' Â· ' + role;
+        return designation || role || '';
+      },
+    };
+  }
+</script>
+{% endblock %}

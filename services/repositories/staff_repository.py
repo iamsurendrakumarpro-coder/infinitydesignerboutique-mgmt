@@ -1,27 +1,23 @@
 """
 services/repositories/staff_repository.py
 
-Staff persistence adapter – abstract interface + Firestore and Postgres
-implementations.  Factory function get_staff_repository() selects the
-provider at runtime based on APP_DB_PROVIDER env var.
+Staff persistence adapter for PostgreSQL.
 
 Covers:
-  - admins  collection (CRUD, phone uniqueness)
-  - staff   collection (CRUD, status, skills, govt_proof)
-  - staff/{uid}/work_gallery    subcollection / staff_work_gallery table
-  - staff/{uid}/performance_logs subcollection / staff_performance_logs table
+    - admins table (CRUD, phone uniqueness)
+    - staff table (CRUD, status, skills, govt_proof)
+    - staff_work_gallery table
+    - staff_performance_logs table
 """
 
 from __future__ import annotations
 
 import abc
 import json
-import os
 from datetime import date, datetime
 from decimal import Decimal
 
 from utils.db.postgres_client import get_postgres_connection
-from utils.firebase_client import get_firestore
 from utils.timezone_utils import now_utc
 
 
@@ -56,7 +52,16 @@ class StaffRepository(abc.ABC):
     def get_staff(self, user_id: str) -> dict | None: ...
 
     @abc.abstractmethod
-    def list_staff(self, status_filter: str | None = None) -> list[dict]: ...
+    def list_staff(
+        self,
+        status_filter: str | None = None,
+        *,
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> list[dict]: ...
+
+    @abc.abstractmethod
+    def count_staff(self, status_filter: str | None = None) -> int: ...
 
     @abc.abstractmethod
     def update_staff(self, user_id: str, fields: dict) -> None: ...
@@ -96,159 +101,6 @@ class StaffRepository(abc.ABC):
 
     @abc.abstractmethod
     def delete_performance_log(self, user_id: str, log_id: str) -> None: ...
-
-
-# ---------------------------------------------------------------------------
-# Firestore implementation
-# ---------------------------------------------------------------------------
-
-class FirestoreStaffRepository(StaffRepository):
-    _ADMINS = "admins"
-    _STAFF = "staff"
-
-    # ---- Phone uniqueness ------------------------------------------------
-
-    def is_phone_taken_admins(self, phone: str) -> bool:
-        db = get_firestore()
-        return bool(
-            list(db.collection(self._ADMINS).where("phone_number", "==", phone).limit(1).stream())
-        )
-
-    def is_phone_taken_staff(self, phone: str) -> bool:
-        db = get_firestore()
-        return bool(
-            list(db.collection(self._STAFF).where("phone_number", "==", phone).limit(1).stream())
-        )
-
-    # ---- Admins ----------------------------------------------------------
-
-    def save_admin(self, user_id: str, doc: dict) -> None:
-        get_firestore().collection(self._ADMINS).document(user_id).set(doc)
-
-    def get_admin(self, user_id: str) -> dict | None:
-        doc = get_firestore().collection(self._ADMINS).document(user_id).get()
-        if not doc.exists:
-            return None
-        data = doc.to_dict()
-        data.pop("pin_hash", None)
-        return data
-
-    def list_admins(self, exclude_root: bool = True) -> list[dict]:
-        db = get_firestore()
-        query = db.collection(self._ADMINS)
-        if exclude_root:
-            query = query.where("is_root", "==", False)
-        result = []
-        for doc in query.stream():
-            data = doc.to_dict()
-            data.pop("pin_hash", None)
-            result.append(data)
-        return result
-
-    # ---- Staff CRUD ------------------------------------------------------
-
-    def save_staff(self, user_id: str, doc: dict) -> None:
-        get_firestore().collection(self._STAFF).document(user_id).set(doc)
-
-    def get_staff(self, user_id: str) -> dict | None:
-        doc = get_firestore().collection(self._STAFF).document(user_id).get()
-        if not doc.exists:
-            return None
-        data = doc.to_dict()
-        data.pop("pin_hash", None)
-        return data
-
-    def list_staff(self, status_filter: str | None = None) -> list[dict]:
-        db = get_firestore()
-        query = db.collection(self._STAFF)
-        if status_filter:
-            query = query.where("status", "==", status_filter)
-        result = []
-        for doc in query.stream():
-            data = doc.to_dict()
-            data.pop("pin_hash", None)
-            result.append(data)
-        return result
-
-    def update_staff(self, user_id: str, fields: dict) -> None:
-        get_firestore().collection(self._STAFF).document(user_id).update(fields)
-
-    def staff_exists(self, user_id: str) -> bool:
-        return get_firestore().collection(self._STAFF).document(user_id).get().exists
-
-    # ---- Skills ----------------------------------------------------------
-
-    def add_skill(self, user_id: str, skill: str, updated_at: datetime) -> None:
-        from google.cloud.firestore_v1 import ArrayUnion, SERVER_TIMESTAMP  # noqa: PLC0415
-        get_firestore().collection(self._STAFF).document(user_id).update(
-            {"skills": ArrayUnion([skill]), "updated_at": SERVER_TIMESTAMP}
-        )
-
-    def remove_skill(self, user_id: str, skill: str, updated_at: datetime) -> None:
-        from google.cloud.firestore_v1 import ArrayRemove, SERVER_TIMESTAMP  # noqa: PLC0415
-        get_firestore().collection(self._STAFF).document(user_id).update(
-            {"skills": ArrayRemove([skill]), "updated_at": SERVER_TIMESTAMP}
-        )
-
-    # ---- Work gallery ----------------------------------------------------
-
-    def save_gallery_item(self, user_id: str, image_id: str, doc: dict) -> None:
-        (
-            get_firestore().collection(self._STAFF).document(user_id)
-            .collection("work_gallery").document(image_id).set(doc)
-        )
-
-    def list_gallery(self, user_id: str) -> list[dict]:
-        docs = (
-            get_firestore().collection(self._STAFF).document(user_id)
-            .collection("work_gallery")
-            .order_by("uploaded_at", direction="DESCENDING")
-            .stream()
-        )
-        return [d.to_dict() for d in docs]
-
-    def get_gallery_item(self, user_id: str, image_id: str) -> dict | None:
-        doc = (
-            get_firestore().collection(self._STAFF).document(user_id)
-            .collection("work_gallery").document(image_id).get()
-        )
-        return doc.to_dict() if doc.exists else None
-
-    def delete_gallery_item(self, user_id: str, image_id: str) -> None:
-        (
-            get_firestore().collection(self._STAFF).document(user_id)
-            .collection("work_gallery").document(image_id).delete()
-        )
-
-    # ---- Performance logs ------------------------------------------------
-
-    def save_performance_log(self, user_id: str, log_id: str, doc: dict) -> None:
-        (
-            get_firestore().collection(self._STAFF).document(user_id)
-            .collection("performance_logs").document(log_id).set(doc)
-        )
-
-    def list_performance_logs(self, user_id: str) -> list[dict]:
-        docs = (
-            get_firestore().collection(self._STAFF).document(user_id)
-            .collection("performance_logs")
-            .order_by("created_at", direction="DESCENDING")
-            .stream()
-        )
-        return [d.to_dict() for d in docs]
-
-    def get_performance_log(self, user_id: str, log_id: str) -> dict | None:
-        doc = (
-            get_firestore().collection(self._STAFF).document(user_id)
-            .collection("performance_logs").document(log_id).get()
-        )
-        return doc.to_dict() if doc.exists else None
-
-    def delete_performance_log(self, user_id: str, log_id: str) -> None:
-        (
-            get_firestore().collection(self._STAFF).document(user_id)
-            .collection("performance_logs").document(log_id).delete()
-        )
 
 
 # ---------------------------------------------------------------------------
@@ -472,19 +324,44 @@ class PostgresStaffRepository(StaffRepository):
         finally:
             conn.close()
 
-    def list_staff(self, status_filter: str | None = None) -> list[dict]:
+    def list_staff(
+        self,
+        status_filter: str | None = None,
+        *,
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> list[dict]:
         conn = get_postgres_connection()
         try:
             with conn.cursor() as cur:
                 placeholders = ", ".join(f'"{c}"' for c in _STAFF_COLUMNS)
+                params: list = []
+                sql = f'SELECT {placeholders} FROM staff'
                 if status_filter:
-                    cur.execute(
-                        f'SELECT {placeholders} FROM staff WHERE status = %s',
-                        (status_filter,),
-                    )
-                else:
-                    cur.execute(f'SELECT {placeholders} FROM staff')
+                    sql += " WHERE status = %s"
+                    params.append(status_filter)
+
+                sql += " ORDER BY created_at DESC NULLS LAST"
+
+                if limit is not None:
+                    sql += " LIMIT %s OFFSET %s"
+                    params.extend([int(limit), max(int(offset), 0)])
+
+                cur.execute(sql, tuple(params))
                 return [_norm_row(dict(zip(_STAFF_COLUMNS, row))) for row in cur.fetchall()]
+        finally:
+            conn.close()
+
+    def count_staff(self, status_filter: str | None = None) -> int:
+        conn = get_postgres_connection()
+        try:
+            with conn.cursor() as cur:
+                if status_filter:
+                    cur.execute("SELECT COUNT(*) FROM staff WHERE status = %s", (status_filter,))
+                else:
+                    cur.execute("SELECT COUNT(*) FROM staff")
+                row = cur.fetchone()
+                return int(row[0]) if row else 0
         finally:
             conn.close()
 
@@ -703,7 +580,4 @@ class PostgresStaffRepository(StaffRepository):
 # ---------------------------------------------------------------------------
 
 def get_staff_repository() -> StaffRepository:
-    provider = os.environ.get("APP_DB_PROVIDER", "firebase").lower()
-    if provider == "postgres":
-        return PostgresStaffRepository()
-    return FirestoreStaffRepository()
+    return PostgresStaffRepository()

@@ -1,24 +1,20 @@
 """
 services/repositories/overtime_repository.py
 
-Overtime record persistence adapter – Firestore + Postgres behind
-get_overtime_repository().
+Overtime record persistence adapter for PostgreSQL.
 
 Table: overtime_records
-Note: Firestore stores attendance date as "date" key (string).
-      Postgres stores it as "record_date" column (DATE).
+Note: Postgres stores attendance date as "record_date" column (DATE).
       The repository normalises to "date" key for API parity.
 """
 
 from __future__ import annotations
 
 import abc
-import os
 from datetime import date, datetime
 from decimal import Decimal
 
 from utils.db.postgres_client import get_postgres_connection
-from utils.firebase_client import get_firestore
 from utils.timezone_utils import now_utc
 
 
@@ -29,7 +25,7 @@ from utils.timezone_utils import now_utc
 def _norm_row(row: dict) -> dict:
     """Normalize types: Decimal → float, date → ISO string.
     Datetimes are left as Python objects so _sanitise() in service can format them.
-    Also normalises `record_date` → `date` for API parity with Firestore.
+    Also normalises `record_date` -> `date` for API parity.
     """
     result: dict = {}
     for k, v in row.items():
@@ -69,6 +65,9 @@ class OvertimeRepository(abc.ABC):
     def list_pending(self) -> list[dict]: ...
 
     @abc.abstractmethod
+    def count_pending(self) -> int: ...
+
+    @abc.abstractmethod
     def list_for_user(self, user_id: str) -> list[dict]: ...
 
     @abc.abstractmethod
@@ -90,81 +89,6 @@ class OvertimeRepository(abc.ABC):
     def record_exists(self, record_id: str) -> dict | None:
         """Return raw doc (with status) or None."""
         ...
-
-
-# ---------------------------------------------------------------------------
-# Firestore implementation
-# ---------------------------------------------------------------------------
-
-class FirestoreOvertimeRepository(OvertimeRepository):
-    _COLLECTION = "overtime_records"
-
-    def save(self, record_id: str, doc: dict) -> None:
-        get_firestore().collection(self._COLLECTION).document(record_id).set(doc)
-
-    def get_by_id(self, record_id: str) -> dict | None:
-        doc = get_firestore().collection(self._COLLECTION).document(record_id).get()
-        return doc.to_dict() if doc.exists else None
-
-    def list_pending(self) -> list[dict]:
-        docs = (
-            get_firestore().collection(self._COLLECTION)
-            .where("status", "==", "pending")
-            .order_by("created_at", direction="DESCENDING")
-            .stream()
-        )
-        return [d.to_dict() for d in docs]
-
-    def list_for_user(self, user_id: str) -> list[dict]:
-        docs = (
-            get_firestore().collection(self._COLLECTION)
-            .where("user_id", "==", user_id)
-            .order_by("created_at", direction="DESCENDING")
-            .stream()
-        )
-        return [d.to_dict() for d in docs]
-
-    def update_review(
-        self,
-        record_id: str,
-        status: str,
-        admin_id: str,
-        reviewed_at: datetime,
-        updated_at: datetime,
-    ) -> None:
-        from google.cloud.firestore_v1 import SERVER_TIMESTAMP  # noqa: PLC0415
-        get_firestore().collection(self._COLLECTION).document(record_id).update({
-            "status": status,
-            "reviewed_by": admin_id,
-            "reviewed_at": SERVER_TIMESTAMP,
-            "updated_at": SERVER_TIMESTAMP,
-        })
-
-    def get_approved_for_period(
-        self, user_id: str, start: date, end: date
-    ) -> list[dict]:
-        docs = (
-            get_firestore().collection(self._COLLECTION)
-            .where("user_id", "==", user_id)
-            .where("status", "==", "approved")
-            .stream()
-        )
-        results = []
-        for d in docs:
-            data = d.to_dict()
-            record_date_str = data.get("date", "")
-            if record_date_str:
-                try:
-                    record_date = datetime.strptime(record_date_str, "%Y-%m-%d").date()
-                    if start <= record_date <= end:
-                        results.append(data)
-                except (ValueError, TypeError):
-                    pass
-        return results
-
-    def record_exists(self, record_id: str) -> dict | None:
-        doc = get_firestore().collection(self._COLLECTION).document(record_id).get()
-        return doc.to_dict() if doc.exists else None
 
 
 # ---------------------------------------------------------------------------
@@ -237,6 +161,16 @@ class PostgresOvertimeRepository(OvertimeRepository):
         finally:
             conn.close()
 
+    def count_pending(self) -> int:
+        conn = get_postgres_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT COUNT(*) FROM overtime_records WHERE status = 'pending'")
+                row = cur.fetchone()
+                return int(row[0]) if row else 0
+        finally:
+            conn.close()
+
     def list_for_user(self, user_id: str) -> list[dict]:
         conn = get_postgres_connection()
         try:
@@ -295,7 +229,4 @@ class PostgresOvertimeRepository(OvertimeRepository):
 # ---------------------------------------------------------------------------
 
 def get_overtime_repository() -> OvertimeRepository:
-    provider = os.environ.get("APP_DB_PROVIDER", "firebase").lower()
-    if provider == "postgres":
-        return PostgresOvertimeRepository()
-    return FirestoreOvertimeRepository()
+    return PostgresOvertimeRepository()

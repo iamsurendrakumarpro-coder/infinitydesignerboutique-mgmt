@@ -57,7 +57,7 @@ def authenticate_user(phone_number: str, plain_pin: str) -> dict | None:
 
         {
             "user_id":       str,
-            "role":          "admin" | "staff",
+            "role":          "admin" | "manager" | "staff",
             "full_name":     str,
             "phone_number":  str,
             "is_first_login": bool,
@@ -85,9 +85,10 @@ def authenticate_user(phone_number: str, plain_pin: str) -> dict | None:
 
         log.info("Admin login success | user_id=%s | name=%s", data["user_id"], data.get("full_name"))
         audit_log(data["user_id"], "LOGIN_SUCCESS", f"admins/{data['user_id']}")
+        admin_role = data.get("role") if data.get("role") in {"admin", "manager"} else "admin"
         return {
             "user_id": data["user_id"],
-            "role": "admin",
+            "role": admin_role,
             "full_name": data.get("full_name", ""),
             "phone_number": data.get("phone_number", ""),
             "is_first_login": data.get("is_first_login", False),
@@ -121,9 +122,10 @@ def authenticate_user(phone_number: str, plain_pin: str) -> dict | None:
 
         log.info("Staff login success | user_id=%s | name=%s", data["user_id"], data.get("full_name"))
         audit_log(data["user_id"], "LOGIN_SUCCESS", f"staff/{data['user_id']}")
+        user_role = data.get("role") if data.get("role") in {"manager", "staff"} else "staff"
         return {
             "user_id": data["user_id"],
-            "role": "staff",
+            "role": user_role,
             "full_name": data.get("full_name", ""),
             "phone_number": data.get("phone_number", ""),
             "is_first_login": data.get("is_first_login", False),
@@ -143,7 +145,7 @@ def change_pin(user_id: str, role: str, old_pin: str | None, new_pin: str, is_fi
 
     Parameters
     ----------
-    user_id       : Firestore document ID.
+    user_id       : User document identifier.
     role          : 'admin' | 'staff'.
     old_pin       : Current PIN (required unless is_first_login).
     new_pin       : New 4-digit PIN.

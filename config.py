@@ -43,13 +43,6 @@ class Config:
     SESSION_COOKIE_HTTPONLY: bool = True   # Prevent JS access to the session cookie
     SESSION_COOKIE_SAMESITE: str = "Lax"  # CSRF protection for same-site requests
 
-    # -- Firebase -------------------------------------------------------------
-    FIREBASE_CREDENTIALS_PATH: str = os.getenv(
-        "FIREBASE_CREDENTIALS_PATH", "firebase-credentials.json"
-    )
-    FIREBASE_PROJECT_ID: str = os.getenv("FIREBASE_PROJECT_ID", "")
-    FIREBASE_STORAGE_BUCKET: str = os.getenv("FIREBASE_STORAGE_BUCKET", "")
-
     # -- Application ----------------------------------------------------------
     BOUTIQUE_NAME: str = os.getenv("BOUTIQUE_NAME", "Infinity Designer Boutique")
 
@@ -98,16 +91,14 @@ class Config:
     # -- Overtime & Settlement -------------------------------------------------
     # Overtime is only triggered when an employee works more than
     # (STANDARD_HOURS_PER_DAY * 60 + OVERTIME_GRACE_MINUTES) minutes in a day.
-    OVERTIME_GRACE_MINUTES: int = 60
+    OVERTIME_GRACE_MINUTES: int = 30
     WORKING_DAYS_PER_WEEK: int = 6    # Monday - Saturday
     STANDARD_HOURS_PER_DAY: int = 8
 
     # -- Salary & Settlement Cycle ---------------------------------------------
-    # salary_type governs which salary field is stored on the staff document.
-    # settlement_cycle is admin-configurable per staff member.
-    SALARY_TYPES: list[str] = ["weekly", "monthly"]
-    SETTLEMENT_CYCLES: list[str] = ["weekly", "monthly"]
-    MONTHLY_WORKING_DAYS: int = 26   # Standard working days per month (Mon-Sat)
+    # All staff are paid on a weekly basis.
+    SALARY_TYPES: list[str] = ["weekly"]
+    SETTLEMENT_CYCLES: list[str] = ["weekly"]
 
     # -- CORS ------------------------------------------------------------------
     # Comma-separated list of allowed origins from CORS_ORIGINS env var.

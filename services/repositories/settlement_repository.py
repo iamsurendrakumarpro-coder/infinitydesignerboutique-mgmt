@@ -1,14 +1,12 @@
-"""Settlement persistence adapters for Firebase and PostgreSQL."""
+"""Settlement persistence adapter for PostgreSQL."""
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
 from utils.db.postgres_client import get_postgres_connection
-from utils.firebase_client import get_firestore
 from utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -31,80 +29,20 @@ class SettlementRepository:
     def get_by_id(self, settlement_id: str) -> dict | None:
         raise NotImplementedError
 
-    def list_settlements(self, filters: dict | None = None) -> list[dict]:
+    def list_settlements(
+        self,
+        filters: dict | None = None,
+        *,
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> list[dict]:
+        raise NotImplementedError
+
+    def count_settlements(self, filters: dict | None = None) -> int:
         raise NotImplementedError
 
     def list_for_user(self, user_id: str) -> list[dict]:
         raise NotImplementedError
-
-
-class FirestoreSettlementRepository(SettlementRepository):
-    def get_latest_prior_with_carry(self, user_id: str, period_end: str) -> dict | None:
-        db = get_firestore()
-        docs = (
-            db.collection(_COLLECTION)
-            .where("user_id", "==", user_id)
-            .where("week_end", "<", period_end)
-            .order_by("week_end", direction="DESCENDING")
-            .limit(1)
-            .stream()
-        )
-        for doc in docs:
-            return doc.to_dict()
-        return None
-
-    def find_by_user_and_period(self, user_id: str, week_start: str, week_end: str) -> dict | None:
-        db = get_firestore()
-        docs = list(
-            db.collection(_COLLECTION)
-            .where("user_id", "==", user_id)
-            .where("week_start", "==", week_start)
-            .where("week_end", "==", week_end)
-            .limit(1)
-            .stream()
-        )
-        if not docs:
-            return None
-        return docs[0].to_dict()
-
-    def save(self, settlement: dict) -> None:
-        db = get_firestore()
-        settlement_id = settlement["settlement_id"]
-        db.collection(_COLLECTION).document(settlement_id).set(settlement)
-
-    def get_by_id(self, settlement_id: str) -> dict | None:
-        db = get_firestore()
-        doc = db.collection(_COLLECTION).document(settlement_id).get()
-        if not doc.exists:
-            return None
-        return doc.to_dict()
-
-    def list_settlements(self, filters: dict | None = None) -> list[dict]:
-        db = get_firestore()
-        query = db.collection(_COLLECTION)
-
-        if filters:
-            if filters.get("user_id"):
-                query = query.where("user_id", "==", filters["user_id"])
-            if filters.get("week_start") and filters.get("week_end"):
-                query = query.where("week_end", ">=", filters["week_start"]).where("week_end", "<=", filters["week_end"])
-            elif filters.get("week_start"):
-                query = query.where("week_end", ">=", filters["week_start"])
-            elif filters.get("week_end"):
-                query = query.where("week_end", "<=", filters["week_end"])
-
-        docs = query.order_by("created_at", direction="DESCENDING").stream()
-        return [d.to_dict() for d in docs]
-
-    def list_for_user(self, user_id: str) -> list[dict]:
-        db = get_firestore()
-        docs = (
-            db.collection(_COLLECTION)
-            .where("user_id", "==", user_id)
-            .order_by("created_at", direction="DESCENDING")
-            .stream()
-        )
-        return [d.to_dict() for d in docs]
 
 
 class PostgresSettlementRepository(SettlementRepository):
@@ -210,6 +148,27 @@ class PostgresSettlementRepository(SettlementRepository):
                 rows = self._fetchall_dicts(cur)
                 return [self._norm_row(r) for r in rows]
 
+    @staticmethod
+    def _build_filters(filters: dict | None = None) -> tuple[list[str], list[Any]]:
+        where: list[str] = []
+        params: list[Any] = []
+
+        if filters:
+            if filters.get("user_id"):
+                where.append("user_id = %s")
+                params.append(filters["user_id"])
+            if filters.get("week_start") and filters.get("week_end"):
+                where.append("week_end >= %s AND week_end <= %s")
+                params.extend([filters["week_start"], filters["week_end"]])
+            elif filters.get("week_start"):
+                where.append("week_end >= %s")
+                params.append(filters["week_start"])
+            elif filters.get("week_end"):
+                where.append("week_end <= %s")
+                params.append(filters["week_end"])
+
+        return where, params
+
     def get_latest_prior_with_carry(self, user_id: str, period_end: str) -> dict | None:
         return self._query_one(
             """
@@ -273,30 +232,53 @@ class PostgresSettlementRepository(SettlementRepository):
     def get_by_id(self, settlement_id: str) -> dict | None:
         return self._query_one("SELECT * FROM settlements WHERE settlement_id = %s LIMIT 1", (settlement_id,))
 
-    def list_settlements(self, filters: dict | None = None) -> list[dict]:
-        where: list[str] = []
-        params: list[Any] = []
+    def list_settlements(
+        self,
+        filters: dict | None = None,
+        *,
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> list[dict]:
+        where, params = self._build_filters(filters)
 
-        if filters:
-            if filters.get("user_id"):
-                where.append("user_id = %s")
-                params.append(filters["user_id"])
-            if filters.get("week_start") and filters.get("week_end"):
-                where.append("week_end >= %s AND week_end <= %s")
-                params.extend([filters["week_start"], filters["week_end"]])
-            elif filters.get("week_start"):
-                where.append("week_end >= %s")
-                params.append(filters["week_start"])
-            elif filters.get("week_end"):
-                where.append("week_end <= %s")
-                params.append(filters["week_end"])
-
-        sql = "SELECT * FROM settlements"
+        inner_sql = """
+            SELECT DISTINCT ON (user_id, week_start, week_end) *
+            FROM settlements
+        """
         if where:
-            sql += " WHERE " + " AND ".join(where)
-        sql += " ORDER BY created_at DESC NULLS LAST, week_end DESC"
+            inner_sql += " WHERE " + " AND ".join(where)
+        inner_sql += " ORDER BY user_id, week_start, week_end, created_at DESC NULLS LAST, settlement_id DESC"
+
+        sql = f"""
+            SELECT *
+            FROM ({inner_sql}) dedup
+            ORDER BY created_at DESC NULLS LAST, week_end DESC
+        """
+
+        if limit is not None:
+            sql += " LIMIT %s OFFSET %s"
+            params.extend([int(limit), max(int(offset), 0)])
 
         return self._query_many(sql, tuple(params))
+
+    def count_settlements(self, filters: dict | None = None) -> int:
+        where, params = self._build_filters(filters)
+
+        inner_sql = """
+            SELECT DISTINCT ON (user_id, week_start, week_end) settlement_id
+            FROM settlements
+        """
+        if where:
+            inner_sql += " WHERE " + " AND ".join(where)
+        inner_sql += " ORDER BY user_id, week_start, week_end, created_at DESC NULLS LAST, settlement_id DESC"
+
+        sql = f"SELECT COUNT(*) AS total_count FROM ({inner_sql}) dedup"
+
+        with get_postgres_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, tuple(params))
+                row = self._fetchone_dict(cur)
+                return int(row.get("total_count", 0) if row else 0)
 
     def list_for_user(self, user_id: str) -> list[dict]:
         return self._query_many(
@@ -311,7 +293,4 @@ class PostgresSettlementRepository(SettlementRepository):
 
 
 def get_settlement_repository() -> SettlementRepository:
-    provider = os.getenv("APP_DB_PROVIDER", "firebase").strip().lower()
-    if provider == "postgres":
-        return PostgresSettlementRepository()
-    return FirestoreSettlementRepository()
+    return PostgresSettlementRepository()

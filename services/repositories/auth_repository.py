@@ -1,21 +1,11 @@
-"""
-services/repositories/auth_repository.py
-
-Authentication-specific persistence adapter – reads pin_hash (excluded from
-staff/admin general reads) and handles PIN updates.
-
-Covers: admins + staff tables, lookup by phone, lookup by user_id with hash,
-PIN update.
-"""
+"""Authentication persistence adapters for PostgreSQL."""
 
 from __future__ import annotations
 
 import abc
-import os
 from datetime import datetime
 
 from utils.db.postgres_client import get_postgres_connection
-from utils.firebase_client import get_firestore
 
 
 # ---------------------------------------------------------------------------
@@ -50,54 +40,8 @@ class AuthRepository(abc.ABC):
     ) -> None: ...
 
 
-# ---------------------------------------------------------------------------
-# Firestore implementation
-# ---------------------------------------------------------------------------
-
 _ADMINS = "admins"
 _STAFF = "staff"
-
-
-class FirestoreAuthRepository(AuthRepository):
-
-    def get_admin_by_phone(self, phone: str) -> dict | None:
-        docs = list(
-            get_firestore().collection(_ADMINS)
-            .where("phone_number", "==", phone)
-            .limit(1)
-            .stream()
-        )
-        return docs[0].to_dict() if docs else None
-
-    def get_staff_by_phone(self, phone: str) -> dict | None:
-        docs = list(
-            get_firestore().collection(_STAFF)
-            .where("phone_number", "==", phone)
-            .limit(1)
-            .stream()
-        )
-        return docs[0].to_dict() if docs else None
-
-    def get_user_with_hash(self, role: str, user_id: str) -> dict | None:
-        collection = _ADMINS if role == "admin" else _STAFF
-        doc = get_firestore().collection(collection).document(user_id).get()
-        return doc.to_dict() if doc.exists else None
-
-    def update_pin(
-        self,
-        role: str,
-        user_id: str,
-        pin_hash: str,
-        is_first_login: bool,
-        updated_at: datetime,
-    ) -> None:
-        from google.cloud.firestore_v1 import SERVER_TIMESTAMP  # noqa: PLC0415
-        collection = _ADMINS if role == "admin" else _STAFF
-        get_firestore().collection(collection).document(user_id).update({
-            "pin_hash": pin_hash,
-            "is_first_login": is_first_login,
-            "updated_at": SERVER_TIMESTAMP,
-        })
 
 
 # ---------------------------------------------------------------------------
@@ -195,7 +139,4 @@ class PostgresAuthRepository(AuthRepository):
 # ---------------------------------------------------------------------------
 
 def get_auth_repository() -> AuthRepository:
-    provider = os.environ.get("APP_DB_PROVIDER", "firebase").lower()
-    if provider == "postgres":
-        return PostgresAuthRepository()
-    return FirestoreAuthRepository()
+    return PostgresAuthRepository()

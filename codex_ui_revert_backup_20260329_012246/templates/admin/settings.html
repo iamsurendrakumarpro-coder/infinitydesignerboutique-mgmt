@@ -1,0 +1,366 @@
+﻿{% extends "admin/layout.html" %}
+
+{% block page_title %}Settings{% endblock %}
+
+{% block page_content %}
+<div x-data="settingsPage()" x-init="init()" x-cloak class="admin-page-shell">
+  <section class="admin-page-header">
+    <div class="admin-page-header-main">
+      <div class="admin-page-header-icon flex items-center justify-center bg-sky-100 text-sky-600"
+           x-html="renderIcon('cog-6-tooth', 'h-5 w-5')"></div>
+      <div class="admin-page-header-meta">
+        <h1 class="admin-page-title">Settings</h1>
+        <p class="admin-page-subtitle">Application defaults, work configuration, role labels, and salary structure references.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="admin-panel">
+    <div class="admin-panel-header">
+      <div>
+        <h2 class="admin-panel-title">Configuration</h2>
+        <p class="admin-panel-subtitle">A consistent enterprise form layout across all admin settings sections.</p>
+      </div>
+      <div class="admin-tabbar">
+        <button @click="activeTab = 'general'" class="admin-tab" :class="activeTab === 'general' ? 'is-active' : ''">Boutique</button>
+        <button @click="activeTab = 'schedule'" class="admin-tab" :class="activeTab === 'schedule' ? 'is-active' : ''">Work Hours</button>
+        <button @click="activeTab = 'designations'" class="admin-tab" :class="activeTab === 'designations' ? 'is-active' : ''">Roles</button>
+        <button @click="activeTab = 'salary'" class="admin-tab" :class="activeTab === 'salary' ? 'is-active' : ''">Pay</button>
+      </div>
+    </div>
+
+    <div class="p-4 admin-stack">
+      <div x-show="loading" class="admin-empty">
+        <div class="spinner spinner-sm mx-auto"></div>
+        <p class="admin-empty-copy mt-3">Loading settings...</p>
+      </div>
+
+      <div x-show="!loading && activeTab === 'general'" class="admin-stack">
+        <div class="grid gap-4 md:grid-cols-2">
+          <div>
+            <label class="admin-field-label">Boutique Name</label>
+            <input x-model="appConfig.boutique_name" type="text" class="admin-input" placeholder="Infinity Designer Boutique">
+            <p class="admin-note mt-2">Used in reports and other admin-facing references.</p>
+          </div>
+          <div>
+            <label class="admin-field-label">Timezone</label>
+            <select x-model="appConfig.timezone" class="admin-select">
+              <option value="Asia/Kolkata">India (IST)</option>
+              <option value="Asia/Dubai">Dubai (GST)</option>
+              <option value="Asia/Singapore">Singapore (SGT)</option>
+              <option value="Europe/London">United Kingdom (GMT)</option>
+              <option value="America/New_York">USA Eastern (EST)</option>
+            </select>
+            <p class="admin-note mt-2">Controls how dates and timestamps are displayed in the app.</p>
+          </div>
+        </div>
+        <div class="admin-toolbar justify-end">
+          <button @click="saveAppConfig()" :disabled="saving" class="admin-btn admin-btn-primary" x-text="saving ? 'Saving...' : 'Save Changes'"></button>
+        </div>
+      </div>
+
+      <div x-show="!loading && activeTab === 'schedule'" class="admin-stack">
+        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div>
+            <label class="admin-field-label">Hours Per Day</label>
+            <input x-model.number="appConfig.standard_hours_per_day" type="number" min="1" max="24" class="admin-input">
+          </div>
+          <div>
+            <label class="admin-field-label">Working Days / Week</label>
+            <input x-model.number="appConfig.working_days_per_week" type="number" min="1" max="7" class="admin-input">
+          </div>
+          <div>
+            <label class="admin-field-label">Working Days / Month</label>
+            <input x-model.number="appConfig.monthly_working_days" type="number" min="1" max="31" class="admin-input">
+          </div>
+          <div>
+            <label class="admin-field-label">OT Grace Minutes</label>
+            <input x-model.number="appConfig.overtime_grace_minutes" type="number" min="0" max="180" class="admin-input">
+          </div>
+        </div>
+
+        <div class="grid gap-4 md:grid-cols-2">
+          <div>
+            <label class="admin-field-label">Default Login Time</label>
+            <input x-model="appConfig.default_login_time" type="time" class="admin-input">
+          </div>
+          <div>
+            <label class="admin-field-label">Default Logout Time</label>
+            <input x-model="appConfig.default_logout_time" type="time" class="admin-input">
+          </div>
+        </div>
+
+        <div class="admin-section-muted p-3">
+          <p class="text-sm font-medium text-slate-900">Working model summary</p>
+          <p class="admin-note mt-1" x-text="`${appConfig.standard_hours_per_day || 0} hours/day • ${appConfig.working_days_per_week || 0} days/week • ${appConfig.monthly_working_days || 0} days/month`"></p>
+        </div>
+
+        <div class="admin-toolbar justify-end">
+          <button @click="saveAppConfig()" :disabled="saving" class="admin-btn admin-btn-primary" x-text="saving ? 'Saving...' : 'Save Changes'"></button>
+        </div>
+      </div>
+
+      <div x-show="!loading && activeTab === 'designations'" class="admin-stack">
+        <div class="admin-section-muted p-3">
+          <p class="text-sm font-medium text-slate-900">Current role labels</p>
+          <p class="admin-note mt-1">These values drive staff forms and directory displays.</p>
+        </div>
+
+        <div class="flex flex-wrap gap-2">
+          <template x-for="key in designations.list" :key="key">
+            <div class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700">
+              <span x-text="designations.labels[key] || key"></span>
+              <button @click="editDesignation(key)" class="text-slate-400 hover:text-slate-700" title="Edit">
+                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/>
+                </svg>
+              </button>
+              <button @click="removeDesignation(key)" class="text-slate-400 hover:text-rose-600" title="Remove">
+                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+          </template>
+        </div>
+
+        <div class="grid gap-4 md:grid-cols-2">
+          <div>
+            <label class="admin-field-label">Role Key</label>
+            <input x-model="newDesignation.key" @input="newDesignation.key = newDesignation.key.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')" type="text" class="admin-input" placeholder="store_manager">
+          </div>
+          <div>
+            <label class="admin-field-label">Role Label</label>
+            <input x-model="newDesignation.label" @keydown.enter.prevent="addDesignation()" type="text" class="admin-input" placeholder="Store Manager">
+          </div>
+        </div>
+
+        <div class="admin-toolbar justify-end">
+          <button @click="addDesignation()" :disabled="!newDesignation.key || !newDesignation.label" class="admin-btn admin-btn-primary">Add Role</button>
+        </div>
+      </div>
+
+      <div x-show="!loading && activeTab === 'salary'" class="admin-stack">
+        <div class="grid gap-4 md:grid-cols-2">
+          <div class="admin-section-muted p-3">
+            <p class="admin-metric-label">Salary Types</p>
+            <div class="mt-3 flex flex-wrap gap-2">
+              <template x-for="type in salaryConfig.salary_types" :key="type">
+                <span class="admin-badge admin-badge-success" x-text="capitalize(type)"></span>
+              </template>
+            </div>
+          </div>
+          <div class="admin-section-muted p-3">
+            <p class="admin-metric-label">Settlement Cycles</p>
+            <div class="mt-3 flex flex-wrap gap-2">
+              <template x-for="cycle in salaryConfig.settlement_cycles" :key="cycle">
+                <span class="admin-badge admin-badge-info" x-text="capitalize(cycle)"></span>
+              </template>
+            </div>
+          </div>
+        </div>
+
+        <div class="admin-section-muted p-3">
+          <p class="admin-metric-label">Staff Statuses</p>
+          <div class="mt-3 flex flex-wrap gap-2">
+            <template x-for="status in staffStatuses.list" :key="status">
+              <span class="admin-badge" :class="status === 'active' ? 'admin-badge-success' : 'admin-badge-neutral'" x-text="capitalize(status)"></span>
+            </template>
+          </div>
+        </div>
+
+        <div class="admin-section-muted p-3">
+          <p class="text-sm font-medium text-slate-900">Reference only</p>
+          <p class="admin-note mt-1">Salary types, settlement cycles, and staff statuses are system-level definitions displayed here for transparency.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div x-show="editModal.open" x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" @click.self="editModal.open = false">
+    <div class="w-full max-w-md rounded-xl bg-white p-5 shadow-2xl">
+      <h3 class="text-base font-semibold text-slate-900">Edit Role Label</h3>
+      <div class="mt-4">
+        <label class="admin-field-label">Role Key</label>
+        <input :value="editModal.key" disabled type="text" class="admin-input bg-slate-50 text-slate-500">
+      </div>
+      <div class="mt-4">
+        <label class="admin-field-label">Display Label</label>
+        <input x-model="editModal.label" @keydown.enter.prevent="saveDesignationEdit()" type="text" class="admin-input">
+      </div>
+      <div class="mt-4 admin-toolbar justify-end">
+        <button @click="editModal.open = false" class="admin-btn admin-btn-secondary">Cancel</button>
+        <button @click="saveDesignationEdit()" class="admin-btn admin-btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+  function settingsPage() {
+    return {
+      loading: true,
+      saving: false,
+      activeTab: 'general',
+      appConfig: {
+        boutique_name: '',
+        timezone: 'Asia/Kolkata',
+        default_login_time: '10:00',
+        default_logout_time: '19:00',
+        standard_hours_per_day: 8,
+        overtime_grace_minutes: 60,
+        working_days_per_week: 6,
+        monthly_working_days: 26,
+      },
+      designations: { list: [], labels: {} },
+      staffStatuses: { list: [] },
+      salaryConfig: { salary_types: [], settlement_cycles: [] },
+      newDesignation: { key: '', label: '' },
+      editModal: { open: false, key: '', label: '' },
+
+      async init() {
+        await this.fetchSettings();
+      },
+
+      async fetchSettings() {
+        this.loading = true;
+        try {
+          const res = await fetch('/api/v1/settings', { credentials: 'include' });
+          if (res.ok) {
+            const data = await res.json();
+            const settings = data.settings || {};
+            if (settings.app_config) {
+              this.appConfig = { ...this.appConfig, ...settings.app_config };
+            }
+            if (settings.designations) {
+              this.designations = {
+                list: settings.designations.list || [],
+                labels: settings.designations.labels || {},
+              };
+            }
+            if (settings.staff_statuses) {
+              this.staffStatuses = { list: settings.staff_statuses.list || [] };
+            }
+            if (settings.salary_config) {
+              this.salaryConfig = {
+                salary_types: settings.salary_config.salary_types || [],
+                settlement_cycles: settings.salary_config.settlement_cycles || [],
+              };
+            }
+          } else {
+            dispatchToast('error', 'Error', 'Failed to load settings');
+          }
+        } catch (error) {
+          console.error('Failed to fetch settings:', error);
+          dispatchToast('error', 'Network Error', 'Could not reach the server');
+        } finally {
+          this.loading = false;
+        }
+      },
+
+      async saveAppConfig() {
+        this.saving = true;
+        try {
+          const res = await fetch('/api/v1/settings/app_config', {
+            method: 'PATCH',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(this.appConfig),
+          });
+          if (res.ok) {
+            dispatchToast('success', 'Saved', 'Settings have been updated');
+          } else {
+            const err = await res.json().catch(() => ({}));
+            dispatchToast('error', 'Error', err.error || 'Failed to save settings');
+          }
+        } catch (error) {
+          dispatchToast('error', 'Network Error', 'Could not reach the server');
+        } finally {
+          this.saving = false;
+        }
+      },
+
+      async addDesignation() {
+        if (!this.newDesignation.key || !this.newDesignation.label) return;
+        try {
+          const res = await fetch('/api/v1/settings/designations/add', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(this.newDesignation),
+          });
+          if (res.ok) {
+            this.designations.list.push(this.newDesignation.key);
+            this.designations.labels[this.newDesignation.key] = this.newDesignation.label;
+            this.newDesignation = { key: '', label: '' };
+            dispatchToast('success', 'Added', 'Role added successfully');
+          } else {
+            const err = await res.json().catch(() => ({}));
+            dispatchToast('error', 'Error', err.error || 'Failed to add role');
+          }
+        } catch (error) {
+          dispatchToast('error', 'Network Error', 'Could not reach the server');
+        }
+      },
+
+      async removeDesignation(key) {
+        if (!confirm(`Are you sure you want to remove "${this.designations.labels[key] || key}"?`)) return;
+        try {
+          const res = await fetch(`/api/v1/settings/designations/${key}`, {
+            method: 'DELETE',
+            credentials: 'include',
+          });
+          if (res.ok) {
+            this.designations.list = this.designations.list.filter((item) => item !== key);
+            delete this.designations.labels[key];
+            dispatchToast('info', 'Removed', 'Role removed');
+          } else {
+            const err = await res.json().catch(() => ({}));
+            dispatchToast('error', 'Error', err.error || 'Failed to remove role');
+          }
+        } catch (error) {
+          dispatchToast('error', 'Network Error', 'Could not reach the server');
+        }
+      },
+
+      editDesignation(key) {
+        this.editModal = {
+          open: true,
+          key,
+          label: this.designations.labels[key] || key,
+        };
+      },
+
+      async saveDesignationEdit() {
+        const { key, label } = this.editModal;
+        if (!key || !String(label).trim()) return;
+        try {
+          const res = await fetch(`/api/v1/settings/designations/${key}`, {
+            method: 'PATCH',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ label: String(label).trim() }),
+          });
+          if (res.ok) {
+            this.designations.labels[key] = String(label).trim();
+            this.editModal.open = false;
+            dispatchToast('success', 'Updated', 'Role label updated');
+          } else {
+            const err = await res.json().catch(() => ({}));
+            dispatchToast('error', 'Error', err.error || 'Failed to update role');
+          }
+        } catch (error) {
+          dispatchToast('error', 'Network Error', 'Could not reach the server');
+        }
+      },
+
+      capitalize(value) {
+        return value ? value.charAt(0).toUpperCase() + value.slice(1) : '';
+      },
+    };
+  }
+</script>
+{% endblock %}
+

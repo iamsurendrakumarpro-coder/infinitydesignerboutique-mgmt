@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from flask import Blueprint, request, session, jsonify
 
-from middleware.auth_middleware import login_required, admin_required
+from middleware.auth_middleware import login_required, manager_or_admin_required
 from services import overtime_service
 from utils.logger import get_logger
 
@@ -22,7 +22,7 @@ overtime_bp = Blueprint("overtime", __name__)
 
 
 @overtime_bp.get("/api/overtime/pending")
-@admin_required
+@manager_or_admin_required
 def api_pending_overtime():
     """List all overtime records pending approval."""
     log.info("List pending overtime | admin_id=%s", session["user_id"])
@@ -44,7 +44,7 @@ def api_user_overtime(user_id: str):
 
 
 @overtime_bp.patch("/api/overtime/<overtime_id>/approve")
-@admin_required
+@manager_or_admin_required
 def api_approve_overtime(overtime_id: str):
     """Admin approve an overtime record."""
     admin_id = session["user_id"]
@@ -59,7 +59,7 @@ def api_approve_overtime(overtime_id: str):
 
 
 @overtime_bp.patch("/api/overtime/<overtime_id>/reject")
-@admin_required
+@manager_or_admin_required
 def api_reject_overtime(overtime_id: str):
     """Admin reject an overtime record."""
     admin_id = session["user_id"]

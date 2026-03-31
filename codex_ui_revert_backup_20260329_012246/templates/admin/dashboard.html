@@ -1,0 +1,632 @@
+﻿{% extends "admin/layout.html" %}
+
+{% block page_title %}Dashboard{% endblock %}
+
+{% block page_content %}
+<div x-data="adminDashboard()" x-init="loadAll()" x-cloak class="admin-page-shell">
+  <section class="admin-page-header">
+    <div class="admin-page-header-main">
+      <div class="admin-page-header-icon flex items-center justify-center bg-indigo-100 text-indigo-600"
+           x-html="renderIcon('chart-bar', 'h-5 w-5')"></div>
+      <div class="admin-page-header-meta">
+        <h1 class="admin-page-title">Operations Dashboard</h1>
+        <p class="admin-page-subtitle">Compact overview of active staff, attendance, and payout activity.</p>
+        <p class="admin-note" x-text="currentDateTime"></p>
+      </div>
+    </div>
+    <button @click="loadAll()" :disabled="refreshing" class="admin-btn admin-btn-secondary">
+      <svg class="h-3.5 w-3.5" :class="refreshing ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182M2.985 19.644l3.181-3.182"/>
+      </svg>
+      Refresh
+    </button>
+  </section>
+
+  <a href="/admin/staff?status=active" class="admin-metric-card block transition-colors hover:border-indigo-300">
+    <div class="flex items-start justify-between gap-4">
+      <div>
+        <p class="admin-metric-label">Active Staff</p>
+        <p class="admin-metric-value" x-text="stats.totalStaff"></p>
+        <p class="admin-metric-meta">Open the staff directory with the active filter applied.</p>
+      </div>
+      <span class="admin-badge admin-badge-info">Staff</span>
+    </div>
+  </a>
+
+  <section class="admin-panel">
+    <div class="admin-panel-header">
+      <div>
+        <h2 class="admin-panel-title">Attendance Dashboard</h2>
+        <p class="admin-panel-subtitle" x-text="attendancePanelSubtitle"></p>
+      </div>
+      <div class="admin-toolbar">
+        <div class="admin-tabbar">
+          <template x-for="period in ['daily', 'weekly', 'monthly']" :key="period">
+            <button @click="setAttendancePeriod(period)"
+                    class="admin-tab"
+                    :class="attendancePeriod === period ? 'is-active' : ''"
+                    x-text="capitalize(period)"></button>
+          </template>
+        </div>
+      </div>
+    </div>
+
+    <div class="p-4 admin-stack">
+      <div class="admin-summary-grid">
+        <template x-for="item in attendanceHighlights" :key="item.label">
+          <div class="admin-section-muted p-3">
+            <p class="admin-metric-label" x-text="item.label"></p>
+            <p class="mt-1 text-lg font-semibold text-slate-900" x-text="item.value"></p>
+            <p class="mt-1 text-xs text-slate-500" x-text="item.meta"></p>
+          </div>
+        </template>
+      </div>
+
+      <div x-show="attendanceLoading" class="admin-empty">
+        <div class="spinner spinner-sm mx-auto"></div>
+        <p class="admin-empty-copy mt-3">Loading attendance data...</p>
+      </div>
+
+      <template x-if="!attendanceLoading && attendancePeriod === 'daily'">
+        <div class="admin-stack">
+          <template x-if="normalizedDailyAttendance.length === 0">
+            <div class="admin-empty border border-dashed border-slate-200 rounded-lg">
+              <p class="admin-empty-title">No attendance logged today</p>
+              <p class="admin-empty-copy">Staff records will appear here once punch activity starts.</p>
+            </div>
+          </template>
+
+          <template x-if="normalizedDailyAttendance.length > 0">
+            <div class="admin-table-shell">
+              <div class="admin-table-scroll">
+                <table class="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Staff</th>
+                      <th>Shift</th>
+                      <th>Login</th>
+                      <th>Logout</th>
+                      <th>Hours</th>
+                      <th>OT</th>
+                      <th>Variance</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="row in normalizedDailyAttendance" :key="row.key">
+                      <tr>
+                        <td>
+                          <div class="flex items-center gap-3">
+                            <div class="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-50 text-[11px] font-semibold text-indigo-700"
+                                 x-text="getInitials(row.name)"></div>
+                            <div>
+                              <p class="font-medium text-slate-900" x-text="row.name"></p>
+                              <p class="text-xs text-slate-500" x-text="row.designation"></p>
+                            </div>
+                          </div>
+                        </td>
+                        <td class="text-slate-600" x-text="row.shiftLabel"></td>
+                        <td class="font-mono text-[12px] text-slate-600" x-text="row.loginLabel"></td>
+                        <td class="font-mono text-[12px] text-slate-600" x-text="row.logoutLabel"></td>
+                        <td>
+                          <div class="font-semibold text-slate-900" x-text="row.hoursLabel"></div>
+                          <p class="text-[11px] text-slate-500" x-text="'Expected ' + row.expectedLabel"></p>
+                        </td>
+                        <td>
+                          <span class="admin-badge" :class="row.overtimeMinutes > 0 ? 'admin-badge-success' : 'admin-badge-neutral'" x-text="row.otLabel"></span>
+                        </td>
+                        <td>
+                          <span class="admin-badge" :class="row.varianceClass" x-text="row.varianceLabel"></span>
+                        </td>
+                        <td>
+                          <span class="admin-badge" :class="row.statusClass" x-text="row.statusLabel"></span>
+                        </td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </template>
+        </div>
+      </template>
+
+      <template x-if="!attendanceLoading && attendancePeriod !== 'daily'">
+        <div class="admin-stack">
+          <template x-if="!attendanceSummary || !attendanceSummary.staff_summaries || attendanceSummary.staff_summaries.length === 0">
+            <div class="admin-empty border border-dashed border-slate-200 rounded-lg">
+              <p class="admin-empty-title">No aggregated attendance available</p>
+              <p class="admin-empty-copy">The layout is ready and will show real grouped results as records are collected.</p>
+            </div>
+          </template>
+
+          <template x-if="attendanceSummary && attendanceSummary.staff_summaries && attendanceSummary.staff_summaries.length > 0">
+            <div class="admin-table-shell">
+              <div class="admin-table-scroll">
+                <table class="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Staff</th>
+                      <th>Days Present</th>
+                      <th>Total Hours</th>
+                      <th>Expected</th>
+                      <th>Avg / Day</th>
+                      <th>Variance</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="row in attendanceSummary.staff_summaries" :key="row.user_id">
+                      <tr>
+                        <td>
+                          <div class="flex items-center gap-3">
+                            <div class="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-50 text-[11px] font-semibold text-indigo-700"
+                                 x-text="getInitials(row.full_name || 'Staff')"></div>
+                            <div>
+                              <p class="font-medium text-slate-900" x-text="row.full_name || 'Staff'"></p>
+                              <p class="text-xs text-slate-500" x-text="row.designation || 'Team member'"></p>
+                            </div>
+                          </div>
+                        </td>
+                        <td class="text-slate-700" x-text="row.days_present"></td>
+                        <td class="font-medium text-slate-900" x-text="minutesToShort(row.total_minutes)"></td>
+                        <td class="text-slate-600" x-text="minutesToShort(row.expected_minutes)"></td>
+                        <td class="text-slate-600" x-text="minutesToShort(row.average_minutes_per_day)"></td>
+                        <td>
+                          <span class="admin-badge"
+                                :class="Number(row.variance_minutes || 0) >= 0 ? 'admin-badge-success' : 'admin-badge-warning'"
+                                x-text="varianceLabel(row.variance_minutes)"></span>
+                        </td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </template>
+        </div>
+      </template>
+    </div>
+  </section>
+
+  <section class="admin-panel">
+    <div class="admin-panel-header">
+      <div>
+        <h2 class="admin-panel-title">Payout Snapshot</h2>
+        <p class="admin-panel-subtitle">Only active staff are included in the dashboard detail view.</p>
+      </div>
+      <div class="admin-toolbar">
+        <div class="admin-tabbar">
+          <button @click="setPayoutRange('this_week')" class="admin-tab" :class="payoutRange === 'this_week' ? 'is-active' : ''">This Week</button>
+          <button @click="setPayoutRange('last_week')" class="admin-tab" :class="payoutRange === 'last_week' ? 'is-active' : ''">Last Week</button>
+          <button @click="setPayoutRange('this_month')" class="admin-tab" :class="payoutRange === 'this_month' ? 'is-active' : ''">Month</button>
+        </div>
+        <button @click="showPayoutDetails = !showPayoutDetails" class="admin-btn admin-btn-ghost" x-text="showPayoutDetails ? 'Hide Details' : 'View Details'"></button>
+        <a href="/admin/settlements" class="admin-btn admin-btn-secondary">Open Settlements</a>
+      </div>
+    </div>
+
+    <div class="p-4 admin-stack">
+      <div class="admin-toolbar-spread">
+        <div class="admin-summary-grid flex-1">
+          <div class="admin-section-muted p-3">
+            <p class="admin-metric-label">Period</p>
+            <p class="mt-1 text-sm font-semibold text-slate-900" x-text="payoutPeriodLabel || 'Current selection'"></p>
+          </div>
+          <div class="admin-section-muted p-3">
+            <p class="admin-metric-label">Active Staff</p>
+            <p class="mt-1 text-lg font-semibold text-slate-900" x-text="payoutRows.length"></p>
+          </div>
+          <div class="admin-section-muted p-3">
+            <p class="admin-metric-label">Net Pay</p>
+            <p class="mt-1 text-lg font-semibold text-slate-900" x-text="currency(payoutTotal)"></p>
+          </div>
+        </div>
+      </div>
+
+      <div x-show="payoutLoading" class="admin-empty">
+        <div class="spinner spinner-sm mx-auto"></div>
+        <p class="admin-empty-copy mt-3">Loading payout details...</p>
+      </div>
+
+      <div x-show="!payoutLoading && payoutRows.length === 0" class="admin-empty border border-dashed border-slate-200 rounded-lg">
+        <p class="admin-empty-title">No payout records for this range</p>
+        <p class="admin-empty-copy">Change the period filter or generate settlements to populate this section.</p>
+      </div>
+
+      <template x-if="!payoutLoading && payoutRows.length > 0 && showPayoutDetails">
+        <div class="admin-table-shell">
+          <div class="admin-table-scroll">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Staff</th>
+                  <th>Period</th>
+                  <th class="text-right">Base</th>
+                  <th class="text-right">OT</th>
+                  <th class="text-right">Advances</th>
+                  <th class="text-right">Net</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="row in payoutRows" :key="row.id || row.settlement_id || row.user_id">
+                  <tr>
+                    <td>
+                      <div class="flex items-center gap-3">
+                        <div class="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-50 text-[11px] font-semibold text-emerald-700"
+                             x-text="getInitials(row.staff_name || row.full_name || 'Staff')"></div>
+                        <div>
+                          <p class="font-medium text-slate-900" x-text="row.staff_name || row.full_name || 'Staff'"></p>
+                          <p class="text-xs text-slate-500" x-text="row.designation || 'Team member'"></p>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="text-slate-600" x-text="formatDate(row.week_start || row.period_start) + ' - ' + formatDate(row.week_end || row.period_end)"></td>
+                    <td class="text-right text-slate-700" x-text="currency(row.base_pay ?? row.base_salary ?? row.weekly_salary ?? 0)"></td>
+                    <td class="text-right text-emerald-700" x-text="currency(row.overtime_pay ?? row.overtime ?? 0)"></td>
+                    <td class="text-right text-rose-700" x-text="currency(row.advances ?? row.personal_advances ?? 0)"></td>
+                    <td class="text-right font-semibold text-slate-900" x-text="currency(row.net_payable ?? row.net_pay ?? 0)"></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </template>
+    </div>
+  </section>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+  function adminDashboard() {
+    return {
+      refreshing: false,
+      attendanceLoading: true,
+      payoutLoading: true,
+      attendancePeriod: 'daily',
+      currentDateTime: '',
+      stats: {
+        totalStaff: 0,
+        absent: 0,
+      },
+      dailyAttendance: [],
+      attendanceSummary: null,
+      payoutRows: [],
+      payoutTotal: 0,
+      payoutPeriodLabel: '',
+      payoutRange: 'this_week',
+      showPayoutDetails: false,
+
+      get normalizedDailyAttendance() {
+        return (this.dailyAttendance || []).map((row, index) => this.normalizeDailyRow(row, index));
+      },
+
+      get attendancePanelSubtitle() {
+        if (this.attendancePeriod === 'daily') {
+          return `${this.normalizedDailyAttendance.length} live staff records for today`;
+        }
+        if (!this.attendanceSummary) {
+          return `Loading ${this.attendancePeriod} attendance summary`;
+        }
+        return `${this.capitalize(this.attendancePeriod)} view from ${this.formatDate(this.attendanceSummary.start_date)} to ${this.formatDate(this.attendanceSummary.end_date)}`;
+      },
+
+      get attendanceHighlights() {
+        if (this.attendancePeriod === 'daily') {
+          const rows = this.normalizedDailyAttendance;
+          const present = rows.length;
+          const complete = rows.filter((row) => row.hasLogout).length;
+          const shortShift = rows.filter((row) => row.varianceMinutes < 0).length;
+          const overtime = rows.reduce((sum, row) => sum + row.overtimeMinutes, 0);
+          return [
+            { label: 'Present', value: String(present), meta: `${this.stats.absent || 0} absent` },
+            { label: 'Completed', value: String(complete), meta: `${present - complete} still working or pending logout` },
+            { label: 'Overtime', value: this.minutesToShort(overtime), meta: 'Logged above expected shift hours' },
+            { label: 'Below Expected', value: String(shortShift), meta: 'Staff currently under shift expectation' },
+          ];
+        }
+
+        const summary = this.attendanceSummary || {};
+        return [
+          {
+            label: 'Logged Hours',
+            value: this.minutesToShort(summary.total_minutes || 0),
+            meta: `${summary.total_days_present || 0} attended staff-days`,
+          },
+          {
+            label: 'Expected Hours',
+            value: this.minutesToShort(summary.total_expected_minutes || 0),
+            meta: `${summary.standard_hours_per_day || 8} standard hours per day`,
+          },
+          {
+            label: 'Attendance Rate',
+            value: `${Number(summary.attendance_rate || 0).toFixed(1)}%`,
+            meta: `${summary.total_staff || 0} active staff across ${summary.period_days || 0} days`,
+          },
+          {
+            label: 'Avg / Present Day',
+            value: this.minutesToShort(summary.average_minutes_per_present_day || 0),
+            meta: 'Real aggregated attendance duration',
+          },
+        ];
+      },
+
+      async loadAll() {
+        this.refreshing = true;
+        this.updateDateTime();
+        await Promise.all([
+          this.fetchDashboard(),
+          this.loadAttendancePeriod(this.attendancePeriod),
+          this.fetchPayoutSnapshot(),
+        ]);
+        this.refreshing = false;
+      },
+
+      async setAttendancePeriod(period) {
+        if (this.attendancePeriod === period) return;
+        this.attendancePeriod = period;
+        await this.loadAttendancePeriod(period);
+      },
+
+      async loadAttendancePeriod(period) {
+        if (period === 'daily') {
+          this.attendanceSummary = null;
+          return;
+        }
+
+        this.attendanceLoading = true;
+        try {
+          const res = await fetch(`/api/v1/dashboard/attendance-summary?period=${period}`, { credentials: 'include' });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            this.attendanceSummary = data.summary || null;
+          } else {
+            this.attendanceSummary = null;
+          }
+        } catch (error) {
+          console.error('Attendance summary fetch error:', error);
+          this.attendanceSummary = null;
+        } finally {
+          this.attendanceLoading = false;
+        }
+      },
+
+      async fetchDashboard() {
+        this.attendanceLoading = true;
+        try {
+          const res = await fetch('/api/v1/dashboard/summary', { credentials: 'include' });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            const summary = data.summary || {};
+            this.stats.totalStaff = summary.total_active_staff ?? 0;
+            this.stats.absent = summary.absent ?? 0;
+            this.dailyAttendance = summary.today_attendance || [];
+          }
+        } catch (error) {
+          console.error('Dashboard summary fetch error:', error);
+          this.dailyAttendance = [];
+        } finally {
+          if (this.attendancePeriod === 'daily') {
+            this.attendanceLoading = false;
+          }
+        }
+      },
+
+      async setPayoutRange(range) {
+        if (this.payoutRange === range) return;
+        this.payoutRange = range;
+        await this.fetchPayoutSnapshot();
+      },
+
+      async fetchPayoutSnapshot() {
+        this.payoutLoading = true;
+        try {
+          const { weekStart, weekEnd } = this.getPayoutDateRange();
+          const res = await fetch(`/api/v1/settlements?week_start=${weekStart}&week_end=${weekEnd}`, { credentials: 'include' });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            const rows = data.settlements || [];
+            this.payoutRows = rows.filter((row) => {
+              const status = (row.staff_status || row.status || '').toLowerCase();
+              return !status || status === 'active';
+            });
+            this.payoutTotal = this.payoutRows.reduce((sum, row) => sum + Number(row.net_payable ?? row.net_pay ?? 0), 0);
+            this.payoutPeriodLabel = `${this.formatDate(weekStart)} - ${this.formatDate(weekEnd)}`;
+          } else {
+            this.payoutRows = [];
+            this.payoutTotal = 0;
+            this.payoutPeriodLabel = '';
+          }
+        } catch (error) {
+          console.error('Payout snapshot fetch error:', error);
+          this.payoutRows = [];
+          this.payoutTotal = 0;
+          this.payoutPeriodLabel = '';
+        } finally {
+          this.payoutLoading = false;
+        }
+      },
+
+      normalizeDailyRow(row, index) {
+        const name = row.staff_name || row.full_name || row.employee_name || 'Staff';
+        const designation = row.designation || 'Team member';
+        const expectedMinutes = this.expectedMinutesFromShift(row.standard_login_time, row.standard_logout_time);
+        const workedMinutes = this.workedMinutes(row);
+        const varianceMinutes = workedMinutes == null || expectedMinutes == null ? 0 : workedMinutes - expectedMinutes;
+        const overtimeMinutes = workedMinutes == null || expectedMinutes == null ? 0 : Math.max(workedMinutes - expectedMinutes, 0);
+        const status = (row.status || '').toLowerCase();
+        return {
+          key: row.user_id || row.staff_id || index,
+          name,
+          designation,
+          shiftLabel: this.shiftLabel(row.standard_login_time, row.standard_logout_time),
+          loginLabel: this.formatTime(row.punch_in_time || row.punch_in),
+          logoutLabel: this.formatTime(row.punch_out_time || row.punch_out),
+          hoursLabel: workedMinutes == null ? 'In progress' : this.minutesToShort(workedMinutes),
+          expectedLabel: expectedMinutes == null ? '-' : this.minutesToShort(expectedMinutes),
+          overtimeMinutes,
+          otLabel: overtimeMinutes > 0 ? this.minutesToShort(overtimeMinutes) : 'None',
+          varianceMinutes,
+          varianceLabel: this.varianceLabel(varianceMinutes),
+          varianceClass: varianceMinutes >= 0 ? 'admin-badge-success' : 'admin-badge-warning',
+          statusLabel: this.statusLabel(status),
+          statusClass: this.statusClass(status),
+          hasLogout: Boolean(row.punch_out_time || row.punch_out),
+        };
+      },
+
+      expectedMinutesFromShift(start, end) {
+        if (!start || !end) return 8 * 60;
+        const [startHour, startMinute] = String(start).split(':').map(Number);
+        const [endHour, endMinute] = String(end).split(':').map(Number);
+        if ([startHour, startMinute, endHour, endMinute].some(Number.isNaN)) return 8 * 60;
+        return ((endHour * 60) + endMinute) - ((startHour * 60) + startMinute);
+      },
+
+      workedMinutes(row) {
+        if (typeof row.duration_minutes === 'number' && row.duration_minutes > 0) {
+          return row.duration_minutes;
+        }
+        const punchIn = row.punch_in_time || row.punch_in;
+        const punchOut = row.punch_out_time || row.punch_out;
+        if (!punchIn || !punchOut) return null;
+        const start = new Date(punchIn);
+        const end = new Date(punchOut);
+        const diff = Math.round((end - start) / 60000);
+        return diff > 0 ? diff : null;
+      },
+
+      getPayoutDateRange() {
+        if (this.payoutRange === 'last_week') return this.getCurrentWeekRange(-1);
+        if (this.payoutRange === 'this_month') return this.getCurrentMonthRange();
+        return this.getCurrentWeekRange(0);
+      },
+
+      getCurrentWeekRange(offsetWeeks = 0) {
+        const today = new Date();
+        const day = today.getDay();
+        const monday = new Date(today);
+        monday.setDate(today.getDate() - ((day === 0 ? 7 : day) - 1) + (offsetWeeks * 7));
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        return { weekStart: this.toYmd(monday), weekEnd: this.toYmd(sunday) };
+      },
+
+      getCurrentMonthRange() {
+        const now = new Date();
+        return {
+          weekStart: this.toYmd(new Date(now.getFullYear(), now.getMonth(), 1)),
+          weekEnd: this.toYmd(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
+        };
+      },
+
+      toYmd(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      },
+
+      shiftLabel(start, end) {
+        if (!start || !end) return 'Standard shift';
+        return `${start} - ${end}`;
+      },
+
+      statusLabel(status) {
+        const map = {
+          in: 'Working',
+          present: 'Working',
+          out: 'Completed',
+          completed: 'Completed',
+          absent: 'Absent',
+        };
+        return map[status] || 'Pending';
+      },
+
+      statusClass(status) {
+        const map = {
+          in: 'admin-badge-info',
+          present: 'admin-badge-info',
+          out: 'admin-badge-success',
+          completed: 'admin-badge-success',
+          absent: 'admin-badge-danger',
+        };
+        return map[status] || 'admin-badge-neutral';
+      },
+
+      varianceLabel(minutes) {
+        const absolute = Math.abs(Number(minutes || 0));
+        if (!absolute) return 'On target';
+        const prefix = Number(minutes) >= 0 ? '+' : '-';
+        return `${prefix}${this.minutesToShort(absolute)}`;
+      },
+
+      minutesToShort(minutes) {
+        const value = Number(minutes || 0);
+        if (!value) return '0h';
+        const hrs = Math.floor(value / 60);
+        const mins = Math.round(value % 60);
+        if (hrs && mins) return `${hrs}h ${mins}m`;
+        if (hrs) return `${hrs}h`;
+        return `${mins}m`;
+      },
+
+      formatTime(value) {
+        if (!value) return '—';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return value;
+        return date.toLocaleTimeString('en-IN', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true,
+          timeZone: 'Asia/Kolkata',
+        });
+      },
+
+      formatDate(value) {
+        if (!value) return '-';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return value;
+        return date.toLocaleDateString('en-IN', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+          timeZone: 'Asia/Kolkata',
+        });
+      },
+
+      updateDateTime() {
+        const now = new Date();
+        this.currentDateTime = now.toLocaleString('en-IN', {
+          weekday: 'long',
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true,
+          timeZone: 'Asia/Kolkata',
+        });
+      },
+
+      currency(value) {
+        return `\u20B9${Number(value || 0).toLocaleString('en-IN')}`;
+      },
+
+      capitalize(value) {
+        return value ? value.charAt(0).toUpperCase() + value.slice(1) : '';
+      },
+
+      getInitials(name) {
+        if (!name) return '?';
+        const parts = name.trim().split(/\s+/);
+        if (parts.length >= 2) return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+        return parts[0].slice(0, 2).toUpperCase();
+      },
+    };
+  }
+</script>
+{% endblock %}
+
+

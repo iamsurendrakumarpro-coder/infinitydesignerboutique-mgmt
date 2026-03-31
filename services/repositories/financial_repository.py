@@ -1,8 +1,7 @@
 """
 services/repositories/financial_repository.py
 
-Financial request persistence adapter – Firestore + Postgres behind
-get_financial_repository().
+Financial request persistence adapter for PostgreSQL.
 
 Table: financial_requests
 """
@@ -10,12 +9,10 @@ Table: financial_requests
 from __future__ import annotations
 
 import abc
-import os
 from datetime import date, datetime
 from decimal import Decimal
 
 from utils.db.postgres_client import get_postgres_connection
-from utils.firebase_client import get_firestore
 from utils.timezone_utils import now_utc
 
 
@@ -43,6 +40,7 @@ _COLUMNS = [
     "request_id", "user_id", "type", "category", "amount",
     "receipt_gcs_path", "notes", "status", "admin_notes",
     "reviewed_by", "reviewed_at", "created_at", "updated_at",
+    "reimbursement_status", "reimbursed_by", "reimbursed_at", "reimbursement_notes",
 ]
 
 
@@ -60,6 +58,9 @@ class FinancialRepository(abc.ABC):
 
     @abc.abstractmethod
     def list_requests(self, filters: dict | None = None) -> list[dict]: ...
+
+    @abc.abstractmethod
+    def count_requests(self, filters: dict | None = None) -> int: ...
 
     @abc.abstractmethod
     def update_review(
@@ -86,91 +87,16 @@ class FinancialRepository(abc.ABC):
         """Return raw doc dict (with status) or None."""
         ...
 
-
-# ---------------------------------------------------------------------------
-# Firestore implementation
-# ---------------------------------------------------------------------------
-
-class FirestoreFinancialRepository(FinancialRepository):
-    _COLLECTION = "financial_requests"
-
-    def save(self, request_id: str, doc: dict) -> None:
-        get_firestore().collection(self._COLLECTION).document(request_id).set(doc)
-
-    def get_by_id(self, request_id: str) -> dict | None:
-        doc = get_firestore().collection(self._COLLECTION).document(request_id).get()
-        return doc.to_dict() if doc.exists else None
-
-    def list_requests(self, filters: dict | None = None) -> list[dict]:
-        db = get_firestore()
-        query = db.collection(self._COLLECTION)
-        filters = filters or {}
-        if filters.get("status"):
-            query = query.where("status", "==", filters["status"])
-        if filters.get("user_id"):
-            query = query.where("user_id", "==", filters["user_id"])
-        if filters.get("category"):
-            query = query.where("category", "==", filters["category"])
-        if filters.get("start_date"):
-            query = query.where("created_at", ">=", filters["start_date"])
-        if filters.get("end_date"):
-            query = query.where("created_at", "<=", filters["end_date"])
-        query = query.order_by("created_at", direction="DESCENDING")
-        return [d.to_dict() for d in query.stream()]
-
-    def update_review(
+    @abc.abstractmethod
+    def update_reimbursement(
         self,
         request_id: str,
-        status: str,
-        admin_id: str,
-        notes: str,
-        reviewed_at: datetime,
+        reimbursement_status: str,
+        reimbursed_by: str,
+        reimbursement_notes: str,
+        reimbursed_at: datetime,
         updated_at: datetime,
-    ) -> None:
-        from google.cloud.firestore_v1 import SERVER_TIMESTAMP  # noqa: PLC0415
-        get_firestore().collection(self._COLLECTION).document(request_id).update({
-            "status": status,
-            "admin_notes": notes,
-            "reviewed_by": admin_id,
-            "reviewed_at": SERVER_TIMESTAMP,
-            "updated_at": SERVER_TIMESTAMP,
-        })
-
-    def get_approved_for_period(
-        self,
-        user_id: str,
-        start: date,
-        end: date,
-        req_type: str | None = None,
-    ) -> list[dict]:
-        import pytz  # noqa: PLC0415
-        IST = pytz.timezone("Asia/Kolkata")
-        start_dt = IST.localize(datetime.combine(start, datetime.min.time()))
-        end_dt = IST.localize(datetime.combine(end, datetime.max.time()))
-
-        db = get_firestore()
-        query = (
-            db.collection(self._COLLECTION)
-            .where("user_id", "==", user_id)
-            .where("status", "==", "approved")
-        )
-        results = []
-        for d in query.stream():
-            data = d.to_dict()
-            created = data.get("created_at")
-            if created and hasattr(created, "date"):
-                doc_date = (
-                    created.date() if not hasattr(created, "astimezone")
-                    else created.astimezone(IST).date()
-                )
-                if start <= doc_date <= end:
-                    if req_type is None or data.get("type") == req_type:
-                        results.append(data)
-        return results
-
-    def request_exists(self, request_id: str) -> dict | None:
-        doc = get_firestore().collection(self._COLLECTION).document(request_id).get()
-        return doc.to_dict() if doc.exists else None
+    ) -> None: ...
 
 
 # ---------------------------------------------------------------------------
@@ -188,13 +114,18 @@ class PostgresFinancialRepository(FinancialRepository):
                     INSERT INTO financial_requests
                         (request_id, user_id, type, category, amount, receipt_gcs_path,
                          notes, status, admin_notes, reviewed_by, reviewed_at,
-                         created_at, updated_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                         created_at, updated_at, reimbursement_status, reimbursed_by,
+                         reimbursed_at, reimbursement_notes)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (request_id) DO UPDATE SET
                         status         = EXCLUDED.status,
                         admin_notes    = EXCLUDED.admin_notes,
                         reviewed_by    = EXCLUDED.reviewed_by,
                         reviewed_at    = EXCLUDED.reviewed_at,
+                        reimbursement_status = EXCLUDED.reimbursement_status,
+                        reimbursed_by  = EXCLUDED.reimbursed_by,
+                        reimbursed_at  = EXCLUDED.reimbursed_at,
+                        reimbursement_notes = EXCLUDED.reimbursement_notes,
                         updated_at     = EXCLUDED.updated_at
                     """,
                     (
@@ -211,6 +142,10 @@ class PostgresFinancialRepository(FinancialRepository):
                         doc.get("reviewed_at"),
                         doc.get("created_at"),
                         doc.get("updated_at"),
+                        doc.get("reimbursement_status", "pending"),
+                        doc.get("reimbursed_by"),
+                        doc.get("reimbursed_at"),
+                        doc.get("reimbursement_notes", ""),
                     ),
                 )
             conn.commit()
@@ -244,6 +179,12 @@ class PostgresFinancialRepository(FinancialRepository):
         if filters.get("category"):
             conditions.append("category = %s")
             values.append(filters["category"])
+        if filters.get("type"):
+            conditions.append("type = %s")
+            values.append(filters["type"])
+        if filters.get("reimbursement_status"):
+            conditions.append("reimbursement_status = %s")
+            values.append(filters["reimbursement_status"])
         if filters.get("start_date"):
             conditions.append("(created_at AT TIME ZONE 'Asia/Kolkata')::date >= %s")
             values.append(filters["start_date"])
@@ -261,6 +202,46 @@ class PostgresFinancialRepository(FinancialRepository):
                     values,
                 )
                 return [_norm_row(dict(zip(_COLUMNS, row))) for row in cur.fetchall()]
+        finally:
+            conn.close()
+
+    def count_requests(self, filters: dict | None = None) -> int:
+        filters = filters or {}
+        conditions: list[str] = []
+        values: list = []
+
+        if filters.get("status"):
+            conditions.append("status = %s")
+            values.append(filters["status"])
+        if filters.get("user_id"):
+            conditions.append("user_id = %s")
+            values.append(filters["user_id"])
+        if filters.get("category"):
+            conditions.append("category = %s")
+            values.append(filters["category"])
+        if filters.get("type"):
+            conditions.append("type = %s")
+            values.append(filters["type"])
+        if filters.get("reimbursement_status"):
+            conditions.append("reimbursement_status = %s")
+            values.append(filters["reimbursement_status"])
+        if filters.get("start_date"):
+            conditions.append("(created_at AT TIME ZONE 'Asia/Kolkata')::date >= %s")
+            values.append(filters["start_date"])
+        if filters.get("end_date"):
+            conditions.append("(created_at AT TIME ZONE 'Asia/Kolkata')::date <= %s")
+            values.append(filters["end_date"])
+
+        where_clause = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+        conn = get_postgres_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f'SELECT COUNT(*) FROM financial_requests {where_clause}',
+                    values,
+                )
+                row = cur.fetchone()
+                return int(row[0]) if row else 0
         finally:
             conn.close()
 
@@ -322,13 +303,45 @@ class PostgresFinancialRepository(FinancialRepository):
     def request_exists(self, request_id: str) -> dict | None:
         return self.get_by_id(request_id)
 
+    def update_reimbursement(
+        self,
+        request_id: str,
+        reimbursement_status: str,
+        reimbursed_by: str,
+        reimbursement_notes: str,
+        reimbursed_at: datetime,
+        updated_at: datetime,
+    ) -> None:
+        conn = get_postgres_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE financial_requests
+                    SET reimbursement_status = %s,
+                        reimbursed_by = %s,
+                        reimbursement_notes = %s,
+                        reimbursed_at = %s,
+                        updated_at = %s
+                    WHERE request_id = %s
+                    """,
+                    (
+                        reimbursement_status,
+                        reimbursed_by,
+                        reimbursement_notes,
+                        reimbursed_at,
+                        updated_at,
+                        request_id,
+                    ),
+                )
+            conn.commit()
+        finally:
+            conn.close()
+
 
 # ---------------------------------------------------------------------------
 # Factory
 # ---------------------------------------------------------------------------
 
 def get_financial_repository() -> FinancialRepository:
-    provider = os.environ.get("APP_DB_PROVIDER", "firebase").lower()
-    if provider == "postgres":
-        return PostgresFinancialRepository()
-    return FirestoreFinancialRepository()
+    return PostgresFinancialRepository()

@@ -1,4 +1,4 @@
-{% extends "admin/layout.html" %}
+﻿{% extends "admin/layout.html" %}
 
 {% block page_title %}{{ "Edit Staff" if mode == "edit" else "Add New Staff" }}{% endblock %}
 
@@ -39,14 +39,14 @@
         <div class="space-y-3">
 
           <!-- Personal Information Card -->
-          <div class="rounded-lg bg-white p-3 ring-1 ring-gray-100 sm:p-4">
-            <h2 class="mb-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+          <div class="rounded-lg bg-white p-3 border border-gray-200 sm:p-4">
+            <h2 class="mb-2.5 text-xs font-semibold text-gray-500">
               Personal Information
             </h2>
 
             <!-- Full Name -->
             <div class="mb-2.5">
-              <label class="mb-1 block text-[11px] font-medium text-gray-700">Full Name <span class="text-red-400">*</span></label>
+              <label class="mb-1 block text-sm font-medium text-gray-700">Full Name <span class="text-red-400">*</span></label>
               <input type="text" x-model="form.full_name" required
                      placeholder="e.g. Ravi Kumar"
                      class="w-full rounded-md border border-gray-200 bg-gray-50 px-2.5 py-2 text-xs text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
@@ -55,7 +55,7 @@
 
             <!-- Phone Number -->
             <div class="mb-2.5">
-              <label class="mb-1 block text-[11px] font-medium text-gray-700">Phone Number (Login ID) <span class="text-red-400">*</span></label>
+              <label class="mb-1 block text-sm font-medium text-gray-700">Phone Number (Login ID) <span class="text-red-400">*</span></label>
               <div class="relative">
                 <span class="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400">+91</span>
                 <input type="tel" inputmode="numeric" x-model="form.phone_number" required
@@ -64,24 +64,24 @@
                        placeholder="10-digit number"
                        class="w-full rounded-md border border-gray-200 bg-gray-50 py-2 pl-10 pr-3 text-xs text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
               </div>
-              <p class="mt-1 text-[10px] text-gray-400" x-text="form.phone_number.length + '/10 digits'"></p>
+              <p class="mt-1 text-xs text-gray-400" x-text="form.phone_number.length + '/10 digits'"></p>
               <p x-show="errors.phone_number" class="mt-1 text-xs text-red-500" x-text="errors.phone_number"></p>
             </div>
 
             <!-- Default PIN (Create only) -->
             <div x-show="mode === 'create'" class="mb-2.5">
-              <label class="mb-1 block text-[11px] font-medium text-gray-700">Default PIN <span class="text-red-400">*</span></label>
+              <label class="mb-1 block text-sm font-medium text-gray-700">Default PIN <span class="text-red-400">*</span></label>
               <input type="text" inputmode="numeric" x-model="form.pin" maxlength="4"
                      @input="form.pin = form.pin.replace(/\D/g, '').slice(0, 4)"
                      placeholder="4-digit PIN"
                      class="w-full rounded-md border border-gray-200 bg-gray-50 px-2.5 py-2 text-xs tracking-[0.3em] text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
-              <p class="mt-1 text-[10px] text-gray-400">Used by staff for first login.</p>
+              <p class="mt-1 text-xs text-gray-400">Used by staff for first login.</p>
               <p x-show="errors.pin" class="mt-1 text-xs text-red-500" x-text="errors.pin"></p>
             </div>
 
             <!-- Emergency Contact -->
             <div>
-              <label class="mb-1 block text-[11px] font-medium text-gray-700">Emergency Contact <span class="text-red-400">*</span></label>
+              <label class="mb-1 block text-sm font-medium text-gray-700">Emergency Contact <span class="text-red-400">*</span></label>
               <div class="relative">
                 <span class="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400">+91</span>
                 <input type="tel" inputmode="numeric" x-model="form.emergency_contact" required maxlength="10"
@@ -89,29 +89,29 @@
                        placeholder="10-digit number"
                        class="w-full rounded-md border border-gray-200 bg-gray-50 py-2 pl-10 pr-3 text-xs text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
               </div>
-              <p class="mt-1 text-[10px] text-gray-400">Required for staff record and emergency outreach.</p>
+              <p class="mt-1 text-xs text-gray-400">Required for staff record and emergency outreach.</p>
               <p x-show="errors.emergency_contact" class="mt-1 text-xs text-red-500" x-text="errors.emergency_contact"></p>
             </div>
 
             <!-- Govt Proof -->
             <div class="mt-2.5">
-              <label class="mb-1 block text-[11px] font-medium text-gray-700">
+              <label class="mb-1 block text-sm font-medium text-gray-700">
                 Govt Proof Attachment
                 <span x-show="mode === 'create'" class="text-red-400">*</span>
               </label>
               <div class="flex flex-wrap gap-2">
-                <label class="inline-flex cursor-pointer items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-[11px] font-medium text-gray-700 hover:bg-gray-100">
+                <label class="inline-flex cursor-pointer items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100">
                   <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 16.5V19a2 2 0 002 2h14a2 2 0 002-2v-2.5M7 10l5 5m0 0l5-5m-5 5V3"/></svg>
                   Upload File
                   <input type="file" class="hidden" accept="image/*,application/pdf" @change="handleGovtProofSelect($event)">
                 </label>
-                <label class="inline-flex cursor-pointer items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-[11px] font-medium text-gray-700 hover:bg-gray-100">
+                <label class="inline-flex cursor-pointer items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100">
                   <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h4l2-2h6l2 2h4v12H3V7zm9 9a4 4 0 100-8 4 4 0 000 8z"/></svg>
                   Take Photo
                   <input type="file" class="hidden" accept="image/*" capture="environment" @change="handleGovtProofSelect($event)">
                 </label>
               </div>
-              <p class="mt-1 text-[10px] text-gray-400" x-text="govtProofName || (mode === 'create' ? 'Upload ID card, Aadhaar, PAN, or similar document' : 'Upload to replace current proof')"></p>
+              <p class="mt-1 text-xs text-gray-400" x-text="govtProofName || (mode === 'create' ? 'Upload ID card, Aadhaar, PAN, or similar document' : 'Upload to replace current proof')"></p>
               <p x-show="errors.govt_proof" class="mt-1 text-xs text-red-500" x-text="errors.govt_proof"></p>
             </div>
           </div>
@@ -121,16 +121,25 @@
         <div class="space-y-3">
 
           <!-- Work Details Card -->
-          <div class="rounded-lg bg-white p-3 ring-1 ring-gray-100 sm:p-4">
-            <h2 class="mb-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+          <div class="rounded-lg bg-white p-3 border border-gray-200 sm:p-4">
+            <h2 class="mb-2.5 text-xs font-semibold text-gray-500">
               Work Details
             </h2>
 
-            <input type="hidden" x-model="form.role" value="staff">
+            <div x-show="currentUserRole === 'admin'" class="mb-2.5">
+              <label class="mb-1 block text-sm font-medium text-gray-700">Role <span class="text-red-400">*</span></label>
+              <select x-model="form.role"
+                      class="w-full rounded-md border border-gray-200 bg-gray-50 px-2.5 py-2 text-xs text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+                <option value="staff">Staff</option>
+                <option value="manager">Manager</option>
+              </select>
+              <p class="mt-1 text-xs text-gray-400">Managers can manage staff and approvals, but cannot access Settings or Settlements.</p>
+              <p x-show="errors.role" class="mt-1 text-xs text-red-500" x-text="errors.role"></p>
+            </div>
 
             <!-- Designation -->
             <div class="mb-2.5">
-              <label class="mb-1 block text-[11px] font-medium text-gray-700">Designation <span class="text-red-400">*</span></label>
+              <label class="mb-1 block text-sm font-medium text-gray-700">Designation <span class="text-red-400">*</span></label>
               <select x-model="form.designation" required
                       class="w-full rounded-md border border-gray-200 bg-gray-50 px-2.5 py-2 text-xs text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
                 <option value="">Select designation...</option>
@@ -143,21 +152,21 @@
 
             <!-- Joining Date -->
             <div class="mb-2.5">
-              <label class="mb-1 block text-[11px] font-medium text-gray-700">Joining Date <span class="text-red-400">*</span></label>
+              <label class="mb-1 block text-sm font-medium text-gray-700">Joining Date <span class="text-red-400">*</span></label>
               <input type="date" x-model="form.joining_date" required
                      class="w-full rounded-md border border-gray-200 bg-gray-50 px-2.5 py-2 text-xs text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
-              <p x-show="errors.joining_date" class="mt-1 text-[10px] text-red-500" x-text="errors.joining_date"></p>
+              <p x-show="errors.joining_date" class="mt-1 text-xs text-red-500" x-text="errors.joining_date"></p>
             </div>
 
             <!-- Working Hours -->
             <div class="grid grid-cols-2 gap-2">
               <div>
-                <label class="mb-1 block text-[11px] font-medium text-gray-700">Login Time <span class="text-red-400">*</span></label>
+                <label class="mb-1 block text-sm font-medium text-gray-700">Login Time <span class="text-red-400">*</span></label>
                 <input type="time" x-model="form.standard_login_time" required
                        class="w-full rounded-md border border-gray-200 bg-gray-50 px-2.5 py-2 text-xs text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
               </div>
               <div>
-                <label class="mb-1 block text-[11px] font-medium text-gray-700">Logout Time <span class="text-red-400">*</span></label>
+                <label class="mb-1 block text-sm font-medium text-gray-700">Logout Time <span class="text-red-400">*</span></label>
                 <input type="time" x-model="form.standard_logout_time" required
                        class="w-full rounded-md border border-gray-200 bg-gray-50 px-2.5 py-2 text-xs text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
               </div>
@@ -165,14 +174,14 @@
           </div>
 
           <!-- Salary Card -->
-          <div class="rounded-lg bg-white p-3 ring-1 ring-gray-100 sm:p-4">
-            <h2 class="mb-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+          <div x-show="currentUserRole === 'admin'" class="rounded-lg bg-white p-3 border border-gray-200 sm:p-4">
+            <h2 class="mb-2.5 text-xs font-semibold text-gray-500">
               Compensation
             </h2>
 
             <!-- Salary Type -->
             <div class="mb-2.5">
-              <label class="mb-1 block text-[11px] font-medium text-gray-700">Salary Type <span class="text-red-400">*</span></label>
+              <label class="mb-1 block text-sm font-medium text-gray-700">Salary Type <span class="text-red-400">*</span></label>
               <select x-model="form.salary_type" @change="form.settlement_cycle = form.salary_type"
                       class="h-9 w-full rounded-md border border-gray-200 bg-gray-50 px-2.5 text-xs text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
                 <option value="weekly">Weekly</option>
@@ -181,10 +190,11 @@
             </div>
 
             <!-- Weekly Salary -->
-            <div x-show="form.salary_type === 'weekly'" class="mb-2.5">
-              <label class="mb-1 block text-[11px] font-medium text-gray-700">Weekly Salary <span class="text-red-400">*</span></label>
+            <!-- Weekly Salary -->
+            <div class="mb-2.5">
+              <label class="mb-1 block text-sm font-medium text-gray-700">Weekly Salary <span class="text-red-400">*</span></label>
               <div class="relative">
-                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400">₹</span>
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400">â‚¹</span>
                 <input type="number" x-model.number="form.weekly_salary" min="0" step="1"
                        placeholder="e.g. 6000"
                        class="w-full rounded-md border border-gray-200 bg-gray-50 py-2 pl-8 pr-3 text-xs text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
@@ -194,9 +204,9 @@
 
             <!-- Monthly Salary -->
             <div x-show="form.salary_type === 'monthly'" class="mb-2.5">
-              <label class="mb-1 block text-[11px] font-medium text-gray-700">Monthly Salary <span class="text-red-400">*</span></label>
+              <label class="mb-1 block text-sm font-medium text-gray-700">Monthly Salary <span class="text-red-400">*</span></label>
               <div class="relative">
-                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400">₹</span>
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400">â‚¹</span>
                 <input type="number" x-model.number="form.monthly_salary" min="0" step="1"
                        placeholder="e.g. 25000"
                        class="w-full rounded-md border border-gray-200 bg-gray-50 py-2 pl-8 pr-3 text-xs text-gray-800 transition-all focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
@@ -233,6 +243,7 @@
 <script>
   function staffForm() {
     return {
+      currentUserRole: '{{ user.role|default("admin") }}',
       mode: '{{ mode|default("create") }}',
       staffId: '{{ staff_id|default("") }}',
       fetchingData: false,
@@ -265,7 +276,6 @@
         salary_type: 'weekly',
         settlement_cycle: 'weekly',
         weekly_salary: '',
-        monthly_salary: '',
         status: 'active',
       },
 
@@ -309,7 +319,6 @@
             this.form.salary_type = s.salary_type || 'weekly';
             this.form.settlement_cycle = s.salary_type || s.settlement_cycle || 'weekly';
             this.form.weekly_salary = s.weekly_salary || '';
-            this.form.monthly_salary = s.monthly_salary || '';
             this.form.status = s.status || 'active';
           } else {
             dispatchToast('error', 'Error', 'Failed to load staff details');
@@ -329,9 +338,7 @@
         if (!this.form.designation) this.errors.designation = 'Designation is required';
         if (!this.form.joining_date) this.errors.joining_date = 'Joining date is required';
         if (this.form.emergency_contact.length !== 10) this.errors.emergency_contact = 'Emergency contact must be 10 digits';
-        if (this.form.salary_type === 'monthly') {
-          if (!this.form.monthly_salary || this.form.monthly_salary <= 0) this.errors.monthly_salary = 'Monthly salary is required';
-        } else {
+        if (this.currentUserRole === 'admin') {
           if (!this.form.weekly_salary || this.form.weekly_salary <= 0) this.errors.weekly_salary = 'Weekly salary is required';
         }
         if (this.mode === 'create' && !this.govtProofFile) {
@@ -370,7 +377,12 @@
         const isEdit = this.mode === 'edit';
 
         const payload = { ...this.form };
-        payload.settlement_cycle = payload.salary_type;
+        if (this.currentUserRole !== 'admin') {
+          delete payload.role;
+          delete payload.salary_type;
+          delete payload.weekly_salary;
+          delete payload.settlement_cycle;
+        }
         if (!isEdit) {
           payload.temp_pin = this.form.pin;
         }

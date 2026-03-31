@@ -1,7 +1,7 @@
 """
 utils/timezone_utils.py - IST (Asia/Kolkata) timezone helpers.
 
-All timestamps stored in Firestore are UTC-aware datetimes.
+All persisted timestamps are UTC-aware datetimes.
 This module centralises the conversions so no other module
 needs to import pytz directly.
 """
@@ -54,7 +54,7 @@ def today_ist_str() -> str:
 
 
 def date_to_doc_id(d: date | str) -> str:
-    """Convert a date (or YYYY-MM-DD string) to a Firestore doc-id: YYYYMMDD."""
+    """Convert a date (or YYYY-MM-DD string) to compact YYYYMMDD format."""
     if isinstance(d, str):
         d = datetime.strptime(d, "%Y-%m-%d").date()
     return d.strftime("%Y%m%d")

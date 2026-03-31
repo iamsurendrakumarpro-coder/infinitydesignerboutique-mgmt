@@ -140,11 +140,8 @@ aws configure
 
 ```
 Flask App
-    ├─→ APP_DB_PROVIDER=postgres
-    │        └─→ RDS PostgreSQL (5432)
-    │
-    └─→ APP_STORAGE_PROVIDER=s3
-             └─→ S3 Bucket (file uploads: receipts, expenses, etc.)
+  ├─→ RDS PostgreSQL (5432)
+  └─→ S3 Bucket (file uploads: receipts, expenses, etc.)
 ```
 
 ---
@@ -162,9 +159,10 @@ pip install boto3 psycopg2-binary
 ```bash
 cd infinitydesignerboutique-mgmt
 
-python scripts/aws_setup.py \
+python scripts/aws_manage.py setup \
   --project-name infinity-boutique \
   --region ap-south-1 \
+  --aws-profile infinity-provisioner \
   --output-env .env.aws
 ```
 
@@ -205,7 +203,7 @@ Generating .env file...
 Next Steps:
 1. Wait 5-10 minutes for RDS instance to fully initialize
 2. Review and update .env.aws
-3. Run migrations: python scripts/migrate_firestore_to_postgres.py
+3. Initialize schema / seed local data: python scripts/reset_seed_and_run.py --seed-only
 4. Deploy the application
 ```
 
@@ -214,9 +212,10 @@ Next Steps:
 RDS takes 5-10 minutes to initialize. You can check progress with:
 
 ```bash
-python scripts/aws_check.py \
+python scripts/aws_manage.py check \
   --project-name infinity-boutique \
-  --region ap-south-1
+  --region ap-south-1 \
+  --aws-profile infinity-provisioner
 ```
 
 ### Step 4: Verify Resources
@@ -227,20 +226,16 @@ Once RDS is ready, review the generated `.env.aws` file and copy it to `.env`:
 cp .env.aws .env
 ```
 
-### Step 5: Run Database Migrations
+### Step 5: Run Database Initialisation
 
 ```bash
 # Create tables in your Postgres database
-python scripts/migrate_firestore_to_postgres.py
+python scripts/init_db.py
 ```
 
 ### Step 6: Deploy Application
 
 ```bash
-# Set provider to Postgres
-export APP_DB_PROVIDER=postgres
-export APP_STORAGE_PROVIDER=s3
-
 # Start application
 python app.py
 ```
@@ -270,9 +265,9 @@ python app.py
    aws sts get-caller-identity
    ```
 
-### B. Customize Setup Script
+### B. Customize Setup Defaults
 
-Edit `scripts/aws_setup.py` to adjust:
+Free-tier-safe defaults are already built into the workflow. If you need to change the provisioning defaults, update `scripts/aws_workflows.py`:
 
 ```python
 # Database configuration
@@ -287,9 +282,10 @@ Edit `scripts/aws_setup.py` to adjust:
 ### C. Run Setup with Custom Password
 
 ```bash
-python scripts/aws_setup.py \
+python scripts/aws_manage.py setup \
   --project-name infinity-boutique \
   --region ap-south-1 \
+  --aws-profile infinity-provisioner \
   --db-password your-secure-password-123 \
   --output-env .env.aws
 ```
@@ -318,9 +314,10 @@ aws rds describe-db-instances \
 ### Step 1: Check All Resources
 
 ```bash
-python scripts/aws_check.py \
+python scripts/aws_manage.py check \
   --project-name infinity-boutique \
-  --region ap-south-1
+  --region ap-south-1 \
+  --aws-profile infinity-provisioner
 ```
 
 **Expected Output:**
@@ -381,7 +378,6 @@ cat test-downloaded.txt
 ### Step 4: Test Application
 
 ```bash
-export APP_DB_PROVIDER=postgres
 export POSTGRES_HOST=<your-rds-endpoint>
 export POSTGRES_DB=infinity_boutique
 export POSTGRES_USER=dbadmin
@@ -393,20 +389,6 @@ python app.py
 ---
 
 ## Database Migration
-
-### Migrate Firestore Data to Postgres
-
-After RDS is ready and tables are created, migrate your existing Firestore data:
-
-```bash
-python scripts/migrate_firestore_to_postgres.py
-```
-
-This script:
-1. Reads all data from Firestore collections
-2. Transforms data to match Postgres schema
-3. Inserts into corresponding Postgres tables
-4. Logs migration progress and errors
 
 ### Create Initial Schema
 
@@ -427,10 +409,6 @@ python scripts/init_db.py
 FLASK_ENV=production
 FLASK_SECRET_KEY=<generated-hex-string>
 FLASK_DEBUG=False
-
-# ── Migration Providers ───────────────────────────────────────────────────────
-APP_DB_PROVIDER=postgres              # Use Postgres instead of Firestore
-APP_STORAGE_PROVIDER=s3               # Use S3 instead of Firestore
 
 # ── PostgreSQL ────────────────────────────────────────────────────────────────
 POSTGRES_HOST=infinity-boutique-db.xxxxx.ap-south-1.rds.amazonaws.com
@@ -467,7 +445,7 @@ SESSION_LIFETIME_SECONDS=28800
 
 ### RDS Instance Stuck in "Creating" Status
 
-**Symptom:** `aws_check.py` shows status as "creating" after 15+ minutes
+**Symptom:** `aws_manage.py check` shows status as "creating" after 15+ minutes
 
 **Solution:**
 ```bash
@@ -529,26 +507,6 @@ aws rds reboot-db-instance \
    aws iam attach-user-policy \
      --user-name <your-username> \
      --policy-arn arn:aws:iam::123456789012:policy/infinity-boutique-app-policy
-   ```
-
-### Database Migration Fails
-
-**Symptom:** Errors during `migrate_firestore_to_postgres.py`
-
-**Solution:**
-1. Verify Postgres is accessible:
-   ```bash
-   psql -h $POSTGRES_HOST -U $POSTGRES_USER -d $POSTGRES_DB -c "SELECT 1;"
-   ```
-
-2. Check Firestore credentials:
-   ```bash
-   ls -la firebase-credentials.json
-   ```
-
-3. Run with verbose logging:
-   ```bash
-   python scripts/migrate_firestore_to_postgres.py --verbose
    ```
 
 ### Application Won't Start with Postgres

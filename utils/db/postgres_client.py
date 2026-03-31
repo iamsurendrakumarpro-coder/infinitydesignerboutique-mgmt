@@ -13,6 +13,8 @@ def get_postgres_connection() -> psycopg2.extensions.connection:
     dbname = os.getenv("POSTGRES_DB", "").strip()
     user = os.getenv("POSTGRES_USER", "").strip()
     password = os.getenv("POSTGRES_PASSWORD", "").strip()
+    sslmode = os.getenv("POSTGRES_SSLMODE", "require").strip() or "require"
+    connect_timeout = int(os.getenv("POSTGRES_CONNECT_TIMEOUT", "10").strip() or "10")
 
     if not host or not dbname or not user or not password:
         missing = [
@@ -33,4 +35,6 @@ def get_postgres_connection() -> psycopg2.extensions.connection:
         dbname=dbname,
         user=user,
         password=password,
+        sslmode=sslmode,
+        connect_timeout=connect_timeout,
     )

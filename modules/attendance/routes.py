@@ -4,9 +4,9 @@ modules/attendance/routes.py - Attendance Blueprint (JSON API only).
 API Routes
 ----------
 GET  /api/attendance/status    - Get today's punch status for current user
-POST /api/attendance/punch     - Punch in or out (staff only)
+POST /api/attendance/punch     - Punch in or out (staff/manager)
 GET  /api/attendance/history   - History with date range
-GET  /api/attendance/analytics - Analytics (staff: own; admin: all or by uid)
+GET  /api/attendance/analytics - Analytics (staff: own; manager/admin: all or by uid)
 """
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ _VALID_PERIODS = ("daily", "weekly", "monthly", "quarterly", "yearly")
 @login_required
 def api_status():
     """Get today's punch status for the current user (or admin-specified user)."""
-    user_id = request.args.get("user_id") if session.get("role") == "admin" else session["user_id"]
+    user_id = request.args.get("user_id") if session.get("role") in {"admin", "manager"} else session["user_id"]
     if not user_id:
         user_id = session["user_id"]
 
@@ -47,9 +47,9 @@ def api_status():
 @attendance_bp.post("/api/attendance/punch")
 @login_required
 def api_punch():
-    """Staff-only punch in/out with double-click guard."""
-    if session.get("role") != "staff":
-        return jsonify({"success": False, "error": "Only staff can punch in/out."}), 403
+    """Staff/manager punch in/out with double-click guard."""
+    if session.get("role") not in {"staff", "manager"}:
+        return jsonify({"success": False, "error": "Only staff or manager can punch in/out."}), 403
 
     if session.get("is_first_login"):
         return jsonify({
@@ -72,7 +72,7 @@ def api_history():
     Get attendance history.
 
     Query params:
-        user_id : Required for admin; ignored for staff (own data).
+        user_id : Required for admin/manager; ignored for staff (own data).
         start   : YYYY-MM-DD start date.
         end     : YYYY-MM-DD end date.
         period  : daily | weekly | monthly | quarterly | yearly
@@ -80,7 +80,7 @@ def api_history():
     """
     role = session.get("role")
 
-    if role == "admin":
+    if role in {"admin", "manager"}:
         uid = request.args.get("user_id")
         if not uid:
             return jsonify({"success": False, "error": "user_id is required."}), 400
@@ -115,7 +115,7 @@ def api_analytics():
 
     Query params:
         period  : daily | weekly | monthly | quarterly | yearly  (default: monthly)
-        user_id : Admin only - specific staff member.  Omit for all-staff summary.
+        user_id : Manager/admin only - specific staff member. Omit for all-staff summary.
     """
     period = request.args.get("period", "monthly")
     if period not in _VALID_PERIODS:
@@ -128,7 +128,7 @@ def api_analytics():
         analytics = attendance_service.get_staff_analytics(session["user_id"], period)
         return jsonify({"success": True, "analytics": analytics})
 
-    # Admin
+    # Manager/Admin
     uid = request.args.get("user_id")
     if uid:
         log.info("Admin analytics for user | user_id=%s | period=%s", uid, period)

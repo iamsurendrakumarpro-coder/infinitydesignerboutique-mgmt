@@ -1,14 +1,13 @@
 ﻿"""
 services/settlement_service.py - Settlement generation and retrieval.
 
-Firestore collection: settlements/{settlement_id}
+PostgreSQL table: settlements
 
 Settlement calculation:
   base_pay     = daily_salary * days_present
   overtime_pay = sum of approved overtime payouts
-  expenses     = sum of approved shop_expense amounts
   advances     = sum of approved personal_advance amounts
-  net_payable  = base_pay + overtime_pay + expenses - advances
+    net_payable  = base_pay + overtime_pay - advances
 
 Partial settlement:
   amount_settled     = how much was actually paid
@@ -17,12 +16,8 @@ Partial settlement:
 """
 from __future__ import annotations
 
-import calendar
-import os
 import uuid
 from datetime import date, timedelta
-
-from google.cloud.firestore_v1 import SERVER_TIMESTAMP
 
 from services.repositories.settlement_repository import get_settlement_repository
 from utils.logger import get_logger, audit_log
@@ -39,10 +34,28 @@ def _repo():
 
 
 def _db_timestamp():
-    provider = os.getenv("APP_DB_PROVIDER", "firebase").strip().lower()
-    if provider == "postgres":
-        return now_utc()
-    return SERVER_TIMESTAMP
+    return now_utc()
+
+
+def _compute_hours_from_attendance(records: list[dict], standard_hours: float, grace_minutes: int) -> tuple[float, float, int]:
+    """Return (total_hours, total_ot_hours, days_present) using day-rounded hour math."""
+    total_hours = 0.0
+    total_ot_hours = 0.0
+    days_present = 0
+
+    threshold_minutes = (float(standard_hours) * 60.0) + float(grace_minutes)
+
+    for r in records:
+        mins = float(r.get("duration_minutes", 0) or 0)
+        if mins <= 0:
+            continue
+        days_present += 1
+        day_hours = round(mins / 60.0, 2)
+        day_ot = round(max(0.0, day_hours - float(standard_hours)), 2) if mins > threshold_minutes else 0.0
+        total_hours += day_hours
+        total_ot_hours += day_ot
+
+    return round(total_hours, 2), round(total_ot_hours, 2), days_present
 
 
 def calculate_settlement(user_id: str, week_start: date, week_end: date) -> dict:
@@ -61,71 +74,49 @@ def calculate_settlement(user_id: str, week_start: date, week_end: date) -> dict
         log.error("calculate_settlement: staff not found | user_id=%s", user_id)
         return {}
 
-    # Determine salary type and calculate daily salary accordingly
-    salary_type = staff.get("salary_type", "weekly")
-    if salary_type == "monthly":
-        monthly_salary = float(staff.get("monthly_salary", 0))
-        weekly_salary = None
-        daily_salary = compute_daily_salary(monthly_salary, "monthly")
-    else:
-        weekly_salary = float(staff.get("weekly_salary", 0))
-        monthly_salary = None
-        daily_salary = compute_daily_salary(weekly_salary, "weekly")
+    weekly_salary = float(staff.get("weekly_salary", 0))
+    daily_salary = compute_daily_salary(weekly_salary)
 
     records = get_attendance_history(user_id, week_start, week_end)
     working_config = get_working_config()
     standard_hours = working_config["standard_hours_per_day"]
+    grace_minutes = int(working_config.get("overtime_grace_minutes", 30) or 30)
+    total_hours_worked, total_ot_hours, days_present = _compute_hours_from_attendance(
+        records,
+        float(standard_hours),
+        grace_minutes,
+    )
+
     base_pay = 0.0
-    days_present = 0
-    total_hours_worked = 0.0
-    total_ot_hours = 0.0
     for r in records:
-        mins = r.get("duration_minutes", 0)
-        if mins > 0:
-            days_present += 1
-            hours_worked = mins / 60.0
-            if hours_worked < 1:
-                hours_worked = round(mins) / 60.0
-            base_pay += daily_salary * (hours_worked / standard_hours)
-            total_hours_worked += hours_worked
-            if hours_worked > standard_hours:
-                total_ot_hours += hours_worked - standard_hours
+        mins = float(r.get("duration_minutes", 0) or 0)
+        if mins <= 0:
+            continue
+        day_hours = round(mins / 60.0, 2)
+        base_pay += daily_salary * (day_hours / float(standard_hours))
     base_pay = round(base_pay, 2)
-    # Always recalculate and include hours_worked and ot_hours from attendance
-    if not records:
-        total_hours_worked = 0.0
-        total_ot_hours = 0.0
-    else:
-        total_hours_worked = round(total_hours_worked, 2)
-        total_ot_hours = round(total_ot_hours, 2)
 
     overtime_records = get_approved_overtime_for_period(user_id, week_start, week_end)
     overtime_pay = round(sum(float(r.get("calculated_payout", 0)) for r in overtime_records), 2)
 
-    expense_records = get_approved_requests_for_period(user_id, week_start, week_end, "shop_expense")
-    expenses = round(sum(float(r.get("amount", 0)) for r in expense_records), 2)
-
     advance_records = get_approved_requests_for_period(user_id, week_start, week_end, "personal_advance")
     advances = round(sum(float(r.get("amount", 0)) for r in advance_records), 2)
 
-    net_payable = round(base_pay + overtime_pay + expenses - advances, 2)
+    net_payable = round(base_pay + overtime_pay - advances, 2)
 
-    log.info("calculate_settlement | user_id=%s | salary_type=%s | days=%d | base=%.2f | overtime=%.2f | expenses=%.2f | advances=%.2f | net=%.2f",
-             user_id, salary_type, days_present, base_pay, overtime_pay, expenses, advances, net_payable)
+    log.info("calculate_settlement | user_id=%s | salary_type=%s | days=%d | base=%.2f | overtime=%.2f | advances=%.2f | net=%.2f",
+             user_id, "weekly", days_present, base_pay, overtime_pay, advances, net_payable)
     return {
         "user_id": user_id,
         "full_name": staff.get("full_name", ""),
         "designation": staff.get("designation", ""),
-        "salary_type": salary_type,
+        "salary_type": "weekly",
         "weekly_salary": weekly_salary,
-        "monthly_salary": monthly_salary,
         "daily_salary": daily_salary,
         "days_present": days_present,
         "base_pay": base_pay,
         "overtime_pay": overtime_pay,
         "overtime_records_count": len(overtime_records),
-        "expenses": expenses,
-        "expense_records_count": len(expense_records),
         "advances": advances,
         "advance_records_count": len(advance_records),
         "net_payable": net_payable,
@@ -148,7 +139,7 @@ def _build_settlement_doc(breakdown: dict, week_start: date, week_end: date,
                           generated_by: str, settlement_id: str | None = None,
                           cycle: str = "weekly",
                           carry_forward_in: float = 0.0) -> dict:
-    """Build a Firestore settlement document from a calculated breakdown."""
+    """Build a settlement record payload from a calculated breakdown."""
     net = breakdown["net_payable"] + carry_forward_in
     sid = settlement_id or str(uuid.uuid4())
     ts = _db_timestamp()
@@ -162,12 +153,10 @@ def _build_settlement_doc(breakdown: dict, week_start: date, week_end: date,
         "week_start": week_start.strftime("%Y-%m-%d"),
         "week_end": week_end.strftime("%Y-%m-%d"),
         "weekly_salary": breakdown.get("weekly_salary"),
-        "monthly_salary": breakdown.get("monthly_salary"),
         "daily_salary": breakdown["daily_salary"],
         "days_present": breakdown["days_present"],
         "base_pay": breakdown["base_pay"],
         "overtime_pay": breakdown["overtime_pay"],
-        "expenses": breakdown["expenses"],
         "advances": breakdown["advances"],
         "net_payable": round(net, 2),
         "hours_worked": breakdown["hours_worked"],
@@ -186,8 +175,6 @@ def generate_weekly_settlement(week_start: date, week_end: date, generated_by: s
     """
     Generate settlements for all active staff with weekly settlement_cycle for the given week.
 
-    Staff with settlement_cycle="monthly" are skipped in weekly batch.
-
     Returns (success, error_message, list_of_settlement_dicts).
     """
     from services.user_service import list_staff
@@ -197,9 +184,7 @@ def generate_weekly_settlement(week_start: date, week_end: date, generated_by: s
         return False, "No active staff found.", []
 
     # Filter to only weekly settlement cycle staff
-    weekly_staff = [s for s in active_staff if s.get("settlement_cycle", "weekly") == "weekly"]
-    if not weekly_staff:
-        return False, "No active staff with weekly settlement cycle found.", []
+    weekly_staff = active_staff
 
     repo = _repo()
     settlements = []
@@ -228,12 +213,11 @@ def generate_weekly_settlement(week_start: date, week_end: date, generated_by: s
                     "salary_type": breakdown.get("salary_type", "weekly"),
                     "settlement_cycle": "weekly",
                     "weekly_salary": breakdown.get("weekly_salary"),
-                    "monthly_salary": breakdown.get("monthly_salary"),
                     "daily_salary": breakdown["daily_salary"],
                     "days_present": breakdown["days_present"],
                     "base_pay": breakdown["base_pay"],
                     "overtime_pay": breakdown["overtime_pay"],
-                    "expenses": breakdown["expenses"],
+                    "expenses": 0,
                     "advances": breakdown["advances"],
                     "net_payable": round(net, 2),
                     "hours_worked": breakdown["hours_worked"],
@@ -274,92 +258,6 @@ def generate_weekly_settlement(week_start: date, week_end: date, generated_by: s
 
     log.info("Weekly settlement generation complete | count=%d | period=%s to %s",
              len(settlements), week_start, week_end)
-    settlements = [_sanitise_settlement(s) for s in settlements]
-    return True, "", settlements
-
-
-def generate_monthly_settlement(month_start: date, month_end: date, generated_by: str) -> tuple[bool, str, list[dict]]:
-    """
-    Generate settlements for all active staff with monthly settlement_cycle.
-
-    Returns (success, error_message, list_of_settlement_dicts).
-    """
-    from services.user_service import list_staff
-
-    active_staff = list_staff(status_filter="active")
-    if not active_staff:
-        return False, "No active staff found.", []
-
-    monthly_staff = [s for s in active_staff if s.get("settlement_cycle") == "monthly"]
-    if not monthly_staff:
-        return False, "No active staff with monthly settlement cycle found.", []
-
-    repo = _repo()
-    settlements = []
-
-    for staff in monthly_staff:
-        user_id = staff["user_id"]
-        try:
-            breakdown = calculate_settlement(user_id, month_start, month_end)
-            if not breakdown:
-                continue
-
-            carry_in = _get_carry_forward(user_id, month_start.strftime("%Y-%m-%d"))
-
-            existing_data = repo.find_by_user_and_period(
-                user_id,
-                month_start.strftime("%Y-%m-%d"),
-                month_end.strftime("%Y-%m-%d"),
-            )
-            if existing_data:
-                settlement_id = existing_data.get("settlement_id")
-                net = breakdown["net_payable"] + carry_in
-                existing_data.update({
-                    "full_name": breakdown.get("full_name", ""),
-                    "designation": breakdown.get("designation", ""),
-                    "salary_type": breakdown.get("salary_type", "monthly"),
-                    "settlement_cycle": "monthly",
-                    "weekly_salary": breakdown.get("weekly_salary"),
-                    "monthly_salary": breakdown.get("monthly_salary"),
-                    "daily_salary": breakdown["daily_salary"],
-                    "days_present": breakdown["days_present"],
-                    "base_pay": breakdown["base_pay"],
-                    "overtime_pay": breakdown["overtime_pay"],
-                    "expenses": breakdown["expenses"],
-                    "advances": breakdown["advances"],
-                    "net_payable": round(net, 2),
-                    "hours_worked": breakdown["hours_worked"],
-                    "ot_hours": breakdown["ot_hours"],
-                    "carry_forward_in": round(carry_in, 2),
-                    "generated_by": generated_by,
-                    "updated_at": _db_timestamp(),
-                })
-                amt_settled = float(existing_data.get("amount_settled", 0))
-                existing_data["carry_forward"] = round(net - amt_settled, 2)
-                if amt_settled >= net:
-                    existing_data["settlement_status"] = "settled"
-                elif amt_settled > 0:
-                    existing_data["settlement_status"] = "partial"
-                else:
-                    existing_data["settlement_status"] = "pending"
-
-                repo.save(existing_data)
-                settlements.append(existing_data)
-                log.info("Monthly settlement updated | id=%s | user=%s | net=%.2f",
-                         settlement_id, user_id, net)
-            else:
-                doc = _build_settlement_doc(breakdown, month_start, month_end,
-                                            generated_by, cycle="monthly",
-                                            carry_forward_in=carry_in)
-                repo.save(doc)
-                settlements.append(doc)
-                log.info("Monthly settlement generated | id=%s | user=%s | net=%.2f",
-                         doc["settlement_id"], user_id, doc["net_payable"])
-        except Exception as exc:
-            log.error("Monthly settlement generation failed | user=%s | error=%s", user_id, exc)
-
-    log.info("Monthly settlement generation complete | count=%d | period=%s to %s",
-             len(settlements), month_start, month_end)
     settlements = [_sanitise_settlement(s) for s in settlements]
     return True, "", settlements
 
@@ -421,15 +319,33 @@ def get_settlements(filters: dict | None = None) -> list[dict]:
     Supported filters: user_id, week_start, week_end.
     """
     settlements = [_sanitise(s) for s in _repo().list_settlements(filters)]
-    # Deduplicate: keep only the latest settlement per user per week
-    deduped = {}
-    for s in settlements:
-        key = (s.get("user_id"), s.get("week_start"), s.get("week_end"))
-        if key not in deduped or s.get("created_at","") > deduped[key].get("created_at",""):
-            deduped[key] = s
-    result = list(deduped.values())
-    log.info("get_settlements | filters=%s | count=%d", filters, len(result))
-    return result
+    log.info("get_settlements | filters=%s | count=%d", filters, len(settlements))
+    return settlements
+
+
+def get_settlements_page(
+    filters: dict | None = None,
+    *,
+    page: int = 1,
+    page_size: int = 100,
+) -> dict:
+    """Return paginated settlements and metadata for list APIs."""
+    safe_page = max(int(page), 1)
+    safe_page_size = max(1, min(int(page_size), 500))
+    offset = (safe_page - 1) * safe_page_size
+
+    repo = _repo()
+    total = repo.count_settlements(filters)
+    items = [_sanitise(s) for s in repo.list_settlements(filters, limit=safe_page_size, offset=offset)]
+    has_more = offset + len(items) < total
+
+    return {
+        "items": items,
+        "page": safe_page,
+        "page_size": safe_page_size,
+        "total": total,
+        "has_more": has_more,
+    }
 
 
 def get_settlements_for_user(user_id: str) -> list[dict]:
@@ -442,7 +358,7 @@ def get_settlements_for_user(user_id: str) -> list[dict]:
 # -- Helper --------------------------------------------------------------------
 
 def _sanitise(data: dict) -> dict:
-    """Convert Firestore timestamps to IST strings."""
+    """Convert timestamp fields to IST strings."""
     out = dict(data)
     for field in ("created_at", "updated_at"):
         val = out.get(field)
@@ -458,7 +374,7 @@ def _sanitise(data: dict) -> dict:
     return out
 
 def _sanitise_settlement(data: dict) -> dict:
-    """Convert Firestore timestamps and Sentinel values to ISO strings or None, preserve numeric fields."""
+    """Convert timestamp fields to IST strings and preserve numeric fields."""
     out = dict(data)
     for ts_field in ("created_at", "updated_at"):
         val = out.get(ts_field)
@@ -468,8 +384,6 @@ def _sanitise_settlement(data: dict) -> dict:
             out[ts_field] = format_ist(val)
         elif hasattr(val, "to_datetime"):
             out[ts_field] = format_ist(val.to_datetime())
-        elif str(val).startswith("<google.cloud.firestore_v1._helpers.Sentinel"):
-            out[ts_field] = None
         else:
             try:
                 out[ts_field] = str(val)
